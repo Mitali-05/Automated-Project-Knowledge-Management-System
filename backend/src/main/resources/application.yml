@@ -2,13 +2,15 @@ server:
   port: 8081
 
 spring:
+  config:
+    import: optional:file:../.env
   application:
     name: pkm-backend
 
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:pkm_dev}
-    username: ${DB_USERNAME:pkm_user}
-    password: ${DB_PASSWORD:pkm_local_pw}
+    url: jdbc:postgresql://pkm-db.cxa0822agcne.eu-north-1.rds.amazonaws.com:5432/postgres
+    username: pkm_user
+    password: Purvank123
     driver-class-name: org.postgresql.Driver
 
   jpa:
