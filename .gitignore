@@ -21,6 +21,3 @@ frontend/.env
 
 # OS
 .DS_Store
-
-# Python
-python-microservice/
