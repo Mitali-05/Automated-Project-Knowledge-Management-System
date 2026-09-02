@@ -1,0 +1,23 @@
+# Env / secrets
+.env
+*.env
+!.env.example
+
+# Java / Maven
+backend/target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Node / frontend (once added)
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# OS
+.DS_Store

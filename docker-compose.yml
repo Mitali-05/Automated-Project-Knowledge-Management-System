@@ -1,0 +1,16 @@
+# Local development database only. Staging/prod use AWS RDS (see README -> RDS Setup).
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: pkm-postgres-local
+    environment:
+      POSTGRES_DB: pkm_dev
+      POSTGRES_USER: pkm_user
+      POSTGRES_PASSWORD: pkm_local_pw
+    ports:
+      - "5432:5432"
+    volumes:
+      - pkm_pg_data:/var/lib/postgresql/data
+
+volumes:
+  pkm_pg_data:
