@@ -5,7 +5,7 @@
 CREATE TABLE organizations (
     id          BIGSERIAL PRIMARY KEY,
     name        VARCHAR(255) NOT NULL UNIQUE,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at  TIMESTAMP NOT NULL DEFAULT now()
 );
 
 CREATE TABLE users (
@@ -14,7 +14,7 @@ CREATE TABLE users (
     name           VARCHAR(255) NOT NULL,
     email          VARCHAR(255) NOT NULL UNIQUE,
     password_hash  VARCHAR(255) NOT NULL,
-    created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at     TIMESTAMP NOT NULL DEFAULT now()
 );
 
 CREATE TABLE projects (
@@ -23,7 +23,7 @@ CREATE TABLE projects (
     name         VARCHAR(255) NOT NULL,
     description  TEXT,
     created_by   BIGINT NOT NULL REFERENCES users(id),
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at   TIMESTAMP NOT NULL DEFAULT now()
 );
 
 CREATE TABLE project_members (
@@ -31,7 +31,7 @@ CREATE TABLE project_members (
     project_id  BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     user_id     BIGINT NOT NULL REFERENCES users(id),
     role        VARCHAR(20) NOT NULL CHECK (role IN ('owner', 'contributor')),
-    added_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    added_at    TIMESTAMP NOT NULL DEFAULT now(),
     UNIQUE (project_id, user_id)
 );
 
