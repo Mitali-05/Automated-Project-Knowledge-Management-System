@@ -1,0 +1,6 @@
+streamlit>=1.40,<2
+requests>=2.32,<3
+python-dotenv>=1.0,<2
+pydantic>=2.7,<3
+openai>=1.50,<2
+tiktoken>=0.7,<1

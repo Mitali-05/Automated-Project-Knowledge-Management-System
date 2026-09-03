@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.py[cod]
+.env
+.streamlit/
+
+.env
+*.pyc
+.venv
+test_key.py
+__pycache__/
