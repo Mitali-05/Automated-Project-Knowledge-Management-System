@@ -21,3 +21,6 @@ frontend/.env
 
 # OS
 .DS_Store
+
+backend/data/*.mv.db
+backend/data/*.trace.db

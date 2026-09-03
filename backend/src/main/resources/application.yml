@@ -6,10 +6,15 @@ spring:
     name: pkm-backend
 
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:pkm_dev}
-    username: ${DB_USERNAME:pkm_user}
-    password: ${DB_PASSWORD:pkm_local_pw}
-    driver-class-name: org.postgresql.Driver
+    url: jdbc:h2:file:./data/pkm_dev;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    username: sa
+    password: password
+    driver-class-name: org.h2.Driver
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
 
   jpa:
     hibernate:
