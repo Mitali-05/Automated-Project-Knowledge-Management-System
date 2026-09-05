@@ -7,7 +7,6 @@ import {
   Database,
   Shield,
   Zap,
-  Globe,
   Code2
 } from 'lucide-react';
 import { PublicNavbar } from '../components/layout/PublicNavbar';
@@ -17,49 +16,49 @@ const features = [
   {
     icon: <Network size={24} />,
     title: "Automatic Knowledge Extraction",
-    description: "CodeVault reads your GitHub PRs and Jira issues, automatically extracting architectural decisions and process changes without manual entry.",
-    color: "text-primary-blue",
-    bg: "bg-primary-light-blue",
+    description: "PRISM reads your GitHub PRs and Jira issues, automatically extracting architectural decisions and process changes without manual entry.",
+    iconColor: "text-primary-indigo",
+    iconBg: "bg-indigo-50",
     delay: 0.1
   },
   {
     icon: <Database size={24} />,
     title: "Source-Backed Documentation",
     description: "Every piece of documentation is cryptographically linked to the exact pull request or ticket that originated it, ensuring 100% traceability.",
-    color: "text-primary-indigo",
-    bg: "bg-primary-light-indigo",
+    iconColor: "text-white",
+    iconBg: "bg-gradient-to-br from-primary-indigo to-primary-violet",
     delay: 0.2
   },
   {
     icon: <Search size={24} />,
     title: "Knowledge Gap Detection",
     description: "Our engine scans your codebase structure against your documentation, instantly highlighting undocumented modules or outdated systems.",
-    color: "text-primary-violet",
-    bg: "bg-primary-light-violet",
+    iconColor: "text-primary-violet",
+    iconBg: "bg-violet-50",
     delay: 0.3
   },
   {
     icon: <GitPullRequest size={24} />,
     title: "Continuous Synchronization",
-    description: "As your code evolves, your knowledge base evolves. CodeVault runs continuously on every merge to master, keeping context fresh.",
-    color: "text-emerald-500",
-    bg: "bg-emerald-50",
+    description: "As your code evolves, your knowledge base evolves. PRISM runs continuously on every merge to master, keeping context fresh.",
+    iconColor: "text-emerald-600",
+    iconBg: "bg-emerald-50",
     delay: 0.4
   },
   {
     icon: <Shield size={24} />,
     title: "Enterprise Grade Security",
-    description: "Your code never leaves your VPC. CodeVault can be deployed on-premise or accessed via our SOC2 compliant cloud infrastructure.",
-    color: "text-amber-500",
-    bg: "bg-amber-50",
+    description: "Your code never leaves your VPC. PRISM can be deployed on-premise or accessed via our SOC2 compliant cloud infrastructure.",
+    iconColor: "text-amber-600",
+    iconBg: "bg-amber-50",
     delay: 0.5
   },
   {
     icon: <Zap size={24} />,
     title: "Instant Context Retrieval",
     description: "Ask natural language questions about your architecture and get immediate answers with citations to the exact lines of code.",
-    color: "text-rose-500",
-    bg: "bg-rose-50",
+    iconColor: "text-rose-600",
+    iconBg: "bg-rose-50",
     delay: 0.6
   }
 ];
@@ -90,7 +89,7 @@ export const FeaturesPage: React.FC = () => {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-light-indigo text-primary-indigo text-sm font-medium mb-6 border border-primary-indigo/20"
+            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 text-primary-indigo text-sm font-medium mb-6 border border-primary-indigo/20"
           >
             <Code2 size={16} />
             Powerful Capabilities
@@ -99,10 +98,10 @@ export const FeaturesPage: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-6"
+            className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-text-primary mb-6"
           >
             Everything you need to <br className="hidden md:block" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-blue via-primary-indigo to-primary-violet">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-indigo to-primary-violet">
               manage technical context
             </span>
           </motion.h1>
@@ -112,7 +111,7 @@ export const FeaturesPage: React.FC = () => {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="text-lg text-text-secondary"
           >
-            CodeVault replaces scattered wikis and stale documents with a living, breathing knowledge graph built directly from your engineering activity.
+            PRISM replaces scattered wikis and stale documents with a living, breathing knowledge graph built directly from your engineering activity.
           </motion.p>
         </div>
 
@@ -125,10 +124,10 @@ export const FeaturesPage: React.FC = () => {
           {features.map((feature, idx) => (
             <motion.div key={idx} variants={itemVariants}>
               <AnimatedCard className="p-8 h-full flex flex-col group">
-                <div className={`h-14 w-14 rounded-xl ${feature.bg} ${feature.color} flex items-center justify-center mb-6 transform group-hover:scale-110 transition-transform duration-300 shadow-sm border border-black/5`}>
+                <div className={`h-14 w-14 rounded-xl ${feature.iconBg} ${feature.iconColor} flex items-center justify-center mb-6 transform group-hover:scale-110 transition-transform duration-300 shadow-sm`}>
                   {feature.icon}
                 </div>
-                <h3 className="text-xl font-bold mb-3 group-hover:text-primary-indigo transition-colors">{feature.title}</h3>
+                <h3 className="text-xl font-bold text-text-primary mb-3 group-hover:text-primary-indigo transition-colors">{feature.title}</h3>
                 <p className="text-text-secondary leading-relaxed flex-1">{feature.description}</p>
               </AnimatedCard>
             </motion.div>

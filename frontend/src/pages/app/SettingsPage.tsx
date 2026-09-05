@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Mail, Lock, Building, CheckCircle2 } from 'lucide-react';
+import { User, Mail, Lock, CheckCircle2 } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
@@ -10,7 +10,6 @@ export const SettingsPage: React.FC = () => {
   
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
-  const [org, setOrg] = useState(user?.organizationName || '');
   
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -53,9 +52,6 @@ export const SettingsPage: React.FC = () => {
               <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-text-secondary hover:bg-surface-card transition-colors">
                 <Lock size={18} /> Security & Password
               </button>
-              <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-text-secondary hover:bg-surface-card transition-colors">
-                <Building size={18} /> Organization
-              </button>
             </div>
 
             {/* Forms */}
@@ -89,14 +85,6 @@ export const SettingsPage: React.FC = () => {
                         icon={<Mail size={16} />}
                       />
                     </div>
-                    <Input
-                      label="Organization"
-                      value={org}
-                      disabled
-                      icon={<Building size={16} />}
-                    />
-                    <p className="text-xs text-text-muted mt-1">To change your organization, please contact an administrator.</p>
-
                     <div className="pt-4 flex items-center gap-4">
                       <Button type="submit" className="shadow-sm">Save Changes</Button>
                       {savedProfile && (

@@ -20,13 +20,36 @@ export const RegisterPage: React.FC = () => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
+    setError('');
+
+    // Frontend Validation
+    if (!name.trim()) {
+      setError('Name is required.');
       return;
     }
-    
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      return;
+    }
+
+    if (!/(?=.*[a-zA-Z])(?=.*[0-9])/.test(password)) {
+      setError('Password must contain at least one letter and one number.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
     setIsLoading(true);
-    setError('');
 
     try {
       await register(name, email, password, organizationName);
@@ -40,72 +63,49 @@ export const RegisterPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-surface-background selection:bg-primary-indigo selection:text-white relative overflow-hidden">
-      <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] bg-primary-indigo/15 blur-[120px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-[-10%] left-[-10%] w-[60%] h-[60%] bg-primary-violet/15 blur-[120px] rounded-full pointer-events-none" />
-      
+      {/* Decorative Gradients */}
+      <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[50%] bg-primary-indigo/20 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-[-20%] left-[-10%] w-[50%] h-[50%] bg-primary-blue/20 blur-[120px] rounded-full pointer-events-none" />
+
       <PublicNavbar />
 
       <main className="flex-1 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative z-10">
-        <div className="flex flex-col lg:flex-row items-center justify-center max-w-6xl mx-auto w-full gap-12 lg:gap-24 px-4">
+        <div className="flex flex-col lg:flex-row items-center justify-center max-w-6xl mx-auto w-full gap-12 lg:gap-24 px-4 relative">
           
+          {/* Subtle Vertical Divider (desktop only) */}
+          <div className="hidden lg:block absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-px h-[80%] bg-gradient-to-b from-transparent via-surface-border to-transparent"></div>
+
+          {/* Left Side: Marketing / Glass Visuals */}
           <motion.div 
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8 }}
             className="flex-1 hidden lg:flex flex-col items-center justify-center relative"
           >
-            <div className="relative w-full max-w-md aspect-square flex items-center justify-center">
-              <motion.div 
-                animate={{ y: [0, -15, 0] }}
-                transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute top-5 left-10 w-16 h-16 bg-white/40 backdrop-blur-md rounded-2xl border border-white/50 flex items-center justify-center shadow-xl"
-              >
-                <div className="w-8 h-8 rounded-full bg-primary-indigo flex items-center justify-center">
-                  <Shield size={16} className="text-white" />
-                </div>
-              </motion.div>
-
-              <motion.div 
-                animate={{ y: [0, 10, 0] }}
-                transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-                className="absolute bottom-20 right-5 w-14 h-14 bg-white/40 backdrop-blur-md rounded-2xl border border-white/50 flex items-center justify-center shadow-xl"
-              >
-                <div className="w-6 h-6 rounded-full bg-primary-blue flex items-center justify-center">
-                  <Wifi size={14} className="text-white" />
-                </div>
-              </motion.div>
-              
-              <motion.div 
-                animate={{ x: [0, 10, 0] }}
-                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-                className="absolute top-1/2 -right-4 w-12 h-12 bg-white/40 backdrop-blur-md rounded-xl border border-white/50 flex items-center justify-center shadow-xl"
-              >
-                <div className="w-5 h-5 rounded-full bg-primary-violet flex items-center justify-center">
-                  <Briefcase size={12} className="text-white" />
-                </div>
-              </motion.div>
-
-              <div className="relative w-64 h-72 bg-gradient-to-br from-primary-indigo via-primary-blue to-primary-violet rounded-[40px] flex items-center justify-center shadow-2xl z-10 border border-white/30 p-8">
-                <Lock size={80} className="text-white drop-shadow-lg" />
+            <div className="relative w-full max-w-md flex flex-col items-center justify-center">
+              {/* Glowing Tilted Card Effect with reduced border/padding */}
+              <div className="relative rounded-xl border border-surface-border bg-surface-card shadow-2xl p-2 transform -rotate-1 hover:rotate-0 transition-transform duration-500 w-full">
+                <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-primary-blue via-primary-indigo to-primary-violet opacity-20 blur-lg"></div>
+                {/* Changed to use the full PRISM logo image as requested */}
+                <img src="/prism-logo.png" alt="PRISM Logo" className="relative z-10 w-full h-auto object-contain rounded-lg bg-white" />
               </div>
-
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[340px] h-[400px] bg-white/40 backdrop-blur-3xl rounded-[50px] border border-white/60 shadow-2xl -z-10" />
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] h-[300px] bg-white/20 backdrop-blur-xl rounded-[40px] border border-white/30 -z-20 rotate-12" />
             </div>
 
-            <div className="mt-16 text-center max-w-sm">
+            <div className="mt-12 text-center max-w-md">
               <h3 className="text-2xl font-bold text-text-primary mb-3">Your data is secure</h3>
-              <p className="text-text-secondary">We use industry-standard encryption and security practices to keep your project data safe.</p>
+              <p className="text-text-secondary leading-relaxed">We use industry-standard encryption and security practices to keep your project data safe.</p>
             </div>
           </motion.div>
 
+          {/* Right Side: Register Form */}
           <motion.div 
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8 }}
-            className="flex-1 w-full max-w-md"
+            className="flex-1 w-full max-w-md mx-auto"
           >
-            <div className="bg-white/70 backdrop-blur-xl py-8 px-8 shadow-2xl rounded-3xl border border-white/60 relative">
+            {/* Glassmorphism Form Container */}
+            <div className="bg-surface-card/70 backdrop-blur-xl py-10 px-8 shadow-2xl rounded-3xl border border-surface-border relative">
               
               <div className="absolute right-6 top-6 text-sm">
                 <span className="text-text-secondary">Already have an account? </span>

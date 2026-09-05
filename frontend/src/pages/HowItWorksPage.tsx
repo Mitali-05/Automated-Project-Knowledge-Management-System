@@ -7,13 +7,13 @@ const steps = [
   {
     icon: <Network size={32} />,
     title: "1. Connect Your Integrations",
-    description: "Link CodeVault to your GitHub organizations and Jira workspaces using secure OAuth. Select which repositories you want to track.",
+    description: "Link PRISM to your GitHub organizations and Jira workspaces using secure OAuth. Select which repositories you want to track.",
     color: "from-blue-500 to-indigo-500"
   },
   {
     icon: <GitMerge size={32} />,
     title: "2. Automatic Analysis",
-    description: "Every time a pull request is merged, CodeVault analyzes the diffs, reads the PR description, and cross-references linked Jira issues.",
+    description: "Every time a pull request is merged, PRISM analyzes the diffs, reads the PR description, and cross-references linked Jira issues.",
     color: "from-indigo-500 to-violet-500"
   },
   {
@@ -43,7 +43,7 @@ export const HowItWorksPage: React.FC = () => {
             transition={{ duration: 0.5 }}
             className="text-4xl md:text-5xl font-bold tracking-tight mb-6"
           >
-            How CodeVault Works
+            How PRISM Works
           </motion.h1>
           <motion.p 
             initial={{ opacity: 0, y: 20 }}

@@ -4,10 +4,97 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --surface-background: #F5F3FF;
+  --surface-card: #FFFFFF;
+  --surface-border: #E8E0F0;
+  --text-primary: #1A1A2E;
+  --text-secondary: #4B5563;
+  --text-muted: #9CA3AF;
+  --primary-indigo: #4F46E5;
+  --primary-light-indigo: #EEF2FF;
+  --primary-blue: #4338CA;
+  --primary-violet: #7C3AED;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+}
+
 @layer base {
   body {
     @apply bg-surface-background text-text-primary antialiased;
-    font-family: 'Inter', 'Manrope', sans-serif;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+@layer utilities {
+  .bg-prism-container {
+    perspective: 1200px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .prism {
+    width: 300px;
+    height: 300px;
+    transform-style: preserve-3d;
+    animation: rotatePrism 20s infinite linear;
+  }
+
+  .prism-face {
+    position: absolute;
+    width: 0;
+    height: 0;
+    border-left: 150px solid transparent;
+    border-right: 150px solid transparent;
+    border-bottom: 260px solid transparent;
+    transform-origin: 150px 260px;
+  }
+  
+  /* Outline for hollow wireframe effect */
+  .prism-face::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -150px;
+    width: 300px;
+    height: 260px;
+    clip-path: polygon(50% 0%, 0% 100%, 100% 100%, 98% 100%, 50% 4%, 2% 100%, 0% 100%);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.8), rgba(139, 92, 246, 0.8));
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
+  }
+
+  .prism-face-front { transform: translateZ(86.6px) rotateX(30deg); }
+  .prism-face-back { transform: translateZ(-86.6px) rotateY(180deg) rotateX(30deg); }
+  .prism-face-left { transform: translateX(-86.6px) rotateY(-60deg) rotateX(30deg); }
+  .prism-face-right { transform: translateX(86.6px) rotateY(60deg) rotateX(30deg); }
+  
+  .prism-base {
+    position: absolute;
+    width: 300px;
+    height: 260px; 
+    transform: translateY(130px) rotateX(90deg);
+    /* Hollow base */
+    clip-path: polygon(50% 0%, 0% 100%, 100% 100%, 98% 98%, 2% 98%, 50% 4%);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.8), rgba(139, 92, 246, 0.8));
+  }
+
+  @keyframes rotatePrism {
+    from { transform: rotateX(-15deg) rotateY(0deg); }
+    to { transform: rotateX(-15deg) rotateY(360deg); }
+  }
+
+  .glass-card {
+    @apply bg-surface-card/80 backdrop-blur-xl border border-surface-border shadow-xl;
   }
 }
 
@@ -18,13 +105,14 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--surface-background);
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-surface-border rounded-full;
+  background: var(--surface-border);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-text-muted;
+  background: var(--primary-indigo);
 }

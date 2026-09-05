@@ -5,7 +5,7 @@ import {
   FolderGit2, 
   Settings,
   HelpCircle,
-  Database,
+  Grid,
   LogOut,
   ChevronDown
 } from 'lucide-react';
@@ -20,7 +20,7 @@ export const Sidebar: React.FC = () => {
 
   const mainLinks = [
     { name: 'Dashboard', path: '/app/overview', icon: LayoutDashboard },
-    { name: 'Projects', path: '/app/projects/new', icon: FolderGit2 },
+    { name: 'Projects', path: '/app/projects', icon: FolderGit2 },
   ];
 
   const bottomLinks = [
@@ -47,11 +47,9 @@ export const Sidebar: React.FC = () => {
     <aside className="w-64 border-r border-surface-border bg-surface-card flex flex-col h-full sticky top-0">
       {/* Logo Area */}
       <div className="h-16 flex items-center px-6 border-b border-surface-border">
-        <NavLink to="/app/overview" className="flex items-center gap-2 group">
-          <div className="bg-primary-indigo text-white p-1.5 rounded-lg group-hover:bg-primary-violet transition-colors shadow-sm">
-            <Database size={20} />
-          </div>
-          <span className="text-xl font-bold text-text-primary tracking-tight">CodeVault</span>
+        <NavLink to="/app/overview" className="flex items-center gap-3 group">
+          <img src="/prism-icon.png" alt="PRISM" className="h-12 w-12 object-contain" />
+          <span className="text-xl font-bold text-text-primary tracking-tight">PRISM</span>
         </NavLink>
       </div>
 

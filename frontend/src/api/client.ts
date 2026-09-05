@@ -20,3 +20,16 @@ apiClient.interceptors.request.use(
     return Promise.reject(error);
   }
 );
+
+// Add a response interceptor to handle network errors globally
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      window.dispatchEvent(new CustomEvent('auth-expired'));
+    } else if (error.code === 'ERR_NETWORK' || !error.response) {
+      window.dispatchEvent(new CustomEvent('backend-down'));
+    }
+    return Promise.reject(error);
+  }
+);

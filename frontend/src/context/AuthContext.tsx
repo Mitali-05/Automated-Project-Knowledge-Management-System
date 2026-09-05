@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { apiClient } from '../api/client';
 
 export interface User {
   id: number;
@@ -39,38 +40,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string, _password: string) => {
-    // MOCK: simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 600));
-    const mockUser: User = {
-      id: 1,
-      name: 'Utkarsh Mudgal',
-      email: email,
-      organizationId: 1,
-      organizationName: 'Acme Technologies'
-    };
-    const mockToken = 'mock-jwt-token-' + Date.now();
-    localStorage.setItem('token', mockToken);
-    localStorage.setItem('user', JSON.stringify(mockUser));
-    setToken(mockToken);
-    setUser(mockUser);
+  const login = async (email: string, password: string) => {
+    try {
+      const response = await apiClient.post('/auth/login', { email, password });
+      const { token, ...userData } = response.data;
+      
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      setToken(token);
+      setUser(userData);
+    } catch (error: any) {
+      if (error.response && error.response.data) {
+        throw new Error(error.response.data.message || 'Login failed');
+      }
+      throw new Error('Failed to connect to the server');
+    }
   };
 
-  const register = async (name: string, email: string, _password: string, orgName: string) => {
-    // MOCK: simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 600));
-    const mockUser: User = {
-      id: 1,
-      name: name,
-      email: email,
-      organizationId: 1,
-      organizationName: orgName
-    };
-    const mockToken = 'mock-jwt-token-' + Date.now();
-    localStorage.setItem('token', mockToken);
-    localStorage.setItem('user', JSON.stringify(mockUser));
-    setToken(mockToken);
-    setUser(mockUser);
+  const register = async (name: string, email: string, password: string, orgName: string) => {
+    try {
+      const response = await apiClient.post('/auth/signup', { name, email, password, organizationName: orgName });
+      const { token, ...userData } = response.data;
+      
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      setToken(token);
+      setUser(userData);
+    } catch (error: any) {
+      if (error.response && error.response.data) {
+        throw new Error(error.response.data.message || 'Registration failed');
+      }
+      throw new Error('Failed to connect to the server');
+    }
   };
 
   const logout = () => {

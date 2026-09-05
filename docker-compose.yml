@@ -8,9 +8,9 @@ services:
       POSTGRES_USER: pkm_user
       POSTGRES_PASSWORD: pkm_local_pw
     ports:
-      - "5432:5432"
+      - "5442:5432"
     volumes:
-      - pkm_pg_data:/var/lib/postgresql/data
+      - pkm_pg_data_fresh:/var/lib/postgresql/data
 
 volumes:
-  pkm_pg_data:
+  pkm_pg_data_fresh:

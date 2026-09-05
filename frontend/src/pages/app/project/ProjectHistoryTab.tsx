@@ -103,67 +103,12 @@ export const ProjectHistoryTab: React.FC = () => {
         className="relative"
       >
         {/* Timeline Line */}
-        <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-surface-border"></div>
-
-        <div className="space-y-1">
-          {mockHistory.map((entry, idx) => {
-            const config = typeConfig[entry.type];
-            const Icon = config.icon;
-
-            return (
-              <motion.div
-                key={entry.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: idx * 0.06, type: "spring", stiffness: 300, damping: 25 }}
-                className="relative pl-14 py-3 group"
-              >
-                {/* Timeline Node */}
-                <div className={`absolute left-[12px] top-[18px] h-7 w-7 rounded-full ${config.color} flex items-center justify-center text-white shadow-sm ring-4 ring-surface-background z-10`}>
-                  <Icon size={14} />
-                </div>
-
-                {/* Content Card */}
-                <div className="p-4 rounded-xl border border-surface-border bg-surface-card hover:shadow-md hover:border-primary-indigo/20 transition-all duration-200 cursor-pointer group">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-text-primary group-hover:text-primary-indigo transition-colors">
-                        {entry.title}
-                      </p>
-                      <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        <div className="flex items-center gap-1.5">
-                          <img src={entry.authorAvatar} alt={entry.author} className="h-5 w-5 rounded-full" />
-                          <span className="text-xs text-text-secondary">{entry.author}</span>
-                        </div>
-                        <span className="text-xs text-text-muted">·</span>
-                        <span className="text-xs text-text-muted">{entry.repo}</span>
-                        {entry.sha && (
-                          <>
-                            <span className="text-xs text-text-muted">·</span>
-                            <code className="text-xs text-primary-indigo bg-primary-light-indigo px-1.5 py-0.5 rounded font-mono">{entry.sha}</code>
-                          </>
-                        )}
-                        {(entry.additions !== undefined || entry.deletions !== undefined) && (
-                          <span className="flex items-center gap-1 text-xs">
-                            {entry.additions !== undefined && (
-                              <span className="flex items-center text-emerald-600"><Plus size={10} />{entry.additions}</span>
-                            )}
-                            {entry.deletions !== undefined && (
-                              <span className="flex items-center text-red-500"><Minus size={10} />{entry.deletions}</span>
-                            )}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs text-text-muted">{timeAgo(entry.timestamp)}</span>
-                      <ExternalLink size={14} className="text-text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
+        <div className="flex flex-col items-center justify-center py-20 bg-surface-card border border-surface-border rounded-xl">
+          <GitCommit size={48} className="text-surface-border mb-4" />
+          <h3 className="text-lg font-semibold text-text-primary">No recent activity</h3>
+          <p className="text-sm text-text-muted mt-2 text-center max-w-sm">
+            Activity and history from your repositories will appear here once the project is fully synced.
+          </p>
         </div>
       </motion.div>
     </div>

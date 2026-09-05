@@ -60,6 +60,20 @@ export const router = createBrowserRouter([
         }
       },
       {
+        path: 'oauth/github/callback',
+        lazy: async () => {
+          const { GithubCallbackPage } = await import('../../pages/app/GithubCallbackPage');
+          return { Component: GithubCallbackPage };
+        }
+      },
+      {
+        path: 'projects',
+        lazy: async () => {
+          const { ProjectsPage } = await import('../../pages/app/ProjectsPage');
+          return { Component: ProjectsPage };
+        }
+      },
+      {
         path: 'projects/new',
         lazy: async () => {
           const { CreateProjectPage } = await import('../../pages/app/CreateProjectPage');
@@ -98,27 +112,7 @@ export const router = createBrowserRouter([
               return { Component: ProjectHistoryTab };
             }
           },
-          {
-            path: 'jira',
-            lazy: async () => {
-              const { ProjectJiraTab } = await import('../../pages/app/project/ProjectJiraTab');
-              return { Component: ProjectJiraTab };
-            }
-          },
-          {
-            path: 'prompts',
-            lazy: async () => {
-              const { ProjectPromptsTab } = await import('../../pages/app/project/ProjectPromptsTab');
-              return { Component: ProjectPromptsTab };
-            }
-          },
-          {
-            path: 'github',
-            lazy: async () => {
-              const { ProjectGithubTab } = await import('../../pages/app/project/ProjectGithubTab');
-              return { Component: ProjectGithubTab };
-            }
-          }
+
         ]
       },
       {

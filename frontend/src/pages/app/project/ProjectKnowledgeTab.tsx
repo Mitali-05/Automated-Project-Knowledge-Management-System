@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { apiClient } from '../../../api/client';
 import { 
   Search, 
   Filter, 
@@ -15,7 +16,6 @@ import {
 } from 'lucide-react';
 import type { Project, KnowledgeItem } from '../../../types';
 import { Card, CardContent, AnimatedCard } from '../../../components/ui/Card';
-import { mockKnowledge } from '../../../mock/knowledge';
 
 const typeIcons: Record<string, React.ElementType> = {
   'Technical Decision': Lightbulb,
@@ -41,10 +41,28 @@ const freshnessColors: Record<string, { text: string; bg: string; dot: string }>
 
 export const ProjectKnowledgeTab: React.FC = () => {
   const { project } = useOutletContext<{ project: Project }>();
-  const allKnowledge = mockKnowledge.filter(k => k.projectId === project.id);
+  const [allKnowledge, setAllKnowledge] = useState<KnowledgeItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('All');
   const [selectedItem, setSelectedItem] = useState<KnowledgeItem | null>(null);
+
+  useEffect(() => {
+    const fetchKnowledge = async () => {
+      try {
+        setIsLoading(true);
+        const response = await apiClient.get(`/projects/${project.id}/knowledge`);
+        setAllKnowledge(response.data);
+      } catch (err) {
+        setError('Failed to fetch extracted knowledge from the backend.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchKnowledge();
+  }, [project.id]);
 
   const types = ['All', ...Array.from(new Set(allKnowledge.map(k => k.type)))];
 
@@ -64,37 +82,77 @@ export const ProjectKnowledgeTab: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           className="max-w-4xl mx-auto space-y-6"
         >
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-              <input
-                type="text"
-                placeholder="Search knowledge items..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-10 w-full rounded-lg border border-surface-border bg-surface-card pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary-indigo transition-shadow"
-              />
+          <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+            <div className="flex-1 flex gap-3 w-full">
+              <div className="relative flex-1">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                <input
+                  type="text"
+                  placeholder="Search knowledge items..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-surface-border bg-surface-card pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary-indigo transition-shadow"
+                />
+              </div>
+              <div className="flex gap-2 flex-wrap items-center">
+                {types.map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setSelectedType(type)}
+                    className={`px-3 py-1.5 h-10 rounded-lg text-xs font-medium transition-all ${
+                      selectedType === type
+                        ? 'bg-primary-indigo text-white shadow-sm'
+                        : 'bg-surface-card border border-surface-border text-text-secondary hover:bg-surface-background'
+                    }`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="flex gap-2 flex-wrap">
-              {types.map((type) => (
-                <button
-                  key={type}
-                  onClick={() => setSelectedType(type)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    selectedType === type
-                      ? 'bg-primary-indigo text-white shadow-sm'
-                      : 'bg-surface-card border border-surface-border text-text-secondary hover:bg-surface-background'
-                  }`}
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
+            
+            <button
+              onClick={() => {
+                const headers = ['ID', 'Title', 'Type', 'Module', 'Confidence', 'Freshness', 'Summary'];
+                const rows = allKnowledge.map(item => {
+                  return [
+                    item.id,
+                    `"${item.title.replace(/"/g, '""')}"`,
+                    `"${item.type}"`,
+                    `"${item.module}"`,
+                    item.confidence,
+                    `"${item.freshness}"`,
+                    `"${item.summary.replace(/"/g, '""')}"`
+                  ].join(',');
+                });
+                const csvContent = [headers.join(','), ...rows].join('\n');
+                const dataStr = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute("download", project.name + "_knowledge.csv");
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+              }}
+              className="h-10 px-4 rounded-lg bg-primary-indigo/10 text-primary-indigo hover:bg-primary-indigo hover:text-white transition-colors flex items-center gap-2 text-sm font-medium whitespace-nowrap"
+            >
+              <BookOpen size={16} />
+              Download KB
+            </button>
           </div>
 
           {/* Items */}
           <div className="space-y-3">
+            {isLoading ? (
+              <div className="text-center py-16 text-text-muted">
+                <p className="text-sm">Loading extracted knowledge...</p>
+              </div>
+            ) : error ? (
+              <div className="text-center py-16 text-red-500">
+                <p className="text-sm">{error}</p>
+              </div>
+            ) : (
+            <>
             <AnimatePresence>
               {filteredKnowledge.map((item, idx) => {
                 const typeColor = typeColors[item.type] || typeColors['Technical Decision'];
@@ -150,6 +208,8 @@ export const ProjectKnowledgeTab: React.FC = () => {
                 <Search size={40} className="mx-auto mb-4 opacity-30" />
                 <p className="text-sm">No knowledge items found matching your filters.</p>
               </div>
+            )}
+            </>
             )}
           </div>
         </motion.div>
