@@ -3,14 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../../api/client';
 import { motion } from 'framer-motion';
 import {
-  FolderGit2, Users, BookOpen, TrendingUp,
-  ArrowUpRight, Clock, Mail, Building2, PlusCircle
+  FolderGit2, Users, BookOpen, TrendingUp, Download,
+  ArrowUpRight, Clock, Mail, Building2, PlusCircle, GitBranch
 } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/Card';
 import { useAuth } from '../../context/AuthContext';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { 
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts';
 
@@ -119,8 +119,8 @@ export const OverviewPage: React.FC = () => {
                 ) : (
                   <>
                     <StatCard label="Total Projects" value={stats?.totalProjects || 0} change="Live" icon={FolderGit2} color="#6366f1" delay={0.1} />
-                    <StatCard label="Connected Repositories" value={stats?.totalRepositories || 0} change="Syncing" icon={FolderGit2} color="#8b5cf6" delay={0.15} />
-                    <StatCard label="Documents Generated" value={stats?.documentsGenerated || 0} change="Growing" icon={BookOpen} color="#10b981" delay={0.2} />
+                    <StatCard label="Connected Repositories" value={stats?.totalRepositories || 0} change="Syncing" icon={GitBranch} color="#8b5cf6" delay={0.15} />
+                    <StatCard label="Downloaded Reports" value={stats?.downloadsCount || 0} change="Reports" icon={Download} color="#10b981" delay={0.2} />
                   </>
                 )}
               </div>
@@ -137,18 +137,18 @@ export const OverviewPage: React.FC = () => {
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between mb-6">
                         <div>
-                          <h3 className="text-lg font-semibold text-text-primary">Knowledge Growth</h3>
-                          <p className="text-xs text-text-muted mt-1">Documents added over time</p>
+                          <h3 className="text-lg font-semibold text-text-primary">Contribution Trends</h3>
+                          <p className="text-xs text-text-muted mt-1">Knowledge extracted over time</p>
                         </div>
                       </div>
                       {loading ? (
                         <Skeleton className="h-[280px] w-full rounded-lg" />
-                      ) : stats?.knowledgeGrowth && stats.knowledgeGrowth.length > 0 ? (
+                      ) : stats?.contributionTrends && stats.contributionTrends.length > 0 ? (
                         <div className="h-[280px] w-full">
                           <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={stats.knowledgeGrowth} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <LineChart data={stats.contributionTrends} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                               <defs>
-                                <linearGradient id="colorGrowth" x1="0" y1="0" x2="0" y2="1">
+                                <linearGradient id="colorTrends" x1="0" y1="0" x2="0" y2="1">
                                   <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
                                   <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
                                 </linearGradient>
@@ -157,19 +157,21 @@ export const OverviewPage: React.FC = () => {
                               <YAxis stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
                               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                               <RechartsTooltip 
-                                contentStyle={{ backgroundColor: '#ffffff', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                itemStyle={{ color: '#111827', fontWeight: 600 }}
+                                contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px -1px rgb(0 0 0 / 0.12)', padding: '12px 16px' }}
+                                itemStyle={{ color: '#111827', fontWeight: 600, fontSize: '13px' }}
+                                labelStyle={{ color: '#6b7280', marginBottom: '4px', fontSize: '12px' }}
                               />
-                              <Area type="monotone" dataKey="items" name="Items Generated" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorGrowth)" />
-                            </AreaChart>
+                              <Line type="monotone" dataKey="total" name="Total Knowledge" stroke="#6366f1" strokeWidth={3} dot={{ fill: '#6366f1', r: 4, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }} />
+                              <Line type="monotone" dataKey="items" name="New Items" stroke="#8b5cf6" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                            </LineChart>
                           </ResponsiveContainer>
                         </div>
                       ) : (
                         <div className="flex items-center justify-center h-[280px] bg-surface-background/50 rounded-lg border border-dashed border-surface-border">
                           <div className="text-center p-4">
-                            <FolderGit2 className="mx-auto h-8 w-8 text-text-muted mb-3" />
-                            <p className="text-text-primary font-semibold mb-1">No knowledge found</p>
-                            <p className="text-text-muted text-sm max-w-xs mx-auto mb-4">You don't have any knowledge generated yet. Create a project to start seeing contribution trends.</p>
+                            <TrendingUp className="mx-auto h-8 w-8 text-text-muted mb-3" />
+                            <p className="text-text-primary font-semibold mb-1">No contributions yet</p>
+                            <p className="text-text-muted text-sm max-w-xs mx-auto mb-4">Create a project and connect a repository to start seeing contribution trends.</p>
                             <button onClick={() => navigate('/app/projects/new')} className="text-xs px-4 py-2 bg-primary-indigo text-white rounded-lg hover:bg-primary-violet transition-colors">
                               Create Project
                             </button>

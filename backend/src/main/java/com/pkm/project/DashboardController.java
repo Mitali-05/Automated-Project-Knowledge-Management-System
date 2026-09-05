@@ -54,7 +54,8 @@ public class DashboardController {
         
         long totalProjects = projectRepository.countByOrganizationId(orgId);
         long totalRepositories = projectRepositoryRepo.countByProjectOrganizationId(orgId);
-        long documentsGenerated = knowledgeItemRepository.countByProjectOrganizationId(orgId);
+        // Downloads count will be tracked when report download feature is built
+        long downloadsCount = 0;
         
         List<Object[]> rawKnowledge = knowledgeItemRepository.getKnowledgeDataForOrg(orgId);
 
@@ -70,29 +71,33 @@ public class DashboardController {
             distribution.add(Map.of("name", type, "value", count));
         });
 
-        // Group by date for growth chart
+        // Build cumulative contribution trends for line chart
         Map<LocalDate, Long> dateMap = rawKnowledge.stream()
             .collect(Collectors.groupingBy(
                 row -> ((LocalDateTime) row[1]).toLocalDate(),
                 Collectors.counting()
             ));
 
-        List<Map<String, Object>> growth = new ArrayList<>();
-        dateMap.entrySet().stream()
+        List<Map<String, Object>> trends = new ArrayList<>();
+        long cumulative = 0;
+        List<Map.Entry<LocalDate, Long>> sortedEntries = dateMap.entrySet().stream()
             .sorted(Map.Entry.comparingByKey())
-            .forEach(entry -> {
-                growth.add(Map.of(
-                    "date", entry.getKey().format(DateTimeFormatter.ofPattern("MMM dd")),
-                    "items", entry.getValue()
-                ));
-            });
+            .toList();
+        for (Map.Entry<LocalDate, Long> entry : sortedEntries) {
+            cumulative += entry.getValue();
+            trends.add(Map.of(
+                "date", entry.getKey().format(DateTimeFormatter.ofPattern("MMM dd")),
+                "items", entry.getValue(),
+                "total", cumulative
+            ));
+        }
         
         return ResponseEntity.ok(new DashboardStats(
             totalProjects, 
             totalRepositories, 
-            documentsGenerated, 
+            downloadsCount, 
             distribution, 
-            growth
+            trends
         ));
     }
 }

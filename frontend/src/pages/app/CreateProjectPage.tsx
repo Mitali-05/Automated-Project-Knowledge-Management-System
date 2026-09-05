@@ -29,8 +29,11 @@ export const CreateProjectPage: React.FC = () => {
           setIsAuthorized(true);
           setRepositories(response.data.repositories || []);
         }
-      } catch (err) {
-        console.error("Failed to fetch repositories", err);
+      } catch (err: any) {
+        // Don't let a failure here log the user out - this is a non-critical check
+        // A 401 here just means GitHub isn't connected, not that auth is expired
+        console.warn("GitHub auth check failed (non-critical):", err?.response?.status);
+        setIsAuthorized(false);
       }
     };
     checkAuth();
@@ -38,17 +41,21 @@ export const CreateProjectPage: React.FC = () => {
 
   const handleConnectGithub = async () => {
     setIsLoading(true);
+    setError('');
     try {
       const response = await apiClient.get('/integrations/github/url');
-      const { appSlug } = response.data;
-      if (appSlug) {
-        window.location.href = `https://github.com/apps/${appSlug}/installations/new`;
+      const data = response.data;
+      if (data.configured && data.installUrl) {
+        // GitHub App exists — redirect to installation page
+        window.location.href = data.installUrl;
       } else {
-        setError('GitHub App is not fully configured on the backend.');
+        // GitHub App NOT configured — show instructions
+        setError('GitHub App is not configured yet. Please ask your admin to set up the GitHub App. Visit GitHub Settings > Developer settings > GitHub Apps to create one.');
         setIsLoading(false);
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to connect to GitHub.');
+      // Even if the backend fails, redirect to GitHub directly
+      setError('Could not connect to the server. Please try again.');
       setIsLoading(false);
     }
   };

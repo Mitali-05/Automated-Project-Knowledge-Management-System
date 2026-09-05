@@ -24,3 +24,12 @@ frontend/.env
 
 backend/data/*.mv.db
 backend/data/*.trace.db
+
+# Private keys
+*.pem
+
+# Test/debug scripts
+test_*.py
+TestGithubApi.java
+backend/DbReset.java
+scratchpad_*.py

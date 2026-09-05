@@ -1,5 +1,6 @@
 package com.pkm.rag.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pkm.org.Organization;
 import com.pkm.org.OrganizationRepository;
 import com.pkm.rag.service.GitHubAppService;
@@ -34,23 +35,36 @@ public class GithubIntegrationController {
     }
 
     @GetMapping("/url")
-    public ResponseEntity<Map<String, String>> getInstallationUrl() {
-        if (appId == null || appId.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "GitHub App ID not configured"));
+    public ResponseEntity<Map<String, Object>> getInstallationUrl() {
+        boolean configured = appId != null && !appId.isBlank() && appSlug != null && !appSlug.isBlank();
+        
+        if (configured) {
+            return ResponseEntity.ok(Map.of(
+                "configured", true,
+                "appId", appId, 
+                "appSlug", appSlug,
+                "installUrl", "https://github.com/apps/" + appSlug + "/installations/new"
+            ));
+        } else {
+            // Return the manifest creation URL so UI can redirect there
+            return ResponseEntity.ok(Map.of(
+                "configured", false,
+                "message", "GitHub App not configured. Admin must create the app first.",
+                "setupUrl", "https://github.com/settings/apps/new"
+            ));
         }
-        return ResponseEntity.ok(Map.of("appId", appId, "appSlug", appSlug != null ? appSlug : ""));
     }
 
     @PostMapping("/callback")
     public ResponseEntity<?> handleCallback(@RequestBody Map<String, String> payload) {
         String installationId = payload.get("installation_id");
         if (installationId == null || installationId.isBlank()) {
-            return ResponseEntity.badRequest().body("installation_id is required");
+            return ResponseEntity.badRequest().body(Map.of("error", "installation_id is required"));
         }
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated() || auth.getName() == null) {
-            return ResponseEntity.status(401).body("Unauthorized");
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
         
         String userIdStr = auth.getName();
@@ -60,11 +74,11 @@ public class GithubIntegrationController {
             Long userId = Long.parseLong(userIdStr);
             user = userRepository.findById(userId).orElse(null);
         } catch (NumberFormatException e) {
-            return ResponseEntity.status(401).body("Invalid user ID");
+            return ResponseEntity.status(401).body(Map.of("error", "Invalid user ID"));
         }
         
         if (user == null) {
-            return ResponseEntity.status(401).body("User not found");
+            return ResponseEntity.status(401).body(Map.of("error", "User not found"));
         }
 
         Organization org = user.getOrganization();
@@ -78,7 +92,7 @@ public class GithubIntegrationController {
     public ResponseEntity<?> getRepositories() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated() || auth.getName() == null) {
-            return ResponseEntity.status(401).body("Unauthorized");
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
 
         String userIdStr = auth.getName();
@@ -88,11 +102,11 @@ public class GithubIntegrationController {
             Long userId = Long.parseLong(userIdStr);
             user = userRepository.findById(userId).orElse(null);
         } catch (NumberFormatException e) {
-            return ResponseEntity.status(401).body("Invalid user ID");
+            return ResponseEntity.status(401).body(Map.of("error", "Invalid user ID"));
         }
         
         if (user == null) {
-            return ResponseEntity.status(401).body("User not found");
+            return ResponseEntity.status(401).body(Map.of("error", "User not found"));
         }
 
         Organization org = user.getOrganization();
