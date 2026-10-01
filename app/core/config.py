@@ -18,27 +18,33 @@ GITHUB_API = "https://api.github.com"
 # app/config.py
 
 LLM_PROVIDERS = {
-    "gemini-2.5-flash": {
+    "gemini-3.5-flash-lite": {
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
-        "model": "gemini-2.5-flash",
+        "model": "gemini-3.5-flash-lite",
         "context_window_tokens": 1_000_000,
-        "notes": "Faster Agent: 15 Requests Per Minute on Free Tier.",
+        "notes": "Best Free Tier Model: 15 Requests Per Minute, 500 Requests Per Day.",
     },
-    "gemini-3.6-flash": {
+    "gemini-3.1-flash-lite": {
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
-        "model": "gemini-3.6-flash",
+        "model": "gemini-3.1-flash-lite",
         "context_window_tokens": 1_000_000,
-        "notes": "Latest generation, but strict 5 RPM free tier limit.",
+        "notes": "Backup Free Tier Model: 15 RPM, 500 Requests Per Day.",
     },
-    "groq-oss-120b": {
-        "base_url": "https://api.groq.com/openai/v1",
-        "model": "openai/gpt-oss-120b",
-        "context_window_tokens": 8000,
-        "notes": "Groq's fastest model. Excellent for Agentic loops with high RPM limits.",
+    "gemini-3.8-flash": {
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "model": "gemini-3.8-flash",
+        "context_window_tokens": 1_000_000,
+        "notes": "Strict Limits: 20 Requests Per Day on Free Tier.",
+    },
+    "gemini-2.0-flash": {
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "model": "gemini-2.0-flash",
+        "context_window_tokens": 1_000_000,
+        "notes": "Fast Agent (Latest 2.0 Stable): 1500 Requests Per Day on Free Tier.",
     },
 }
 
-DEFAULT_PROVIDER = "gemini-3.6-flash"
+DEFAULT_PROVIDER = "gemini-3.5-flash-lite"
 
 # Token budget per single LLM call. Kept well under any provider's real
 # limit so we have headroom for the system prompt + JSON response.

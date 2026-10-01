@@ -6,3 +6,5 @@ openai>=1.50,<2
 tiktoken>=0.7,<1
 reportlab
 mcp
+PyJWT
+cryptography

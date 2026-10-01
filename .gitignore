@@ -6,5 +6,5 @@ __pycache__/
 *.pyc
 venv/
 raw_knowledge.json
-formatted_report.md
 test_key.py
+*.pem

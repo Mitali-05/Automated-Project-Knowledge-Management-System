@@ -12,66 +12,56 @@ from app.core.config import LLM_PROVIDERS, MAX_INPUT_TOKENS_PER_BATCH
 from app.utils.exporter import generate_pdf_report
 from app.mcp.service import GitHubMCPClientService
 from app.mcp.agent import run_autonomous_extraction
-from app.github.auth import fetch_user_repos, parse_repo_url, fetch_repo_tree
+from app.github.auth import fetch_installation_repos, get_installation_access_token, parse_repo_url, fetch_repo_tree
 
-st.set_page_config(page_title="GitHub Knowledge Extraction", page_icon="🧠", layout="wide")
+from dotenv import load_dotenv
+load_dotenv(override=True)
 
-st.title("🧠 GitHub Knowledge Extraction — Agentic MCP Prototype")
+st.set_page_config(page_title="GitHub Knowledge Extraction", layout="wide")
+
+st.title("GitHub Knowledge Extraction — Agentic MCP Prototype")
 st.caption("LLM Autonomously explores GitHub via Model Context Protocol tools.")
 
-GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
-GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
+GITHUB_APP_ID = os.getenv("GITHUB_APP_ID")
+GITHUB_APP_NAME = os.getenv("GITHUB_APP_NAME")
+GITHUB_INSTALLATION_ID = os.getenv("GITHUB_INSTALLATION_ID")
+
+# Find the private key file dynamically
+pem_files = list(Path(__file__).parent.parent.glob("*.pem"))
+PRIVATE_KEY_PATH = str(pem_files[0]) if pem_files else None
 
 if "github_token" not in st.session_state:
     st.session_state.github_token = None
+if "installation_id" not in st.session_state:
+    st.session_state.installation_id = None
 
-# Handle OAuth callback
-if "code" in st.query_params and not st.session_state.github_token:
-    code = st.query_params["code"]
+# Automatically log in using the hardcoded installation ID if available
+if not st.session_state.github_token and GITHUB_INSTALLATION_ID:
+    st.session_state.installation_id = GITHUB_INSTALLATION_ID
+
+# Handle GitHub App installation callback (or .env injection)
+if st.session_state.installation_id and not st.session_state.github_token:
     
-    if GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET:
-        with st.spinner("Authenticating with GitHub..."):
-            response = requests.post(
-                "https://github.com/login/oauth/access_token",
-                data={
-                    "client_id": GITHUB_CLIENT_ID,
-                    "client_secret": GITHUB_CLIENT_SECRET,
-                    "code": code,
-                },
-                headers={"Accept": "application/json"}
-            )
-            
-            if response.status_code == 200 and "access_token" in response.json():
-                st.session_state.github_token = response.json()["access_token"]
+    if GITHUB_APP_ID and PRIVATE_KEY_PATH:
+        with st.spinner("Authenticating with GitHub App..."):
+            try:
+                token = get_installation_access_token(GITHUB_APP_ID, PRIVATE_KEY_PATH, st.session_state.installation_id)
+                st.session_state.github_token = token
                 st.query_params.clear()
                 st.rerun()
-            else:
-                st.error("Failed to authenticate with GitHub.")
+            except Exception as e:
+                st.error(f"Failed to authenticate: {e}")
     else:
-        st.error("OAuth configuration missing! Please add GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET to your .env file.")
+        st.error("Missing GITHUB_APP_ID in .env or missing .pem file!")
+
+# If the user clicked from a new installation, grab it from URL
+if "installation_id" in st.query_params and not st.session_state.installation_id:
+    st.session_state.installation_id = st.query_params["installation_id"]
+    st.rerun()
 
 with st.sidebar:
     st.header("Configuration")
-    
-    if not st.session_state.github_token:
-        st.warning("Please login to GitHub to continue.")
-        if GITHUB_CLIENT_ID:
-            auth_url = f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&scope=repo"
-            st.markdown(
-                f'<a href="{auth_url}" target="_self">'
-                f'<button style="width: 100%; padding: 0.5rem; background-color: #2ea043; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">'
-                f'Login with GitHub</button></a>',
-                unsafe_allow_html=True
-            )
-        else:
-            st.error("GITHUB_CLIENT_ID is not set in .env")
-        github_token = None
-    else:
-        st.success("✅ Logged in to GitHub")
-        if st.button("Logout", use_container_width=True):
-            st.session_state.github_token = None
-            st.rerun()
-        github_token = st.session_state.github_token
+
 
     st.divider()
 
@@ -85,37 +75,65 @@ with st.sidebar:
     llm_key = os.getenv("LLM_API_KEY")
 
 st.subheader("Repository Selection")
-repo_visibility = st.radio("Repository Type", ["Public", "Private"], horizontal=True)
+
+tab1, tab2 = st.tabs(["Select Authorized Repository", "Paste Public Repository URL"])
 
 repo_url = ""
-if repo_visibility == "Public":
-    repo_url = st.text_input("Public Repository URL", placeholder="https://github.com/owner/repository")
-else:
+
+with tab1:
     if st.session_state.github_token:
-        with st.spinner("Fetching your private repositories..."):
-            private_repos = fetch_user_repos(st.session_state.github_token, repo_type="private")
+        with st.spinner("Fetching your authorized repositories..."):
+            all_repos = fetch_installation_repos(st.session_state.github_token)
+            private_repos = [repo for repo in all_repos if repo.get("private") == True]
         if not private_repos:
             st.warning("No private repositories found or your app doesn't have access to them.")
+            st.info("Click 'Select Repositories' below to add them.")
         else:
             repo_options = {repo["full_name"]: repo["html_url"] for repo in private_repos}
-            selected_repo = st.selectbox("Select Private Repository", options=list(repo_options.keys()))
+            selected_repo = st.selectbox("Choose a repository", options=list(repo_options.keys()))
             if selected_repo:
                 repo_url = repo_options[selected_repo]
             
+        st.write("")
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if GITHUB_APP_NAME:
+                auth_url = f"https://github.com/apps/{GITHUB_APP_NAME}/installations/new"
+                st.markdown(f'<a href="{auth_url}" target="_self"><button style="width: 100%; padding: 0.5rem; background-color: #2ea043; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Add More Repositories</button></a>', unsafe_allow_html=True)
+        with col2:
+            if st.button("Logout / Disconnect", use_container_width=True):
+                st.session_state.github_token = None
+                st.session_state.installation_id = None
+                st.rerun()
+    else:
+        st.info("Authorize the app to select from your private repositories.")
+        if GITHUB_APP_NAME:
+            auth_url = f"https://github.com/apps/{GITHUB_APP_NAME}/installations/new"
             st.markdown(
-                """<a href="https://github.com/apps/prism-knowledge-manager/installations/new" target="_blank" style="font-size: 0.9em; text-decoration: none;">⚙️ Can't find your repository? Click here to add it.</a>""", 
+                f'<a href="{auth_url}" target="_self">'
+                f'<button style="width: 100%; padding: 0.5rem; background-color: #2ea043; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">'
+                f'Select Repositories</button></a>',
                 unsafe_allow_html=True
             )
-    else:
-        st.warning("Please log in to GitHub in the sidebar to view private repositories.")
+        else:
+            st.error("GITHUB_APP_NAME is not set in .env")
 
-if st.button("🔍 Analyze Repository Agentically", type="primary", use_container_width=True):
+with tab2:
+    st.info("No login required. Just paste any public GitHub URL.")
+    public_url_input = st.text_input("Public Repository URL", placeholder="https://github.com/owner/repository")
+    if public_url_input:
+        repo_url = public_url_input
+
+st.write("")
+if st.button("Analyze Repository Agentically", type="primary", use_container_width=True):
 
     if not repo_url:
-        st.error("Please enter a GitHub repository URL.")
+        st.error("Please select a repository or enter a public URL.")
         st.stop()
-    if not github_token:
-        st.error("Please log in to GitHub using the sidebar.")
+    
+    # If using the authorized tab, github_token is required. If using public tab, it's not strictly required but we use it if available.
+    if not public_url_input and not st.session_state.github_token:
+        st.error("Please authorize the app to analyze private repositories.")
         st.stop()
     if not llm_key:
         st.error("The server's LLM API key is not configured.")
@@ -128,12 +146,12 @@ if st.button("🔍 Analyze Repository Agentically", type="primary", use_containe
         st.stop()
 
     # --- Display Repository File Tree ---
-    with st.expander("📁 Repository File Structure", expanded=False):
+    with st.expander("Repository File Structure", expanded=False):
         st.markdown(f"Fetching tree for `{owner}/{repo}`...")
-        tree = fetch_repo_tree(github_token, owner, repo)
+        tree = fetch_repo_tree(st.session_state.github_token, owner, repo)
         if tree:
             for item in tree:
-                icon = "📁" if item.get("type") == "tree" else "📄"
+                icon = "[Folder]" if item.get("type") == "tree" else "[File]"
                 st.text(f"{icon} {item.get('path')}")
         else:
             st.warning("Could not fetch file tree.")
@@ -145,7 +163,7 @@ if st.button("🔍 Analyze Repository Agentically", type="primary", use_containe
             
             # Create a new event loop for this async call if needed
             async def execute_agent():
-                service = GitHubMCPClientService(access_token=github_token)
+                service = GitHubMCPClientService(access_token=st.session_state.github_token)
                 async with service.connect() as session:
                     return await run_autonomous_extraction(owner, repo, llm_client, session)
             
@@ -155,7 +173,7 @@ if st.button("🔍 Analyze Repository Agentically", type="primary", use_containe
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 
-            items, executed_tools = loop.run_until_complete(execute_agent())
+            items, executed_tools, problem_statement, tech_stack = loop.run_until_complete(execute_agent())
 
         st.success(f"Agent finished! It called these MCP tools: {', '.join(executed_tools) if executed_tools else 'None'}")
 
@@ -204,23 +222,79 @@ if st.button("🔍 Analyze Repository Agentically", type="primary", use_containe
                 
             # 2. Write Formatted Report Markdown
             with open(formatted_file_path, "w", encoding="utf-8") as f:
-                f.write(f"# Knowledge Extraction Report for {owner}/{repo}\\n\\n")
-                f.write("This document contains the formatted knowledge extracted by the autonomous agent.\\n\\n")
-                for i, item in enumerate(items, start=1):
-                    f.write(f"## {i}. {item.title}\\n")
-                    f.write(f"- **Type:** {item.knowledge_type}\\n")
-                    f.write(f"- **Module:** {item.module or 'Not determined'}\\n")
-                    f.write(f"- **Confidence:** {item.confidence * 100:.0f}% (Agent Self-Assessment)\\n\\n")
-                    f.write(f"### Summary\\n{item.summary}\\n\\n")
-                    if item.details:
-                        f.write(f"### Details\\n{item.details}\\n\\n")
-                    if item.evidence_ids:
-                        f.write("### Evidence\\n")
-                        for ev in item.evidence_ids:
-                            f.write(f"- `{ev}`\\n")
-                    f.write("\\n---\\n\\n")
+                f.write(f"# Software Architecture & Knowledge Document: {owner}/{repo}\n\n")
+                f.write("> *Generated Autonomously by PRISM Agentic Extraction*\n\n")
+                
+                f.write("## 1. Executive Summary & Problem Statement\n")
+                f.write(f"{problem_statement}\n\n")
+                
+                f.write("## 2. Technology Stack\n")
+                if tech_stack:
+                    for tech in tech_stack:
+                        f.write(f"- {tech}\n")
+                else:
+                    f.write("*Tech stack could not be determined.*\n")
+                f.write("\n")
+                
+                f.write("## 3. Repository Structure\n")
+                f.write("```text\n")
+                if tree:
+                    for item in tree[:200]: 
+                        icon = "[DIR] " if item.get("type") == "tree" else "[FILE]"
+                        f.write(f"{icon} {item.get('path')}\n")
+                    if len(tree) > 200:
+                        f.write("... (truncated)\n")
+                else:
+                    f.write("Structure unavailable.\n")
+                f.write("```\n\n")
+                
+                f.write("## 4. Technical Architecture & Component Knowledge\n\n")
+                
+                # Group by knowledge_type
+                from collections import defaultdict
+                grouped_items = defaultdict(list)
+                for item in items:
+                    grouped_items[item.knowledge_type].append(item)
                     
+                for ktype, kitems in grouped_items.items():
+                    f.write(f"### Domain: {ktype.replace('_', ' ').title()}\n\n")
+                    for item in kitems:
+                        f.write(f"#### {item.title}\n")
+                        f.write(f"- **Affected Module:** `{item.module or 'Global/System-wide'}`\n")
+                        f.write(f"- **AI Confidence Score:** {item.confidence * 100:.0f}%\n\n")
+                        f.write(f"**Executive Summary:**\n{item.summary}\n\n")
+                        if item.details:
+                            f.write(f"**Implementation Details & Context:**\n{item.details}\n\n")
+                        if item.evidence_ids:
+                            f.write("**Traceability & Evidence (Code Pointers):**\n")
+                            for ev in item.evidence_ids:
+                                f.write(f"- `{ev}`\n")
+                        f.write("\n---\n\n")
+                        
             st.success(f"💾 Files generated successfully! Check your project folder for `raw_knowledge.json` and `formatted_report.md`.")
+            
+            st.write("")
+            col1, col2 = st.columns(2)
+            with col1:
+                with open(formatted_file_path, "r", encoding="utf-8") as f:
+                    md_data = f.read()
+                st.download_button(
+                    label="Download Markdown Report",
+                    data=md_data,
+                    file_name=f"{repo}_knowledge_report.md",
+                    mime="text/markdown",
+                    use_container_width=True
+                )
+            with col2:
+                with open(raw_file_path, "r", encoding="utf-8") as f:
+                    json_data = f.read()
+                st.download_button(
+                    label="Download Raw JSON Data",
+                    data=json_data,
+                    file_name=f"{repo}_raw_knowledge.json",
+                    mime="application/json",
+                    use_container_width=True
+                )
         except Exception as file_e:
             st.warning(f"Could not write output files: {file_e}")
 

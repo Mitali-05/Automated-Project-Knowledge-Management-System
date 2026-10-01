@@ -14,7 +14,7 @@ async def run_autonomous_extraction(
     llm_client, 
     mcp_session: ClientSession, 
     max_steps: int = 15
-) -> Tuple[List[KnowledgeItem], List[str]]:
+) -> Tuple[List[KnowledgeItem], List[str], str, List[str]]:
     
     logger.info(f"Starting autonomous agent for {owner}/{repo}")
     
@@ -43,7 +43,7 @@ async def run_autonomous_extraction(
         
         # Slow down the agent loop to respect the strict Free Tier API Rate Limits
         if step > 0:
-            await asyncio.sleep(8)
+            await asyncio.sleep(15)
         
         # Retry loop for API rate limit errors
         for retry in range(5):
@@ -56,15 +56,17 @@ async def run_autonomous_extraction(
                 )
                 break
             except Exception as e:
-                if "429" in str(e) or "RateLimit" in str(e) or "quota" in str(e).lower():
+                error_msg = str(e)
+                if any(k in error_msg.lower() for k in ["429", "503", "ratelimit", "quota", "unavailable"]):
                     wait_time = 15 * (retry + 1)
                     logger.warning(f"Rate limit hit. Waiting {wait_time} seconds before retry {retry+1}...")
+                    logger.warning(f"Google API Response: {error_msg}")
                     await asyncio.sleep(wait_time)
                 else:
                     raise e
         else:
             logger.error("Failed to recover from rate limit after 3 retries.")
-            return [], executed_tools
+            return [], executed_tools, "", []
         
         msg = response.choices[0].message
         
@@ -101,10 +103,12 @@ async def run_autonomous_extraction(
                     
                 data = json.loads(content)
                 items = [KnowledgeItem.model_validate(obj) for obj in data.get("knowledge_items", [])]
-                return items, executed_tools
+                problem_statement = data.get("problem_statement", "Problem statement unavailable.")
+                tech_stack = data.get("tech_stack", [])
+                return items, executed_tools, problem_statement, tech_stack
             except Exception as e:
                 logger.error(f"Failed to parse final JSON: {e}")
-                return [], executed_tools
+                return [], executed_tools, "", []
 
     logger.warning("Agent reached max steps. Forcing final JSON output.")
     messages.append({"role": "user", "content": "You have reached your step limit. Output the JSON array of knowledge_items based ONLY on what you have found so far."})
@@ -122,7 +126,9 @@ async def run_autonomous_extraction(
             
         data = json.loads(content)
         items = [KnowledgeItem.model_validate(obj) for obj in data.get("knowledge_items", [])]
-        return items, executed_tools
+        problem_statement = data.get("problem_statement", "Problem statement unavailable.")
+        tech_stack = data.get("tech_stack", [])
+        return items, executed_tools, problem_statement, tech_stack
     except Exception as e:
         logger.error(f"Failed to parse forced final JSON: {e}")
-        return [], executed_tools
+        return [], executed_tools, "", []
