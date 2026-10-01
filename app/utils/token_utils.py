@@ -6,7 +6,7 @@ characters is roughly 11,000+ tokens, well over an 8,000 TPM limit).
 Uses tiktoken if it's installed (accurate), otherwise falls back to a
 chars-per-token heuristic (good enough for budgeting, not exact).
 """
-from app.config import CHARS_PER_TOKEN_ESTIMATE
+from app.core.config import CHARS_PER_TOKEN_ESTIMATE
 
 try:
     import tiktoken

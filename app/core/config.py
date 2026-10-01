@@ -22,29 +22,23 @@ LLM_PROVIDERS = {
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
         "model": "gemini-2.5-flash",
         "context_window_tokens": 1_000_000,
-        "notes": "Best choice: High throughput, low latency, robust structured JSON.",
+        "notes": "Faster Agent: 15 Requests Per Minute on Free Tier.",
     },
     "gemini-3.6-flash": {
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
         "model": "gemini-3.6-flash",
         "context_window_tokens": 1_000_000,
-        "notes": "Latest generation Gemini flash model.",
-    },
-    "gemini-2.5-flash-lite": {
-        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
-        "model": "gemini-2.5-flash-lite",
-        "context_window_tokens": 1_000_000,
-        "notes": "Ultra-fast and highly efficient.",
+        "notes": "Latest generation, but strict 5 RPM free tier limit.",
     },
     "groq-oss-120b": {
         "base_url": "https://api.groq.com/openai/v1",
         "model": "openai/gpt-oss-120b",
-        "context_window_tokens": 8_000,
-        "notes": "Groq fallback.",
+        "context_window_tokens": 8000,
+        "notes": "Groq's fastest model. Excellent for Agentic loops with high RPM limits.",
     },
 }
 
-DEFAULT_PROVIDER = "gemini-2.5-flash"
+DEFAULT_PROVIDER = "gemini-3.6-flash"
 
 # Token budget per single LLM call. Kept well under any provider's real
 # limit so we have headroom for the system prompt + JSON response.

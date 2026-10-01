@@ -5,7 +5,7 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
-from app.models import KnowledgeItem
+from app.core.models import KnowledgeItem
 
 def generate_pdf_report(repo_name: str, items: List[KnowledgeItem]) -> bytes:
     """Generates an formatted PDF document of extracted knowledge items."""

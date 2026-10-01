@@ -21,7 +21,7 @@ already had it configured.
 # app/llm_client.py
 import json
 from openai import OpenAI
-from app.config import LLM_PROVIDERS, DEFAULT_PROVIDER
+from app.core.config import LLM_PROVIDERS, DEFAULT_PROVIDER
 
 class LLMError(Exception):
     pass

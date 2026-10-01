@@ -3,9 +3,8 @@ __pycache__/
 *.py[cod]
 .env
 .streamlit/
-
-.env
 *.pyc
-.venv
+venv/
+raw_knowledge.json
+formatted_report.md
 test_key.py
-__pycache__/
