@@ -1,17 +1,17 @@
 """
 Thin wrapper so the extractor doesn't care which provider it's talking to.
 
-Gemini exposes an OpenAI-compatible endpoint at
-https://generativelanguage.googleapis.com/v1beta/openai/ - so the same
+Groq exposes an OpenAI-compatible endpoint at
+https://api.groq.com/v1beta/openai/ - so the same
 `openai` SDK you were already using works unchanged, you just point base_url
-at Google and use your Gemini API key (from https://aistudio.google.com/apikey,
+at Google and use your Groq API key (from https://aistudio.google.com/apikey,
 free tier is generous and the context window is enormous compared to Groq's
 free-tier TPM limit).
 
-Why Gemini 2.5 Flash over Phi for this use case: Phi (Phi-3.5/Phi-4) is a
+Why Groq 2.5 Flash over Phi for this use case: Phi (Phi-3.5/Phi-4) is a
 small model meant for local/edge inference - it's cheap to self-host but
 noticeably weaker at long-context structured extraction with strict
-evidence-ID citation, which is exactly what this task needs. Gemini Flash
+evidence-ID citation, which is exactly what this task needs. Groq Flash
 gives you a ~1M token context window (so entire PRs, including full diffs,
 fit without truncation) at a very low price, and is reliably good at
 constrained JSON output. Groq is kept as a fallback provider since you
