@@ -8,3 +8,4 @@ reportlab
 mcp
 PyJWT
 cryptography
+\nanthropic==0.42.0\n
