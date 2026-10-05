@@ -3,25 +3,59 @@
 > *Generated Autonomously by PRISM Agentic Extraction*
 
 ## 1. Executive Summary & Problem Statement
-PayShield is an enterprise payment, fraud detection, and settlement platform engineered to emulate modern payment processors such as Stripe and Adyen. The system solves complex financial data integrity and security challenges by coordinating high-concurrency payment lifecycles, rigorous transaction state transitions, and real-time risk evaluation heuristics. By decoupling the FastAPI-driven Python risk engine from the Java Spring Boot core processing backend through Redis message brokers and Docker orchestration, PayShield ensures low-latency fraud screening, idempotent transaction processing, and automated ledger reconciliation.
+Modern payment processors, merchant gateways, and digital wallets require robust transactional integrity, millisecond-level fraud detection, strict idempotency enforcement to prevent double-charging, and automated reconciliation pipelines. PayShield provides an enterprise-grade, full-scale synthetic simulation of a payment processing ecosystem (Stripe/Adyen style), combining a Java Spring Boot 3 backend, Python risk assessment services, and TypeScript React/Vite frontends.
 
-## 2. Technology Stack
-- Java
-- Spring Boot
-- Spring Data JPA
+## 2. Business Value & Presentation Deck
+**Pitch:** PayShield delivers an enterprise-ready payment gateway and fraud-mitigation platform designed to ensure absolute financial ledger accuracy, prevent race conditions through robust idempotency, and automate settlement reconciliation at scale.
+
+**Value:** Eliminates catastrophic double-charge incidents via idempotency guarantees, reduces chargeback rates through millisecond risk analysis, and automates 100% of daily bank reconciliation tasks to slash operational overhead.
+
+**Challenges:** Solving distributed transaction consistency, preventing concurrent double-spending under high concurrency, maintaining strict state transition guardrails across transaction lifecycles, and bridging Java enterprise backend services with Python-based asynchronous risk analytics.
+
+**Future Scope:** Transitioning from a layered monolithic core to a fully event-driven microservices mesh using Kafka, implementing multi-currency real-time FX conversion engines, and adding machine learning-based adaptive fraud scoring.
+
+## 3. Analytics & Flowchart
+- **Complexity:** High
+- **Modules:** 5
+- **Security:** Robust Spring Security with JWT tokens, role-based access control, and dedicated rate-limiting filters.
+```mermaid
+graph TD
+  subgraph Client Layer
+    FE[React Frontend / Merchant Dashboard] -->|REST / JWT| API[Spring Boot API Gateway]
+    CW[Cred-Wallet / Checkout] -->|REST| API
+  end
+  subgraph Core Backend Service
+    API --> SEC[Spring Security & JWT Filter]
+    SEC --> RT[Rate Limit Filter]
+    RT --> CTL[Controllers: Transactions, Refunds, Settlements]
+    CTL --> SVC[Service Layer: State Machine & Business Logic]
+    SVC -->|Idempotency Check| DB[(PostgreSQL)]
+  end
+  subgraph Async & Risk Engines
+    SVC -->|Webhook / Event| RE[Risk Engine (FastAPI)]
+    RE -->|Celery Workers| CL[Async Processing / Fraud Rules]
+  end
+  subgraph Infrastructure
+    DB -->|Simulated CSVs| REC[Reconciliation Engine]
+    SVC -->|SMTP| MP[Mailpit Notifications]
+  end
+```
+
+## 4. Technology Stack
+- Java 21
+- Spring Boot 3.3
 - Spring Security
+- Spring Data JPA
+- PostgreSQL
 - Python
 - FastAPI
 - Celery
-- PostgreSQL
-- Redis
-- Docker
-- Docker Compose
-- React
 - TypeScript
-- Flyway
+- React 18
+- TailwindCSS
+- Docker & Docker Compose
 
-## 3. Repository Structure
+## 5. Repository Structure
 ```text
 [DIR]  .github
 [DIR]  .github/workflows
@@ -226,135 +260,153 @@ PayShield is an enterprise payment, fraud detection, and settlement platform eng
 ... (truncated)
 ```
 
-## 4. Technical Architecture & Component Knowledge
+## 6. Technical Architecture & Component Knowledge
 
-### Domain: Module Responsibility
+### Domain: Architecture Pattern
 
-#### Decoupled AI Risk Engine Microservice Architecture
-- **Affected Module:** `risk-engine`
+#### Spring Boot Backend Core & Layered Architecture
+- **Affected Module:** `backend`
+- **AI Confidence Score:** 98%
+
+**Executive Summary:**
+Core enterprise backend structured into clear controllers, services, repositories, and DTOs running on Java 21 and Spring Boot 3.3.
+
+**Implementation Details & Context:**
+The backend provides robust transaction handling, merchant management, refunds, and payout settlements backed by Spring Data JPA and PostgreSQL.
+
+**Traceability & Evidence (Code Pointers):**
+- `backend/src/main/java/com/payshield/backend/BackendApplication.java`
+
+---
+
+### Domain: Security
+
+#### JWT Authentication and Spring Security Filter Chain
+- **Affected Module:** `backend/security`
 - **AI Confidence Score:** 95%
 
 **Executive Summary:**
-Fraud detection and risk assessment are isolated into an asynchronous FastAPI and Celery microservice.
+Stateless authentication via JWT tokens coupled with custom filter chains ensuring secure API endpoint access.
 
 **Implementation Details & Context:**
-The risk-engine module runs independently on FastAPI, exposing real-time endpoint `/predict` for heuristic transaction evaluation (checking device IDs, email domains, and amounts) while offloading asynchronous logging and model retraining tasks via Celery to Redis.
+JwtAuthenticationFilter intercepts requests, validates tokens via JwtService, and sets authentication context in Spring Security.
 
 **Traceability & Evidence (Code Pointers):**
-- `risk-engine/main.py`
-- `risk-engine/celery_worker.py`
+- `backend/src/main/java/com/payshield/backend/security/JwtAuthenticationFilter.java`
+- `backend/src/main/java/com/payshield/backend/security/JwtService.java`
 
 ---
 
-#### Local SMTP Testing Simulation with Mailpit
-- **Affected Module:** `Global/System-wide`
-- **AI Confidence Score:** 90%
-
-**Executive Summary:**
-Outgoing email notifications (such as merchant alerts and password resets) are intercepted locally by Mailpit.
-
-**Implementation Details & Context:**
-Configured in `docker-compose.yml` to capture all SMTP traffic on port 1025 with a web dashboard accessible on port 8025, eliminating accidental external email dispatches during testing.
-
-**Traceability & Evidence (Code Pointers):**
-- `docker-compose.yml`
-
----
-
-### Domain: Configuration
-
-#### Multi-Service Containerized Orchestration via Docker Compose
-- **Affected Module:** `Global/System-wide`
-- **AI Confidence Score:** 95%
-
-**Executive Summary:**
-The entire platform is orchestrated locally and in staging using a multi-container Docker Compose setup.
-
-**Implementation Details & Context:**
-Defines interdependent services including PostgreSQL 15 with health checks, Redis 7 for caching and message brokerage, Mailpit for SMTP testing, Spring Boot backend, React frontend, and Python risk-engine workers.
-
-**Traceability & Evidence (Code Pointers):**
-- `docker-compose.yml`
-
----
-
-#### Database Schema Management and Migrations via Flyway
-- **Affected Module:** `backend`
-- **AI Confidence Score:** 88%
-
-**Executive Summary:**
-Relational schema changes and version control are strictly managed using Flyway migrations in PostgreSQL.
-
-**Implementation Details & Context:**
-Integrated directly into the Spring Boot backend via `spring-boot-starter-flyway`, ensuring deterministic database state initialization across development, test, and production environments.
-
-**Traceability & Evidence (Code Pointers):**
-- `backend/pom.xml`
-
----
-
-### Domain: Implementation Detail
-
-#### Enterprise Java 21 Spring Boot Core Backend
-- **Affected Module:** `backend`
+#### API Rate Limiting & Protection Layer
+- **Affected Module:** `backend/security`
 - **AI Confidence Score:** 92%
 
 **Executive Summary:**
-Core payment capture, merchant management, and state reconciliation run on Java 21 with Spring Boot 3.
+Dedicated rate-limiting filter safeguarding payment endpoints against brute-force and denial-of-wallet attacks.
 
 **Implementation Details & Context:**
-Utilizes Spring Data JPA with PostgreSQL, Flyway database migrations, Spring Security with JWT authentication, and Spring Boot Actuator for health monitoring and operational observability.
+RateLimitFilter monitors incoming request frequencies per client or merchant token to protect sensitive payment operations.
 
 **Traceability & Evidence (Code Pointers):**
-- `backend/pom.xml`
-
----
-
-#### Heuristic Fraud Evaluation Pipeline
-- **Affected Module:** `risk-engine`
-- **AI Confidence Score:** 93%
-
-**Executive Summary:**
-Custom deterministic rules evaluate device fingerprinting and email domain risk scoring during transaction inspection.
-
-**Implementation Details & Context:**
-The risk engine evaluates feature vectors (amount, simIccid, deviceId, customerEmail) applying cumulative risk modifiers for unknown devices ('DEV-UNKNOWN') and suspicious email suffixes.
-
-**Traceability & Evidence (Code Pointers):**
-- `risk-engine/main.py`
+- `backend/src/main/java/com/payshield/backend/security/RateLimitFilter.java`
 
 ---
 
 ### Domain: Technical Decision
 
-#### Asynchronous Task Processing with Celery and Redis
+#### Python FastAPI Risk Assessment Engine
 - **Affected Module:** `risk-engine`
-- **AI Confidence Score:** 90%
+- **AI Confidence Score:** 94%
 
 **Executive Summary:**
-Background telemetry logging and model retraining are processed asynchronously to prevent blocking inference calls.
+Secondary microservice built with FastAPI for lightning-fast heuristic risk evaluation and fraud detection.
 
 **Implementation Details & Context:**
-In `risk-engine/main.py`, the `/predict` route triggers `log_transaction_async.delay()` as a fire-and-forget Celery task backed by Redis, ensuring zero latency overhead on risk scoring responses.
+Evaluates transaction vectors against rule sets (amount thresholds, suspicious origins) prior to authorization capture.
 
 **Traceability & Evidence (Code Pointers):**
-- `risk-engine/celery_worker.py`
 - `risk-engine/main.py`
 
 ---
 
-#### Strict Transaction Lifecycle State Machine
-- **Affected Module:** `backend`
+#### Asynchronous Task Processing with Celery
+- **Affected Module:** `risk-engine`
+- **AI Confidence Score:** 90%
+
+**Executive Summary:**
+Celery worker integration supporting asynchronous background processing for high-volume fraud checks and notifications.
+
+**Implementation Details & Context:**
+Decouples resource-heavy verification tasks from synchronous API request-response cycles.
+
+**Traceability & Evidence (Code Pointers):**
+- `risk-engine/celery_worker.py`
+
+---
+
+### Domain: Infrastructure
+
+#### Docker Compose Multi-Container Orchestration
+- **Affected Module:** `root`
+- **AI Confidence Score:** 97%
+
+**Executive Summary:**
+Comprehensive local deployment configuration orchestrating PostgreSQL, Mailpit SMTP simulation, backend, risk engine, and frontend services.
+
+**Implementation Details & Context:**
+Simplifies multi-service development and testing by establishing reproducible container environments.
+
+**Traceability & Evidence (Code Pointers):**
+- `docker-compose.yml`
+
+---
+
+### Domain: Ui Ux
+
+#### React TypeScript Dashboard & Recharts Analytics
+- **Affected Module:** `frontend`
+- **AI Confidence Score:** 93%
+
+**Executive Summary:**
+Modern frontend dashboard built with React, TypeScript, and Recharts for real-time transaction monitoring and financial metrics visualization.
+
+**Implementation Details & Context:**
+Provides merchants and operators with real-time operational visibility into capture success rates, volume trends, and refund tracking.
+
+**Traceability & Evidence (Code Pointers):**
+- `frontend`
+
+---
+
+#### Cred-Wallet Simulated Checkout & Wallet Application
+- **Affected Module:** `cred-wallet`
 - **AI Confidence Score:** 91%
 
 **Executive Summary:**
-Payments follow a rigid state machine transition to ensure financial compliance and prevent double captures.
+Dedicated wallet client interface demonstrating end-to-end customer payment flows and credential storage.
 
 **Implementation Details & Context:**
-Transactions progress through well-defined states: `INITIATED` -> `FRAUD_CHECK` -> `AUTHORIZED` / `FAILED` -> `CAPTURED`, supporting robust idempotency guarantees and refund workflows.
+Acts as the end-user touchpoint for payment authorization and wallet balances.
 
 **Traceability & Evidence (Code Pointers):**
-- `README.md`
+- `cred-wallet`
+
+---
+
+### Domain: Testing
+
+#### Concurrency & Idempotency Testing Harness
+- **Affected Module:** `backend`
+- **AI Confidence Score:** 96%
+
+**Executive Summary:**
+Python concurrency test script designed to stress-test transaction APIs and verify idempotency protections against duplicate charges.
+
+**Implementation Details & Context:**
+Fires concurrent identical requests with shared idempotency keys to ensure database state consistency and zero race conditions.
+
+**Traceability & Evidence (Code Pointers):**
+- `backend/concurrency_test.py`
 
 ---
 

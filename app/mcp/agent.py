@@ -13,7 +13,7 @@ async def run_autonomous_extraction(
     repo: str, 
     llm_client, 
     mcp_session: ClientSession, 
-    max_steps: int = 15
+    max_steps: int = 30
 ) -> Tuple[AgentExtractionResult | None, List[str]]:
     
     logger.info(f"Starting autonomous agent for {owner}/{repo}")

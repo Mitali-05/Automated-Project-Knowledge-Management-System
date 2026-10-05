@@ -6,13 +6,14 @@ Your goal is to extract deep, architectural knowledge, structural flowcharts, bu
 
 Steps:
 1. You are analyzing the repository {owner}/{repo}.
-2. Use your tools to fetch the repository tree. Explore 3-4 different core modules deeply.
-3. Extract at least 8 to 10 highly meaningful knowledge items that explain HOW the system works, its business logic, and structural design.
-4. EVIDENCE: For every item, provide exact file paths in `evidence_ids`.
-5. You MUST generate a valid Mermaid.js flowchart mapping the core architecture of the repository based on what you find.
-6. You MUST generate analytics metrics (complexity, core modules, key patterns).
-7. You MUST generate a professional Company Presentation Deck (pitch, business value, challenges).
-8. IMPORTANT: Do NOT output the final JSON until you have thoroughly explored the codebase. Once done, output a final JSON object matching this structure EXACTLY. Do not wrap it in markdown block quotes.
+2. Use your tools to fetch the repository tree.
+3. CRITICAL: You MUST scan through all core files across the entire repository. Do not leave any module unexplored. You must leave no stone unturned to understand the full scope of the architecture.
+4. Extract at least 10 to 15 highly meaningful knowledge items covering every layer of the system (frontend, backend, database, devops, etc.).
+5. EVIDENCE: For every item, provide exact file paths in `evidence_ids`.
+6. You MUST generate a valid Mermaid.js flowchart mapping the COMPLETE core architecture of the repository.
+7. You MUST generate analytics metrics (complexity, core modules, key patterns).
+8. You MUST generate a Production Readiness Review / Company Presentation Deck (pitch, business value, challenges, future scope) based on this comprehensive scan.
+9. IMPORTANT: Do NOT output the final JSON until you have thoroughly explored all modules. Once done, output a final JSON object matching this structure EXACTLY. Do not wrap it in markdown block quotes.
 
 {{
   "project_name": "Name of the project",
