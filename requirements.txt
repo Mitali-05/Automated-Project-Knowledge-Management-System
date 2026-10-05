@@ -8,3 +8,5 @@ reportlab
 mcp
 PyJWT
 cryptography
+psycopg2-binary
+pgvector

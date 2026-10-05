@@ -61,6 +61,17 @@ class LLMClient:
             return json.loads(raw)
         except json.JSONDecodeError as e:
             raise LLMError(f"{self.provider} did not return valid JSON: {e}\nRaw: {raw[:300]}") from e
+            
+    def embed_text(self, text: str) -> list:
+        try:
+            # We use Gemini's text-embedding-004 model via the OpenAI compatibility layer
+            response = self.client.embeddings.create(
+                model="text-embedding-004",
+                input=text
+            )
+            return response.data[0].embedding
+        except Exception as e:
+            raise LLMError(f"Failed to generate embeddings: {e}") from e
         
 def default_provider() -> str:
     return DEFAULT_PROVIDER

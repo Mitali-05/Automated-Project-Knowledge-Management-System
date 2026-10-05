@@ -273,6 +273,31 @@ if st.button("Analyze Repository Agentically", type="primary", use_container_wid
                         
             st.success(f"💾 Files generated successfully! Check your project folder for `raw_knowledge.json` and `formatted_report.md`.")
             
+            # --- Vector DB Insertion ---
+            with st.spinner("Pushing semantic knowledge to AWS Aurora Vector Database..."):
+                try:
+                    from app.core.db import VectorDatabase
+                    db = VectorDatabase()
+                    db.initialize_schema()
+                    
+                    for item in items:
+                        # Create embedding from the summary
+                        embed_text = f"Title: {item.title}\nSummary: {item.summary}\nModule: {item.module}"
+                        vector = llm_client.embed_text(embed_text)
+                        
+                        db.insert_knowledge(
+                            repository_name=f"{owner}/{repo}",
+                            knowledge_type=item.knowledge_type,
+                            title=item.title,
+                            summary=item.summary,
+                            details=item.details or "",
+                            evidence=",".join(item.evidence_ids) if item.evidence_ids else "",
+                            embedding=vector
+                        )
+                    st.success("✅ Semantic knowledge successfully embedded and stored in AWS Aurora!")
+                except Exception as e:
+                    st.error(f"Failed to push to AWS Database: {e}")
+                    
             st.write("")
             col1, col2 = st.columns(2)
             with col1:
