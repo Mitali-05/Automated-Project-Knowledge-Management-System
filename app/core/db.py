@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 class VectorDatabase:
     def __init__(self):
-        self.host = os.getenv("DB_HOST", "database-1-instance-1.c278siws09bw.us-east-1.rds.amazonaws.com")
+        self.host = os.getenv("DB_HOST", "localhost")
         self.port = os.getenv("DB_PORT", "5432")
         self.dbname = os.getenv("DB_NAME", "postgres")
         self.user = os.getenv("DB_USER", "postgres")
