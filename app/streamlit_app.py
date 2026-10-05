@@ -173,15 +173,41 @@ if st.button("Analyze Repository Agentically", type="primary", use_container_wid
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 
-            items, executed_tools, problem_statement, tech_stack = loop.run_until_complete(execute_agent())
+            result, executed_tools = loop.run_until_complete(execute_agent())
 
         st.success(f"Agent finished! It called these MCP tools: {', '.join(executed_tools) if executed_tools else 'None'}")
 
-        st.subheader(f"🧠 Extracted Knowledge ({len(items)})")
-
-        if not items:
+        if not result or not result.knowledge_items:
             st.warning("No meaningful organizational knowledge was extracted.")
             st.stop()
+            
+        items = result.knowledge_items
+        
+        # --- UI Rendering for New Components ---
+        st.header(f"📊 Analytics & Architecture for {result.project_name}")
+        
+        # 1. Presentation Deck
+        with st.expander("💼 Company Presentation Deck (For Management)", expanded=True):
+            st.markdown(f"### The Pitch\n{result.presentation_deck.executive_pitch}")
+            st.markdown(f"### Business Value\n{result.presentation_deck.business_value}")
+            st.markdown(f"### Technical Challenges\n{result.presentation_deck.technical_challenges}")
+            st.markdown(f"### Future Scope\n{result.presentation_deck.future_scope}")
+            
+        # 2. Analytics Metrics Cards
+        st.markdown("### 📈 Core Metrics")
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Complexity", result.analytics_metrics.estimated_complexity)
+        m2.metric("Core Modules", result.analytics_metrics.core_module_count)
+        m3.metric("Data Flow", result.analytics_metrics.data_flow_complexity)
+        
+        st.markdown("**Key Patterns Detected:** " + ", ".join(result.analytics_metrics.key_patterns_used))
+        st.markdown("**Security Posture:** " + result.analytics_metrics.security_posture)
+        
+        # 3. Mermaid Architecture Chart
+        st.markdown("### 🗺️ System Architecture Flowchart")
+        st.markdown(f"```mermaid\n{result.architecture_mermaid_chart}\n```")
+
+        st.subheader(f"🧠 Extracted Knowledge ({len(items)})")
 
         for i, item in enumerate(items, start=1):
             with st.container(border=True):
@@ -217,26 +243,39 @@ if st.button("Analyze Repository Agentically", type="primary", use_container_wid
             # 1. Write Raw Knowledge JSON
             with open(raw_file_path, "w", encoding="utf-8") as f:
                 import json
-                raw_data = [item.model_dump() for item in items]
-                json.dump(raw_data, f, indent=4)
+                json.dump(result.model_dump(), f, indent=4)
                 
             # 2. Write Formatted Report Markdown
             with open(formatted_file_path, "w", encoding="utf-8") as f:
                 f.write(f"# Software Architecture & Knowledge Document: {owner}/{repo}\n\n")
                 f.write("> *Generated Autonomously by PRISM Agentic Extraction*\n\n")
                 
-                f.write("## 1. Executive Summary & Problem Statement\n")
-                f.write(f"{problem_statement}\n\n")
+                f.write(f"## 1. Executive Summary & Problem Statement\n")
+                f.write(f"{result.problem_statement}\n\n")
                 
-                f.write("## 2. Technology Stack\n")
-                if tech_stack:
-                    for tech in tech_stack:
+                f.write("## 2. Business Value & Presentation Deck\n")
+                f.write(f"**Pitch:** {result.presentation_deck.executive_pitch}\n\n")
+                f.write(f"**Value:** {result.presentation_deck.business_value}\n\n")
+                f.write(f"**Challenges:** {result.presentation_deck.technical_challenges}\n\n")
+                f.write(f"**Future Scope:** {result.presentation_deck.future_scope}\n\n")
+                
+                f.write("## 3. Analytics & Flowchart\n")
+                f.write(f"- **Complexity:** {result.analytics_metrics.estimated_complexity}\n")
+                f.write(f"- **Modules:** {result.analytics_metrics.core_module_count}\n")
+                f.write(f"- **Security:** {result.analytics_metrics.security_posture}\n")
+                f.write("```mermaid\n")
+                f.write(result.architecture_mermaid_chart)
+                f.write("\n```\n\n")
+                
+                f.write("## 4. Technology Stack\n")
+                if result.tech_stack:
+                    for tech in result.tech_stack:
                         f.write(f"- {tech}\n")
                 else:
                     f.write("*Tech stack could not be determined.*\n")
                 f.write("\n")
                 
-                f.write("## 3. Repository Structure\n")
+                f.write("## 5. Repository Structure\n")
                 f.write("```text\n")
                 if tree:
                     for item in tree[:200]: 
@@ -248,7 +287,7 @@ if st.button("Analyze Repository Agentically", type="primary", use_container_wid
                     f.write("Structure unavailable.\n")
                 f.write("```\n\n")
                 
-                f.write("## 4. Technical Architecture & Component Knowledge\n\n")
+                f.write("## 6. Technical Architecture & Component Knowledge\n\n")
                 
                 # Group by knowledge_type
                 from collections import defaultdict

@@ -2,7 +2,7 @@ import json
 import logging
 import asyncio
 from typing import List, Tuple
-from app.core.models import KnowledgeItem
+from app.core.models import KnowledgeItem, AgentExtractionResult
 from mcp.client.session import ClientSession
 from app.prompts.agent_prompts import AGENT_SYSTEM_PROMPT
 
@@ -14,7 +14,7 @@ async def run_autonomous_extraction(
     llm_client, 
     mcp_session: ClientSession, 
     max_steps: int = 15
-) -> Tuple[List[KnowledgeItem], List[str], str, List[str]]:
+) -> Tuple[AgentExtractionResult | None, List[str]]:
     
     logger.info(f"Starting autonomous agent for {owner}/{repo}")
     
@@ -102,13 +102,11 @@ async def run_autonomous_extraction(
                     content = content.split("```")[1].split("```")[0]
                     
                 data = json.loads(content)
-                items = [KnowledgeItem.model_validate(obj) for obj in data.get("knowledge_items", [])]
-                problem_statement = data.get("problem_statement", "Problem statement unavailable.")
-                tech_stack = data.get("tech_stack", [])
-                return items, executed_tools, problem_statement, tech_stack
+                result = AgentExtractionResult.model_validate(data)
+                return result, executed_tools
             except Exception as e:
                 logger.error(f"Failed to parse final JSON: {e}")
-                return [], executed_tools, "", []
+                return None, executed_tools
 
     logger.warning("Agent reached max steps. Forcing final JSON output.")
     messages.append({"role": "user", "content": "You have reached your step limit. Output the JSON array of knowledge_items based ONLY on what you have found so far."})
@@ -125,10 +123,8 @@ async def run_autonomous_extraction(
             content = content.split("```")[1].split("```")[0]
             
         data = json.loads(content)
-        items = [KnowledgeItem.model_validate(obj) for obj in data.get("knowledge_items", [])]
-        problem_statement = data.get("problem_statement", "Problem statement unavailable.")
-        tech_stack = data.get("tech_stack", [])
-        return items, executed_tools, problem_statement, tech_stack
+        result = AgentExtractionResult.model_validate(data)
+        return result, executed_tools
     except Exception as e:
         logger.error(f"Failed to parse forced final JSON: {e}")
-        return [], executed_tools, "", []
+        return None, executed_tools
