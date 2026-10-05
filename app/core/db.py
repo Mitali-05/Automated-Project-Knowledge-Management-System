@@ -7,11 +7,11 @@ logger = logging.getLogger(__name__)
 
 class VectorDatabase:
     def __init__(self):
-        self.host = os.getenv("DB_HOST")
-        self.port = os.getenv("DB_PORT")
-        self.dbname = os.getenv("DB_NAME")
-        self.user = os.getenv("DB_USER")
-        self.password = os.getenv("DB_PASSWORD")
+        self.host = os.getenv("DB_HOST", "localhost")
+        self.port = os.getenv("DB_PORT", "5432")
+        self.dbname = os.getenv("DB_NAME", "postgres")
+        self.user = os.getenv("DB_USER", "postgres")
+        self.password = os.getenv("DB_PASSWORD", "")
         
     def get_connection(self):
         if not self.password:

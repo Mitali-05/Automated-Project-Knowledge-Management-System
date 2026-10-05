@@ -64,12 +64,24 @@ class LLMClient:
             
     def embed_text(self, text: str) -> list:
         try:
-            # We use Gemini's text-embedding-004 model via the OpenAI compatibility layer
-            response = self.client.embeddings.create(
-                model="text-embedding-004",
-                input=text
-            )
-            return response.data[0].embedding
+            if self.provider == "gemini":
+                import requests
+                api_key = self.client.api_key
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key={api_key}"
+                payload = {
+                    "model": "models/text-embedding-004",
+                    "content": {"parts": [{"text": text}]}
+                }
+                response = requests.post(url, headers={"Content-Type": "application/json"}, json=payload)
+                response.raise_for_status()
+                data = response.json()
+                return data["embedding"]["values"]
+            else:
+                response = self.client.embeddings.create(
+                    model="text-embedding-004",
+                    input=text
+                )
+                return response.data[0].embedding
         except Exception as e:
             raise LLMError(f"Failed to generate embeddings: {e}") from e
         
