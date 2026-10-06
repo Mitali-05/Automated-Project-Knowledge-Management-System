@@ -16,13 +16,17 @@ class VectorDatabase:
     def get_connection(self):
         if not self.password:
             logger.warning("DB_PASSWORD is empty. Database operations will likely fail.")
+        # Automatically disable SSL for localhost unless explicitly overridden
+        default_ssl = 'disable' if self.host in ('localhost', '127.0.0.1') else 'require'
+        ssl_mode = os.getenv("DB_SSLMODE", default_ssl)
+        
         conn = psycopg2.connect(
             host=self.host,
             port=self.port,
             dbname=self.dbname,
             user=self.user,
             password=self.password,
-            sslmode='require'
+            sslmode=ssl_mode
         )
         return conn
 

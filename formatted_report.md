@@ -3,60 +3,83 @@
 > *Generated Autonomously by PRISM Agentic Extraction*
 
 ## 1. Executive Summary & Problem Statement
-Modern digital payment ecosystems face rampant fraud, concurrency bottlenecks, and complex compliance challenges. PayShield provides an enterprise-grade, high-concurrency payment security and risk mitigation platform featuring real-time fraud detection, secure credential wallets, multi-layered merchant processing, and robust audit mechanisms.
+PayShield addresses the complex challenges of enterprise payment processing, fraud detection, ledger reconciliation, and merchant settlement. Modern businesses require secure, idempotent, high-concurrency transaction pipelines that can process payments, screen for fraud in milliseconds, reconcile bank statements automatically, and disburse settlements seamlessly while complying with strict security standards.
 
 ## 2. Business Value & Presentation Deck
-**Pitch:** PayShield delivers a mission-critical, secure payment processing and risk mitigation gateway that combines high-performance Spring Boot backends with lightning-fast asynchronous Python risk engines to protect merchants against sophisticated financial fraud in real-time.
+**Pitch:** PayShield is an enterprise-grade payment processing and risk management platform engineered to emulate global PSPs like Stripe and Adyen. Combining high-concurrency Spring Boot microservices-ready architecture, millisecond fraud screening, automated bank reconciliation, and real-time React analytics, PayShield delivers complete financial transaction lifecycle control and uncompromising security for modern digital commerce.
 
-**Value:** Minimizes transaction fraud losses by up to 45%, ensures millisecond payment approvals under high concurrency spikes, and provides comprehensive auditability for enterprise compliance.
+**Value:** Eliminates duplicate transactions and fraud losses through strict idempotency and automated risk heuristics. Accelerates merchant onboarding and reduces operational overhead via automated reconciliation and daily batch settlements with transparent fee deduction.
 
-**Challenges:** Handling high concurrency race conditions in wallet and merchant transactions, bridging synchronous Java Spring Boot APIs with asynchronous Python/Celery risk detection workers, and enforcing strict JWT and role-based security across multiple frontends.
+**Challenges:** Solving concurrency race conditions during simultaneous payment capture attempts, enforcing robust idempotency constraints across multi-step transaction pipelines, and maintaining state machine integrity across state transitions from initialization through settlement.
 
-**Future Scope:** Integration of advanced Machine Learning models for predictive anomaly detection, support for multi-region active-active database replication, and expansion of payment gateway adapters (Stripe, PayPal, UPI).
+**Future Scope:** Transitioning from a layered monolith to distributed event-driven microservices via Apache Kafka, integrating machine learning models for dynamic fraud scoring, and supporting multi-currency cross-border settlements.
 
 ## 3. Analytics & Flowchart
 - **Complexity:** High
-- **Modules:** 5
-- **Security:** Strict RBAC, Spring Security JWT verification, and encrypted credential wallet management.
+- **Modules:** 8
+- **Security:** JWT-based authentication, API Key merchant onboarding, password hashing with BCrypt, strict role separation
 ```mermaid
 graph TD
   subgraph Client Tier
-    FE[React Frontend / Dashboard] --> GW[API Gateway / Spring Boot]
-    CW[Cred Wallet Frontend] --> GW
+    FE[React 18 Dashboard / SDK] -->|HTTPS / JWT| APIGW[Spring Boot API Gateway / Controllers]
   end
-
-  subgraph Backend Core Services
-    GW --> Auth[Authentication & RBAC Service]
-    GW --> Merch[Merchant & Transaction Service]
-    GW --> FraudSvc[Fraud Analysis Service]
-    GW --> Audit[Audit & Notification Service]
+  subgraph Core Services Layer
+    APIGW --> Auth[Authentication & RBAC Service]
+    APIGW --> Merch[Merchant Management Service]
+    APIGW --> Tx[Transaction Lifecycle Service]
+    APIGW --> Fraud[Fraud & Risk Engine]
+    APIGW --> Settlement[Settlement & Payout Service]
+    APIGW --> Recon[Reconciliation Engine]
   end
-
-  subgraph Risk Engine & Workers
-    FraudSvc --> RiskAPI[Python FastAPI Risk Engine]
-    RiskAPI --> Celery[Celery Async Risk Worker]
-  end
-
-  subgraph Data Persistence
-    Merch --> DB[(PostgreSQL Database)]
-    Auth --> DB
-    RiskAPI --> DB
+  subgraph Data & Infra Tier
+    Tx -->|Idempotency Check| PG[(PostgreSQL Database)]
+    Fraud -->|Heuristics & Rules| PG
+    Settlement -->|Batch Calculations| PG
+    Recon -->|CSV Bank Matching| PG
+    Auth -->|Audit Logs| PG
+    Tx --> Mail[Mailpit SMTP Notifications]
   end
 ```
 
 ## 4. Technology Stack
-- Java
-- Spring Boot
-- Python
-- FastAPI
-- Celery
-- React
-- Vite
-- Docker
-- Docker Compose
+- Java 21
+- Spring Boot 3.3
+- Spring Security (JWT)
+- Spring Data JPA
+- Flyway
 - PostgreSQL
+- React 18
+- TypeScript
+- Material UI
+- Recharts
+- Docker
+- Mailpit
 
-## 5. Repository Structure
+## 5. Engineering Handover Guide
+
+### Local Setup & Prerequisites
+Docker & Docker Compose, Java 21 JDK, Node.js 18+, Maven
+
+### Directory Tour
+- **`backend/src/main/java/com/payshield/backend/service/`**: Core business logic implementing transaction state machines, fraud evaluation, merchant management, authentication, and reconciliation.
+- **`backend/src/main/java/com/payshield/backend/controller/`**: REST API controllers exposing secure endpoints for merchants, payments, refunds, and admin operations.
+- **`frontend/`**: React 18 single-page application with TypeScript, Material UI, and Recharts for live transaction monitoring and merchant reporting.
+- **`risk-engine/`**: Dedicated risk assessment and fraud rule evaluation module.
+
+### Critical Workflows
+**Transaction Processing & Fraud Check Pipeline**
+- *Entry:* `backend/src/main/java/com/payshield/backend/service/FraudService.java`
+- *Path:* `API Controller -> Transaction Service -> Idempotency Check -> Fraud Engine -> State Update (AUTHORIZED/FAILED) -> PostgreSQL & Mailpit Notification`
+
+**Merchant Authentication & Onboarding**
+- *Entry:* `backend/src/main/java/com/payshield/backend/service/AuthenticationService.java`
+- *Path:* `Auth Controller -> Authentication Service -> Password Verification / JWT Generation -> Role Assignment -> PostgreSQL`
+
+### Technical Debt & Fragility
+- Asynchronous email notifications via Mailpit lack retry queues for SMTP failures.
+- High-concurrency testing relies on Python scripts rather than integrated automated test suites in CI.
+
+## 6. Repository Structure
 ```text
 [DIR]  .github
 [DIR]  .github/workflows
@@ -261,176 +284,193 @@ graph TD
 ... (truncated)
 ```
 
-## 6. Technical Architecture & Component Knowledge
+## 7. Technical Architecture & Component Knowledge
 
 ### Domain: Technical Decision
 
-#### Spring Boot Backend Architecture
-- **Affected Module:** `backend`
+#### Idempotency Architecture for Transaction Safety
+- **Affected Module:** `backend/src/main/java/com/payshield/backend/service/`
 - **AI Confidence Score:** 98%
 
 **Executive Summary:**
-Core transaction and business logic powered by Spring Boot with modular services for authentication, merchants, fraud handling, and auditing.
+Implementation of idempotency keys in payment processing to prevent duplicate charges caused by network retries.
 
 **Implementation Details & Context:**
-The backend implements robust controller-service-repository layers with strict dependency injection, robust exception handling, and Spring Security.
+The system mandates the inclusion of an `Idempotency-Key` header for transaction requests, caching and returning previously processed responses if duplicate requests arrive.
 
 **Traceability & Evidence (Code Pointers):**
-- `backend/src/main/java/com/payshield/backend/BackendApplication.java`
-- `backend/src/main/java/com/payshield/backend/service/AuthenticationService.java`
+- `backend/src/main/java/com/payshield/backend/service/`
 
 ---
 
-#### Python FastAPI & Celery Risk Engine
-- **Affected Module:** `risk-engine`
-- **AI Confidence Score:** 95%
+#### State Machine Payment Lifecycle Management
+- **Affected Module:** `backend/src/main/java/com/payshield/backend/service/`
+- **AI Confidence Score:** 96%
 
 **Executive Summary:**
-Asynchronous risk scoring and fraud evaluation pipeline built with FastAPI and Celery workers.
+Enforcement of strict state transitions across payment lifecycles.
 
 **Implementation Details & Context:**
-Decouples heavy computational fraud rules from the main payment transaction flow using background task workers.
+Transactions progress systematically from INITIATED -> FRAUD_CHECK -> AUTHORIZED/FAILED -> CAPTURED, ensuring ledger consistency at every step.
 
 **Traceability & Evidence (Code Pointers):**
-- `risk-engine/main.py`
-- `risk-engine/celery_worker.py`
+- `backend/src/main/java/com/payshield/backend/service/`
 
 ---
 
-### Domain: Architecture
-
-#### React & Vite Frontend Portals
-- **Affected Module:** `frontend`
-- **AI Confidence Score:** 92%
-
-**Executive Summary:**
-Multi-client frontend architecture featuring a main merchant dashboard and a dedicated credential wallet application.
-
-**Implementation Details & Context:**
-Built using modern React, Vite, and Tailwind CSS for responsive, high-speed user experiences.
-
-**Traceability & Evidence (Code Pointers):**
-- `frontend/package.json`
-- `cred-wallet/package.json`
-
----
-
-#### Credential Wallet Frontend Architecture
-- **Affected Module:** `cred-wallet`
-- **AI Confidence Score:** 91%
-
-**Executive Summary:**
-Standalone credential management interface for user wallets and tokenized payment methods.
-
-**Implementation Details & Context:**
-Provides secure wallet balances, transaction history, and card management features.
-
-**Traceability & Evidence (Code Pointers):**
-- `cred-wallet/README.md`
-- `cred-wallet/package.json`
-
----
-
-### Domain: Devops
-
-#### Docker Compose Multi-Container Orchestration
-- **Affected Module:** `root`
-- **AI Confidence Score:** 97%
-
-**Executive Summary:**
-Complete containerization strategy integrating backend, frontend, risk engine, and database services.
-
-**Implementation Details & Context:**
-Streamlines local development and production deployments by orchestrating all microservices via Docker Compose.
-
-**Traceability & Evidence (Code Pointers):**
-- `docker-compose.yml`
-- `backend/Dockerfile`
-- `risk-engine/Dockerfile`
-
----
-
-### Domain: Testing
-
-#### Concurrency Testing Suite
-- **Affected Module:** `backend`
+#### Audit Logging and Immutable Compliance
+- **Affected Module:** `backend/src/main/java/com/payshield/backend/service/AuditService.java`
 - **AI Confidence Score:** 94%
 
 **Executive Summary:**
-Dedicated Python concurrency test script to validate thread-safety and race-condition resistance under high loads.
+Comprehensive audit logging for all critical system actions and financial state changes.
 
 **Implementation Details & Context:**
-Simulates concurrent transaction requests against backend endpoints to ensure ledger accuracy.
+AuditService records administrative and transactional actions to maintain traceability and meet regulatory compliance requirements.
 
 **Traceability & Evidence (Code Pointers):**
-- `backend/concurrency_test.py`
+- `backend/src/main/java/com/payshield/backend/service/AuditService.java`
+
+---
+
+#### React 18 & Recharts Real-Time Analytics Dashboard
+- **Affected Module:** `frontend/`
+- **AI Confidence Score:** 94%
+
+**Executive Summary:**
+Modern single-page frontend delivering real-time financial reporting and transaction visualization.
+
+**Implementation Details & Context:**
+Built with React 18, TypeScript, Material UI, and Recharts, the frontend offers merchants and administrators real-time insights into volume, success rates, and risk metrics.
+
+**Traceability & Evidence (Code Pointers):**
+- `frontend/`
+
+---
+
+#### Flyway Database Migration Management
+- **Affected Module:** `backend/src/main/resources/db/migration/`
+- **AI Confidence Score:** 96%
+
+**Executive Summary:**
+Version-controlled database schema evolution using Flyway.
+
+**Implementation Details & Context:**
+Automates database schema deployment and versioning upon application startup, ensuring consistent schema states across environments.
+
+**Traceability & Evidence (Code Pointers):**
+- `backend/`
 
 ---
 
 ### Domain: Business Logic
 
-#### Fraud Detection Service Logic
-- **Affected Module:** `backend`
-- **AI Confidence Score:** 96%
+#### Millisecond Fraud Risk Engine Heuristics
+- **Affected Module:** `backend/src/main/java/com/payshield/backend/service/FraudService.java`
+- **AI Confidence Score:** 97%
 
 **Executive Summary:**
-Algorithmic rules and integration checks inside FraudService to flag suspicious transactions.
+Real-time transaction risk scoring based on amount limits and suspicious domain heuristics.
 
 **Implementation Details & Context:**
-Coordinates between Java backend validation and external risk engine evaluations.
+FraudService evaluates incoming transactions against velocity rules, threshold amounts, and blacklisted domains to instantly block high-risk payments.
 
 **Traceability & Evidence (Code Pointers):**
 - `backend/src/main/java/com/payshield/backend/service/FraudService.java`
 
 ---
 
-#### Merchant Management Module
-- **Affected Module:** `backend`
+#### Automated Reconciliation Engine
+- **Affected Module:** `backend/src/main/java/com/payshield/backend/service/`
 - **AI Confidence Score:** 95%
 
 **Executive Summary:**
-Comprehensive merchant onboarding, profile management, and account status tracking.
+Automated matching of simulated bank CSV statements against internal database records.
 
 **Implementation Details & Context:**
-Handles merchant metadata and transaction limits securely.
+The reconciliation engine parses bank settlement files, cross-references transaction IDs and amounts, and flags discrepancies automatically.
+
+**Traceability & Evidence (Code Pointers):**
+- `backend/src/main/java/com/payshield/backend/service/`
+
+---
+
+#### Daily Batch Settlement and Fee Calculation
+- **Affected Module:** `backend/src/main/java/com/payshield/backend/service/`
+- **AI Confidence Score:** 95%
+
+**Executive Summary:**
+Daily batch aggregation of captured funds with automatic 2.9% simulation fee deduction.
+
+**Implementation Details & Context:**
+Settlement service processes captured transactions in batch runs, computes merchant payouts minus platform fees, and generates payout ledgers.
+
+**Traceability & Evidence (Code Pointers):**
+- `backend/src/main/java/com/payshield/backend/service/`
+
+---
+
+#### Merchant Onboarding and API Key Generation
+- **Affected Module:** `backend/src/main/java/com/payshield/backend/service/MerchantService.java`
+- **AI Confidence Score:** 95%
+
+**Executive Summary:**
+Secure provisioning of merchant accounts and unique API credentials.
+
+**Implementation Details & Context:**
+MerchantService handles merchant registration, profile management, and secure API key generation for programmatic payment submissions.
 
 **Traceability & Evidence (Code Pointers):**
 - `backend/src/main/java/com/payshield/backend/service/MerchantService.java`
 
 ---
 
-### Domain: Security
+### Domain: Security Architecture
 
-#### Stateless JWT Authentication & Security
-- **Affected Module:** `backend`
-- **AI Confidence Score:** 98%
+#### JWT and RBAC Security Architecture
+- **Affected Module:** `backend/src/main/java/com/payshield/backend/security/`
+- **AI Confidence Score:** 97%
 
 **Executive Summary:**
-Secured endpoints via Spring Security configuration and token-based authentication.
+Robust authentication and authorization using Spring Security, JWT tokens, and BCrypt hashing.
 
 **Implementation Details & Context:**
-Protects sensitive merchant data and administrative endpoints against unauthorized access.
+Endpoints are protected by role-based access control (Admin vs. Merchant), securing access to sensitive operational and financial records.
 
 **Traceability & Evidence (Code Pointers):**
-- `backend/src/main/java/com/payshield/backend/service/AuthenticationService.java`
+- `backend/src/main/java/com/payshield/backend/security/`
 
 ---
 
-### Domain: Compliance
+### Domain: Infrastructure
 
-#### Audit Logging & Notification Subsystem
-- **Affected Module:** `backend`
+#### SMTP Notification Integration via Mailpit
+- **Affected Module:** `backend/src/main/java/com/payshield/backend/service/NotificationService.java`
 - **AI Confidence Score:** 93%
 
 **Executive Summary:**
-Dedicated audit trail tracking and notification dispatching for system actions and security events.
+Local email notification simulation using Mailpit for payment confirmations and alerts.
 
 **Implementation Details & Context:**
-Ensures regulatory compliance and transparent traceability of all financial and administrative actions.
+NotificationService dispatches email notifications for transaction status changes, integrated seamlessly with Docker Compose for local development.
 
 **Traceability & Evidence (Code Pointers):**
-- `backend/src/main/java/com/payshield/backend/service/AuditService.java`
 - `backend/src/main/java/com/payshield/backend/service/NotificationService.java`
+
+---
+
+#### Dockerized Multi-Container Development Environment
+- **Affected Module:** `docker-compose.yml`
+- **AI Confidence Score:** 98%
+
+**Executive Summary:**
+Docker Compose orchestration for PostgreSQL, Mailpit, backend, and frontend services.
+
+**Implementation Details & Context:**
+Ensures reproducible deployments and local development parity across environments through containerized services.
+
+**Traceability & Evidence (Code Pointers):**
+- `docker-compose.yml`
 
 ---
 
