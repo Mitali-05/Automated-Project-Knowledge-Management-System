@@ -183,12 +183,35 @@ if st.button("Analyze Repository Agentically", type="primary", use_container_wid
 
     # --- Display Repository File Tree ---
     with st.expander("Repository File Structure", expanded=False):
-        st.markdown(f"Fetching tree for `{owner}/{repo}`...")
         tree = fetch_repo_tree(st.session_state.github_token, owner, repo)
         if tree:
+            # Build a nested dictionary representing the tree
+            file_tree = {}
             for item in tree:
-                icon = "[Folder]" if item.get("type") == "tree" else "[File]"
-                st.text(f"{icon} {item.get('path')}")
+                parts = item.get('path', '').split('/')
+                current = file_tree
+                for part in parts[:-1]:
+                    if part not in current:
+                        current[part] = {}
+                    current = current[part]
+                current[parts[-1]] = "folder" if item.get("type") == "tree" else "file"
+            
+            # Recursive HTML generator
+            def build_tree_html(node, indent=0):
+                html = ""
+                # Sort: folders first, then files, alphabetically
+                sorted_items = sorted(node.items(), key=lambda x: (x[1] == "file", x[0]))
+                for k, v in sorted_items:
+                    margin = indent * 20
+                    if v == "folder" or isinstance(v, dict):
+                        html += f'<div style="margin-left: {margin}px; font-family: monospace; padding: 2px 0;"><span style="color: #fbbf24;">📁</span> <b>{k}</b></div>'
+                        if isinstance(v, dict):
+                            html += build_tree_html(v, indent + 1)
+                    else:
+                        html += f'<div style="margin-left: {margin}px; font-family: monospace; color: #94a3b8; padding: 2px 0;">📄 {k}</div>'
+                return html
+                
+            st.markdown(f'<div style="background: rgba(15, 23, 42, 0.4); padding: 20px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); max-height: 400px; overflow-y: auto;">{build_tree_html(file_tree)}</div>', unsafe_allow_html=True)
         else:
             st.warning("Could not fetch file tree.")
 
