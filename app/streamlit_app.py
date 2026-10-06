@@ -191,10 +191,15 @@ if st.button("Analyze Repository Agentically", type="primary", use_container_wid
                 parts = item.get('path', '').split('/')
                 current = file_tree
                 for part in parts[:-1]:
-                    if part not in current:
+                    if part not in current or not isinstance(current[part], dict):
                         current[part] = {}
                     current = current[part]
-                current[parts[-1]] = "folder" if item.get("type") == "tree" else "file"
+                
+                if item.get("type") == "tree":
+                    if parts[-1] not in current or not isinstance(current[parts[-1]], dict):
+                        current[parts[-1]] = {}
+                else:
+                    current[parts[-1]] = "file"
             
             # Recursive HTML generator
             def build_tree_html(node, indent=0):
@@ -203,10 +208,9 @@ if st.button("Analyze Repository Agentically", type="primary", use_container_wid
                 sorted_items = sorted(node.items(), key=lambda x: (x[1] == "file", x[0]))
                 for k, v in sorted_items:
                     margin = indent * 20
-                    if v == "folder" or isinstance(v, dict):
+                    if isinstance(v, dict):
                         html += f'<div style="margin-left: {margin}px; font-family: monospace; padding: 2px 0;"><span style="color: #fbbf24;">📁</span> <b>{k}</b></div>'
-                        if isinstance(v, dict):
-                            html += build_tree_html(v, indent + 1)
+                        html += build_tree_html(v, indent + 1)
                     else:
                         html += f'<div style="margin-left: {margin}px; font-family: monospace; color: #94a3b8; padding: 2px 0;">📄 {k}</div>'
                 return html
