@@ -33,6 +33,26 @@ Steps:
     "technical_challenges": "The hardest engineering challenges solved in this repo.",
     "future_scope": "What should be built next."
   }},
+  "developer_handover_guide": {{
+    "local_setup_prerequisites": "System tools required (Docker, Node, etc.)...",
+    "directory_tour": [
+      {{
+        "folder_path": "backend/src/.../",
+        "architectural_role": "Core Java Spring Boot monolith..."
+      }}
+    ],
+    "critical_workflows": [
+      {{
+        "workflow_name": "Fraud Detection Pipeline",
+        "entry_point": "backend/.../FraudService.java",
+        "execution_path": "Java API -> Redis Queue -> Celery Worker -> PostgreSQL"
+      }}
+    ],
+    "technical_debt_and_fragility": [
+      "The Celery workers lack comprehensive unit testing.",
+      "Tight coupling in AuthenticationService could cause bottlenecks."
+    ]
+  }},
   "knowledge_items":[
     {{
       "title": "...", 

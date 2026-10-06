@@ -33,6 +33,21 @@ class PresentationDeck(BaseModel):
     technical_challenges: str
     future_scope: str
 
+class DirectoryItem(BaseModel):
+    folder_path: str
+    architectural_role: str
+
+class CriticalWorkflow(BaseModel):
+    workflow_name: str
+    entry_point: str
+    execution_path: str
+
+class DeveloperHandoverGuide(BaseModel):
+    local_setup_prerequisites: str
+    directory_tour: list[DirectoryItem] = []
+    critical_workflows: list[CriticalWorkflow] = []
+    technical_debt_and_fragility: list[str] = []
+
 class AgentExtractionResult(BaseModel):
     project_name: str
     problem_statement: str
@@ -40,4 +55,5 @@ class AgentExtractionResult(BaseModel):
     architecture_mermaid_chart: str
     analytics_metrics: AnalyticsMetrics
     presentation_deck: PresentationDeck
+    developer_handover_guide: DeveloperHandoverGuide
     knowledge_items: list[KnowledgeItem] = []

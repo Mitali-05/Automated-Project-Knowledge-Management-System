@@ -19,6 +19,42 @@ load_dotenv(override=True)
 
 st.set_page_config(page_title="GitHub Knowledge Extraction", layout="wide")
 
+# Apply Custom Modern CSS
+st.markdown("""
+<style>
+    /* Metric Card Styling */
+    div[data-testid="metric-container"] {
+        background-color: rgba(30, 41, 59, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 15px 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+    
+    /* Expander Styling */
+    .streamlit-expanderHeader {
+        font-weight: 600;
+        font-size: 1.1rem;
+        background-color: rgba(30, 41, 59, 0.3) !important;
+        border-radius: 8px;
+    }
+    
+    /* General Container styling for clean separation */
+    div[data-testid="stVerticalBlock"] > div[style*="flex-direction: column"] > div[data-testid="stVerticalBlock"] {
+        background: rgba(15, 23, 42, 0.4);
+        border-radius: 12px;
+        padding: 1rem;
+    }
+    
+    /* Header typography */
+    h1, h2, h3 {
+        font-family: 'Inter', sans-serif;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 st.title("GitHub Knowledge Extraction — Agentic MCP Prototype")
 st.caption("LLM Autonomously explores GitHub via Model Context Protocol tools.")
 
@@ -193,6 +229,31 @@ if st.button("Analyze Repository Agentically", type="primary", use_container_wid
             st.markdown(f"### Technical Challenges\n{result.presentation_deck.technical_challenges}")
             st.markdown(f"### Future Scope\n{result.presentation_deck.future_scope}")
             
+        # 1.5 Developer Handover Guide (NEW)
+        if hasattr(result, "developer_handover_guide") and result.developer_handover_guide:
+            handover = result.developer_handover_guide
+            st.markdown("---")
+            st.header("🛠️ Engineering Handover Guide")
+            
+            with st.container(border=True):
+                st.subheader("🚀 Local Setup & Prerequisites")
+                st.info(handover.local_setup_prerequisites)
+                
+                st.subheader("📂 Directory Tour")
+                for d in handover.directory_tour:
+                    st.markdown(f"- **`{d.folder_path}`**: {d.architectural_role}")
+                    
+                st.subheader("🔄 Critical Workflows Traced")
+                for w in handover.critical_workflows:
+                    st.markdown(f"**{w.workflow_name}**")
+                    st.markdown(f"- *Entry Point:* `{w.entry_point}`")
+                    st.markdown(f"- *Execution Path:* `{w.execution_path}`")
+                    
+                st.subheader("⚠️ Technical Debt & Fragility")
+                for t in handover.technical_debt_and_fragility:
+                    st.warning(t)
+            st.markdown("---")
+            
         # 2. Analytics Metrics Cards
         st.markdown("### 📈 Core Metrics")
         m1, m2, m3 = st.columns(3)
@@ -275,7 +336,26 @@ if st.button("Analyze Repository Agentically", type="primary", use_container_wid
                     f.write("*Tech stack could not be determined.*\n")
                 f.write("\n")
                 
-                f.write("## 5. Repository Structure\n")
+                if hasattr(result, "developer_handover_guide") and result.developer_handover_guide:
+                    hg = result.developer_handover_guide
+                    f.write("## 5. Engineering Handover Guide\n\n")
+                    f.write("### Local Setup & Prerequisites\n")
+                    f.write(f"{hg.local_setup_prerequisites}\n\n")
+                    f.write("### Directory Tour\n")
+                    for d in hg.directory_tour:
+                        f.write(f"- **`{d.folder_path}`**: {d.architectural_role}\n")
+                    f.write("\n### Critical Workflows\n")
+                    for w in hg.critical_workflows:
+                        f.write(f"**{w.workflow_name}**\n")
+                        f.write(f"- *Entry:* `{w.entry_point}`\n")
+                        f.write(f"- *Path:* `{w.execution_path}`\n\n")
+                    f.write("### Technical Debt & Fragility\n")
+                    for t in hg.technical_debt_and_fragility:
+                        f.write(f"- {t}\n")
+                    f.write("\n")
+                
+                
+                f.write("## 6. Repository Structure\n")
                 f.write("```text\n")
                 if tree:
                     for item in tree[:200]: 
@@ -287,7 +367,7 @@ if st.button("Analyze Repository Agentically", type="primary", use_container_wid
                     f.write("Structure unavailable.\n")
                 f.write("```\n\n")
                 
-                f.write("## 6. Technical Architecture & Component Knowledge\n\n")
+                f.write("## 7. Technical Architecture & Component Knowledge\n\n")
                 
                 # Group by knowledge_type
                 from collections import defaultdict
