@@ -53,6 +53,7 @@ class AgentExtractionResult(BaseModel):
     problem_statement: str
     tech_stack: list[str] = []
     architecture_mermaid_chart: str
+    milestone_timeline_mermaid_chart: str
     analytics_metrics: AnalyticsMetrics
     presentation_deck: PresentationDeck
     developer_handover_guide: DeveloperHandoverGuide

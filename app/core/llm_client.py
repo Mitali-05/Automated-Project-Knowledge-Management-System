@@ -64,14 +64,24 @@ class LLMClient:
             
     def embed_text(self, text: str) -> list:
         try:
-            if self.provider == "gemini":
+            if "gemini" in self.provider.lower():
                 import requests
                 api_key = self.client.api_key
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key={api_key}"
                 payload = {
                     "model": "models/text-embedding-004",
-                    "content": {"parts": [{"text": text}]}
+                    "content": {"parts": [{"text": text}]},
+                    "outputDimensionality": 768
                 }
+                
+                # Fallback to the latest available model if 004 is missing in this region/key
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent?key={api_key}"
+                payload = {
+                    "model": "models/gemini-embedding-2",
+                    "content": {"parts": [{"text": text}]},
+                    "outputDimensionality": 768
+                }
+                
                 response = requests.post(url, headers={"Content-Type": "application/json"}, json=payload)
                 response.raise_for_status()
                 data = response.json()

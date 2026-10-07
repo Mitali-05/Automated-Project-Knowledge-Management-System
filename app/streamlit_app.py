@@ -13,6 +13,10 @@ from app.utils.exporter import generate_pdf_report
 from app.mcp.service import GitHubMCPClientService
 from app.mcp.agent import run_autonomous_extraction
 from app.github.auth import fetch_installation_repos, get_installation_access_token, parse_repo_url, fetch_repo_tree
+from app.core.db import VectorDatabase
+import pandas as pd
+from collections import defaultdict
+import json
 
 from dotenv import load_dotenv
 load_dotenv(override=True)
@@ -161,7 +165,10 @@ with tab2:
         repo_url = public_url_input
 
 st.write("")
-if st.button("Analyze Repository Agentically", type="primary", use_container_width=True):
+# Define the checkbox outside the button block so its state is maintained across reruns
+push_to_aws = st.sidebar.checkbox("Push to AWS RDS Vector Database", value=False)
+
+if st.button("Analyze Repository Agentically", type="primary", width="stretch"):
 
     if not repo_url:
         st.error("Please select a repository or enter a public URL.")
@@ -269,13 +276,24 @@ if st.button("Analyze Repository Agentically", type="primary", use_container_wid
                 st.subheader("📂 Directory Tour")
                 for d in handover.directory_tour:
                     st.markdown(f"- **`{d.folder_path}`**: {d.architectural_role}")
+                if hasattr(handover, "directory_dependency_chart") and handover.directory_dependency_chart:
+                    st.markdown(f"```mermaid\n{handover.directory_dependency_chart}\n```")
                     
                 st.subheader("🔄 Critical Workflows Traced")
                 for w in handover.critical_workflows:
                     st.markdown(f"**{w.workflow_name}**")
                     st.markdown(f"- *Entry Point:* `{w.entry_point}`")
                     st.markdown(f"- *Execution Path:* `{w.execution_path}`")
+                if hasattr(handover, "execution_sequence_chart") and handover.execution_sequence_chart:
+                    st.markdown(f"```mermaid\n{handover.execution_sequence_chart}\n```")
                     
+                if hasattr(handover, "testing_instructions") and (handover.testing_instructions or handover.cicd_instructions):
+                    st.subheader("⚙️ Development Lifecycle & Operations")
+                    if handover.testing_instructions:
+                        st.markdown(f"**Testing:**\n{handover.testing_instructions}")
+                    if handover.cicd_instructions:
+                        st.markdown(f"**CI/CD & Deployment:**\n{handover.cicd_instructions}")
+
                 st.subheader("⚠️ Technical Debt & Fragility")
                 for t in handover.technical_debt_and_fragility:
                     st.warning(t)
@@ -294,6 +312,11 @@ if st.button("Analyze Repository Agentically", type="primary", use_container_wid
         # 3. Mermaid Architecture Chart
         st.markdown("### 🗺️ System Architecture Flowchart")
         st.markdown(f"```mermaid\n{result.architecture_mermaid_chart}\n```")
+
+        # 3.5 Timeline Chart
+        if hasattr(result, "milestone_timeline_mermaid_chart") and result.milestone_timeline_mermaid_chart:
+            st.markdown("### ⏳ Project Feature & Milestone Timeline")
+            st.markdown(f"```mermaid\n{result.milestone_timeline_mermaid_chart}\n```")
 
         st.subheader(f"🧠 Extracted Knowledge ({len(items)})")
 
@@ -323,7 +346,36 @@ if st.button("Analyze Repository Agentically", type="primary", use_container_wid
                         else:
                             st.markdown(f"- `{ev}`")
                             
-        # --- Generate File Exports ---
+        # --- Knowledge Data Table ---
+        st.markdown("### 📋 Knowledge Data Summary (Table View)")
+        table_data = []
+        for item in items:
+            table_data.append({
+                "Title": item.title,
+                "Type": item.knowledge_type,
+                "Module": item.module or "N/A",
+                "Confidence": f"{item.confidence:.0%}"
+            })
+        st.dataframe(pd.DataFrame(table_data), width="stretch")
+
+        # --- Generate File Exports & PDF Download ---
+        st.markdown("---")
+        try:
+            pdf_bytes = generate_pdf_report(result)
+            
+            st.download_button(
+                label="📥 Download Professional PDF Report",
+                data=pdf_bytes,
+                file_name=f"{owner}_{repo}_Handover_Report.pdf",
+                mime="application/pdf",
+                type="primary",
+                width="stretch"
+            )
+        except Exception as e:
+            st.error(f"Failed to generate PDF: {e}")
+
+
+        
         try:
             raw_file_path = "raw_knowledge.json"
             formatted_file_path = "formatted_report.md"
@@ -397,7 +449,6 @@ if st.button("Analyze Repository Agentically", type="primary", use_container_wid
                 f.write("## 7. Technical Architecture & Component Knowledge\n\n")
                 
                 # Group by knowledge_type
-                from collections import defaultdict
                 grouped_items = defaultdict(list)
                 for item in items:
                     grouped_items[item.knowledge_type].append(item)
@@ -420,29 +471,31 @@ if st.button("Analyze Repository Agentically", type="primary", use_container_wid
             st.success(f"💾 Files generated successfully! Check your project folder for `raw_knowledge.json` and `formatted_report.md`.")
             
             # --- Vector DB Insertion ---
-            with st.spinner("Pushing semantic knowledge to AWS Aurora Vector Database..."):
-                try:
-                    from app.core.db import VectorDatabase
-                    db = VectorDatabase()
-                    db.initialize_schema()
-                    
-                    for item in items:
-                        # Create embedding from the summary
-                        embed_text = f"Title: {item.title}\nSummary: {item.summary}\nModule: {item.module}"
-                        vector = llm_client.embed_text(embed_text)
+            if push_to_aws:
+                with st.spinner("Pushing semantic knowledge to AWS Aurora Vector Database..."):
+                    try:
+                        db = VectorDatabase()
+                        db.initialize_schema()
                         
-                        db.insert_knowledge(
-                            repository_name=f"{owner}/{repo}",
-                            knowledge_type=item.knowledge_type,
-                            title=item.title,
-                            summary=item.summary,
-                            details=item.details or "",
-                            evidence=",".join(item.evidence_ids) if item.evidence_ids else "",
-                            embedding=vector
-                        )
-                    st.success("✅ Semantic knowledge successfully embedded and stored in AWS Aurora!")
-                except Exception as e:
-                    st.error(f"Failed to push to AWS Database: {e}")
+                        for item in items:
+                            # Create embedding from the summary
+                            embed_text = f"Title: {item.title}\nSummary: {item.summary}\nModule: {item.module}"
+                            vector = llm_client.embed_text(embed_text)
+                            
+                            db.insert_knowledge(
+                                repository_name=f"{owner}/{repo}",
+                                knowledge_type=item.knowledge_type,
+                                title=item.title,
+                                summary=item.summary,
+                                details=item.details or "",
+                                evidence=",".join(item.evidence_ids) if item.evidence_ids else "",
+                                embedding=vector
+                            )
+                        st.success("✅ Semantic knowledge successfully embedded and stored in AWS Aurora!")
+                    except Exception as e:
+                        st.error(f"Failed to push to AWS Database: {e}")
+            else:
+                st.info("AWS RDS push is disabled. Enable it in the sidebar to push embeddings to your database.")
                     
             st.write("")
             col1, col2 = st.columns(2)
