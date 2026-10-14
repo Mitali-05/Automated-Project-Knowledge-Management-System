@@ -1,487 +1,306 @@
-# Software Architecture & Knowledge Document: UtkarshMudgal2802droid/payshield
+# Enterprise Architectural Blueprint and Handover Deck: UtkarshMudgal2802droid/payshield
 
-> *Generated Autonomously by PRISM Agentic Extraction*
+> **Prepared by:** PRISM Automated Project Knowledge Management System  
+> **Target Audience:** Enterprise Software Architects, Payments Engineering Teams, Security Compliance Officers, and DevOps Engineers.  
 
-## 1. Executive Summary & Problem Statement
-Modern digital commerce demands high-throughput, fault-tolerant payment processing systems capable of sub-second fraud detection, strict idempotency enforcement, asynchronous settlement reconciliation, and secure merchant lifecycle management. Without a unified ledger and robust transaction state machine, platforms suffer from duplicate charges, race conditions, unhandled fraud vectors, and manual reconciliation discrepancies.
+---
 
-PayShield solves these challenges by providing an enterprise-grade, simulated payment gateway mirroring architectures like Stripe or Adyen. It features atomic state transitions, distributed idempotency keys, multi-layered risk heuristic evaluation via async worker pools, secure API key-based merchant onboarding, and automated CSV bank reconciliation workflows, ensuring uncompromising reliability and financial auditability.
+## 1. Executive Summary and Problem Statement
 
-## 2. Business Value & Presentation Deck
-**Pitch:** PayShield is a turnkey, enterprise-grade payment and risk mitigation platform built to replicate Tier-1 payment processors. By combining rigorous atomic transaction state machines, distributed idempotency, asynchronous AI/heuristic fraud screening, and automated financial reconciliation, PayShield eliminates double-charging risks, slashes fraud false positives, and provides instant audit compliance for modern digital merchants.
+PayShield addresses the complex architectural and operational challenges of modern financial technology platforms by providing a high-concurrency, resilient, and auditable transaction processing engine. Modern payment gateways face severe risks from distributed race conditions, duplicate API submissions, velocity attacks, fraud exposure, and batch reconciliation discrepancies. PayShield solves these challenges through robust idempotent transaction pipelines, sliding-window rate limiting via Bucket4j, asynchronous risk scoring integration with machine learning services, optimistic locking on wallet balances, and double-entry style ledger reconciliation jobs.
 
-**Value:** Accelerates time-to-market for fintech applications, protects merchant revenue via real-time sub-second fraud interception, eliminates costly manual bank reconciliation errors through automated CSV matching, and ensures absolute financial compliance via immutable audit trails.
+## 2. Executive Presentation Deck (Strategic Analysis)
 
-**Challenges:** Solving distributed transaction race conditions under high concurrency using idempotency keys, coordinating mixed Java Spring Boot and Python FastAPI microservices over shared PostgreSQL and Redis instances, and implementing complex payment lifecycle state transitions (Initiated -> Fraud Check -> Authorized -> Captured/Refunded) without data corruption.
+| Slide | Dimension | Executive Strategic Analysis |
+| :--- | :--- | :--- |
+| **Slide 1** | **The Executive Pitch** | PayShield delivers an enterprise-grade financial transaction and fraud mitigation platform designed to emulate industry leaders like Stripe and Adyen. By combining rigorous idempotent request handling, optimistic concurrency control, real-time machine learning risk scoring, and automated batch settlements, PayShield mitigates financial risk while guaranteeing strict audit compliance. |
+| **Slide 2** | **Direct Business Value and ROI** | Mitigates financial loss through automated millisecond-level fraud detection and velocity blocking. Reduces operational overhead via automated reconciliation engines that flag bank-to-ledger mismatches instantly. Ensures regulatory auditability with immutable audit logs and token blacklisting. |
+| **Slide 3** | **Critical Engineering Challenges** | Solved critical distributed systems challenges including duplicate transaction submission via idempotency keys, race conditions during peer-to-peer wallet transfers using database optimistic locking, and secure session revocation across distributed nodes via session versioning and token blacklisting. |
+| **Slide 4** | **12-Month Strategic Roadmap** | Migration of the Python risk engine and Spring Boot backend to event-driven architectures using Apache Kafka. Implementation of distributed locks via Redisson for multi-region active-active database failover. |
 
-**Future Scope:** Integration with live PSP testnets (Stripe/PayPal), multi-currency dynamic conversion, machine learning-based adaptive fraud scoring models, webhook signature verification UI, and Kafka-backed event streaming for high-frequency settlement processing.
+## 3. System Architecture Blueprint
 
-## 3. Analytics & Flowchart
-- **Complexity:** High
-- **Modules:** 6
-- **Security:** JWT Authentication, RBAC, API Key Hashing, & Secure CORS
+- **Architectural Complexity:** `High`
+- **Core Decomposed Subsystems:** `12` modules
+- **Data Flow Model:** `High`
+- **Security Architecture:** Strict JWT Authentication, Session Version Tracking, Token Blacklisting, Bucket4j IP Rate Limiting, and Parameterized JPA Queries
+
 ```mermaid
-graph TD
-  subgraph Client Tier
-    UI[React 18 SPA / Dashboard]
-    API_CLIENT[Merchant API Client]
-  end
-
-  subgraph API Gateway / Edge
-    NGINX[Docker Gateway / Ports 8050/5173]
-  end
-
-  subgraph Core Backend Tier (Spring Boot 3.3)
-    CONTROLLERS[REST Controllers & RBAC]
-    SERVICES[Transactional Service Layer]
-    IDEMPOTENCY[Idempotency & State Machine Engine]
-  end
-
-  subgraph Async Risk & Fraud Tier (Python FastAPI & Celery)
-    RISK_API[FastAPI Risk Service]
-    CELERY_WORKER[Celery Fraud Worker]
-  end
-
-  subgraph Data & Infra Tier
-    PG[(PostgreSQL 15 DB)]
-    REDIS[(Redis Cache / Broker)]
-    MAIL[Mailpit SMTP Server]
-  end
-
-  UI --> NGINX
-  API_CLIENT --> NGINX
-  NGINX --> CONTROLLERS
-  CONTROLLERS --> SERVICES
-  SERVICES --> IDEMPOTENCY
-  IDEMPOTENCY --> PG
-  SERVICES --> REDIS
-  SERVICES --> RISK_API
-  RISK_API --> CELERY_WORKER
-  CELERY_WORKER --> PG
-  SERVICES --> MAIL
+graph TB
+    subgraph ClientTier ["Client Presentation Layer"]
+        UI["React 18 Dashboard & SPA Client"]
+        APIClient["External Merchant API Client"]
+    end
+    subgraph GatewayTier ["API Gateway and Security Layer"]
+        GW["Spring Security Filter Chain"]
+        RateLimit["Bucket4j Rate Limiting Filter"]
+        JWTFilter["JWT & Session Version Filter"]
+    end
+    subgraph CoreServices ["Core Business and Domain Services"]
+        PaymentSvc["Payment Processing Service"]
+        WalletSvc["Wallet & Transfer Service"]
+        FraudSvc["Fraud & Risk Assessment Service"]
+        ReconSvc["Reconciliation Engine"]
+        SettlementSvc["Batch Settlement Service"]
+    end
+    subgraph DataTier ["Persistence, Caching and Queue Tier"]
+        DB[("PostgreSQL 15 Relational Database")]
+        Flyway[[Flyway Schema Migrations]]
+        Redis(["Redis Distributed Cache & Blacklist"])
+    end
+    subgraph ExternalTier ["External Gateways and Third-Party APIs"]
+        AIModel["Python AI Risk Assessment Engine"]
+        Mailpit["Mailpit SMTP Notification Server"]
+    end
+    UI -->|HTTPS REST / JSON| GW
+    APIClient -->|API Key & Idempotency Header| GW
+    GW --> RateLimit
+    RateLimit --> JWTFilter
+    JWTFilter -->|Authenticated Request| PaymentSvc
+    JWTFilter -->|Authenticated Request| WalletSvc
+    PaymentSvc -->|Idempotency Check| DB
+    PaymentSvc -->|Telemetry Payload| FraudSvc
+    WalletSvc -->|Optimistic Lock Transfer| DB
+    FraudSvc -->|HTTP REST Predict| AIModel
+    FraudSvc -->|SMTP Alert| Mailpit
+    ReconSvc -->|CSV Reconciliation Stream| DB
+    SettlementSvc -->|Fee Calculation & Payouts| DB
+    DB -.->|Managed via| Flyway
 ```
 
-## 4. Technology Stack
-- Java 21
-- Spring Boot 3.3
-- Spring Security (JWT)
-- Spring Data JPA
-- Flyway
-- React 18
-- TypeScript
-- Material UI
-- Recharts
-- Python 3.11
-- FastAPI
-- Celery
-- PostgreSQL 15
-- Redis
-- Mailpit
-- Docker & Docker Compose
-- Maven
-- GitHub Actions
+## 4. Primary Transaction and Workflow Sequence Diagram
 
-## 5. Engineering Handover Guide
-
-### Local Setup & Prerequisites
-System Tools: Docker & Docker Compose, Java 21, Node.js 18+, Maven.
-Required .env keys:
-  DB_USER=payshield
-  DB_PASSWORD=secretpassword
-  JWT_SECRET=your_super_secret_jwt_key_here
-Exact CLI steps to run:
-  1. docker-compose up -d
-  2. cd backend && ./mvnw spring-boot:run
-  3. cd frontend && npm install && npm run dev
-
-### Directory Tour
-- **`backend/src/main/java/com/payshield/`**: Core Spring Boot domain logic containing controllers, services, entities, and repositories for merchants, payments, refunds, settlements, and reconciliation.
-- **`frontend/src/`**: React 18 single-page application with TypeScript, Material UI, and Recharts for merchant analytics and operations dashboards.
-- **`risk-engine/`**: Python FastAPI and Celery worker service performing asynchronous risk heuristic evaluations and fraud checks.
-- **`cred-wallet/`**: Simulated card and credential wallet module for tokenized payment methods.
-- **`docs/`**: Enterprise artifact documentation including agile sprint logs, incident post-mortems, and operations SOPs.
-
-### Critical Workflows
-**Idempotent Payment Authorization & Fraud Pipeline**
-- *Entry:* `backend/src/main/java/com/payshield/controller/PaymentController.java`
-- *Path:* `Client POST /api/v1/payments -> PaymentController -> PaymentService (Idempotency Check via Header) -> Database State Update (INITIATED) -> Risk Engine FastAPI / Celery Worker -> Fraud Heuristic Evaluation -> Database State Update (AUTHORIZED / FAILED) -> Response to Client`
-
-### Technical Debt & Fragility
-- The Python Celery worker relies on shared PostgreSQL connection pools which under extreme load can exhaust connection limits without PgBouncer.
-- Idempotency caching is currently database-backed rather than Redis-backed, introducing slight latency overhead for high-frequency duplicate detection.
-
-## 6. Repository Structure
-```text
-[DIR]  .github
-[DIR]  .github/workflows
-[FILE] .github/workflows/ci.yml
-[FILE] .gitignore
-[FILE] README.md
-[DIR]  backend
-[FILE] backend/.dockerignore
-[FILE] backend/.gitattributes
-[FILE] backend/.gitignore
-[DIR]  backend/.mvn
-[DIR]  backend/.mvn/wrapper
-[FILE] backend/.mvn/wrapper/maven-wrapper.properties
-[FILE] backend/Dockerfile
-[FILE] backend/concurrency_test.py
-[FILE] backend/mvnw
-[FILE] backend/mvnw.cmd
-[FILE] backend/pom.xml
-[DIR]  backend/src
-[DIR]  backend/src/main
-[DIR]  backend/src/main/java
-[DIR]  backend/src/main/java/com
-[DIR]  backend/src/main/java/com/payshield
-[DIR]  backend/src/main/java/com/payshield/backend
-[FILE] backend/src/main/java/com/payshield/backend/BackendApplication.java
-[DIR]  backend/src/main/java/com/payshield/backend/config
-[FILE] backend/src/main/java/com/payshield/backend/config/ApplicationConfig.java
-[FILE] backend/src/main/java/com/payshield/backend/config/DataSeeder.java
-[FILE] backend/src/main/java/com/payshield/backend/config/SecurityConfiguration.java
-[DIR]  backend/src/main/java/com/payshield/backend/controller
-[FILE] backend/src/main/java/com/payshield/backend/controller/AuthenticationController.java
-[FILE] backend/src/main/java/com/payshield/backend/controller/FraudController.java
-[FILE] backend/src/main/java/com/payshield/backend/controller/GlobalExceptionHandler.java
-[FILE] backend/src/main/java/com/payshield/backend/controller/MerchantController.java
-[FILE] backend/src/main/java/com/payshield/backend/controller/PaymentController.java
-[FILE] backend/src/main/java/com/payshield/backend/controller/ReconciliationController.java
-[FILE] backend/src/main/java/com/payshield/backend/controller/RefundController.java
-[FILE] backend/src/main/java/com/payshield/backend/controller/ReportController.java
-[FILE] backend/src/main/java/com/payshield/backend/controller/SettlementController.java
-[FILE] backend/src/main/java/com/payshield/backend/controller/WalletController.java
-[DIR]  backend/src/main/java/com/payshield/backend/dto
-[FILE] backend/src/main/java/com/payshield/backend/dto/AuthenticationRequest.java
-[FILE] backend/src/main/java/com/payshield/backend/dto/AuthenticationResponse.java
-[FILE] backend/src/main/java/com/payshield/backend/dto/DashboardMetricsResponse.java
-[FILE] backend/src/main/java/com/payshield/backend/dto/FraudAssessmentRequest.java
-[FILE] backend/src/main/java/com/payshield/backend/dto/FraudAssessmentResponse.java
-[FILE] backend/src/main/java/com/payshield/backend/dto/MerchantRequest.java
-[FILE] backend/src/main/java/com/payshield/backend/dto/MerchantResponse.java
-[FILE] backend/src/main/java/com/payshield/backend/dto/PaymentRequest.java
-[FILE] backend/src/main/java/com/payshield/backend/dto/PaymentResponse.java
-[FILE] backend/src/main/java/com/payshield/backend/dto/ReconciliationJobResponse.java
-[FILE] backend/src/main/java/com/payshield/backend/dto/RefundRequest.java
-[FILE] backend/src/main/java/com/payshield/backend/dto/RefundResponse.java
-[FILE] backend/src/main/java/com/payshield/backend/dto/RegisterRequest.java
-[DIR]  backend/src/main/java/com/payshield/backend/exception
-[FILE] backend/src/main/java/com/payshield/backend/exception/ApiError.java
-[FILE] backend/src/main/java/com/payshield/backend/exception/FraudDetectedException.java
-[FILE] backend/src/main/java/com/payshield/backend/exception/InsufficientBalanceException.java
-[DIR]  backend/src/main/java/com/payshield/backend/model
-[FILE] backend/src/main/java/com/payshield/backend/model/AuditEvent.java
-[FILE] backend/src/main/java/com/payshield/backend/model/FraudAssessment.java
-[FILE] backend/src/main/java/com/payshield/backend/model/FraudDecision.java
-[FILE] backend/src/main/java/com/payshield/backend/model/FraudRule.java
-[FILE] backend/src/main/java/com/payshield/backend/model/IdempotencyRecord.java
-[FILE] backend/src/main/java/com/payshield/backend/model/Merchant.java
-[FILE] backend/src/main/java/com/payshield/backend/model/MerchantStatus.java
-[FILE] backend/src/main/java/com/payshield/backend/model/MismatchType.java
-[FILE] backend/src/main/java/com/payshield/backend/model/Payment.java
-[FILE] backend/src/main/java/com/payshield/backend/model/PaymentStatus.java
-[FILE] backend/src/main/java/com/payshield/backend/model/ReconciliationJob.java
-[FILE] backend/src/main/java/com/payshield/backend/model/ReconciliationMismatch.java
-[FILE] backend/src/main/java/com/payshield/backend/model/Refund.java
-[FILE] backend/src/main/java/com/payshield/backend/model/RefundStatus.java
-[FILE] backend/src/main/java/com/payshield/backend/model/Role.java
-[FILE] backend/src/main/java/com/payshield/backend/model/Settlement.java
-[FILE] backend/src/main/java/com/payshield/backend/model/SettlementStatus.java
-[FILE] backend/src/main/java/com/payshield/backend/model/Transaction.java
-[FILE] backend/src/main/java/com/payshield/backend/model/User.java
-[FILE] backend/src/main/java/com/payshield/backend/model/Wallet.java
-[DIR]  backend/src/main/java/com/payshield/backend/repository
-[FILE] backend/src/main/java/com/payshield/backend/repository/AuditEventRepository.java
-[FILE] backend/src/main/java/com/payshield/backend/repository/FraudAssessmentRepository.java
-[FILE] backend/src/main/java/com/payshield/backend/repository/FraudRuleRepository.java
-[FILE] backend/src/main/java/com/payshield/backend/repository/IdempotencyRecordRepository.java
-[FILE] backend/src/main/java/com/payshield/backend/repository/MerchantRepository.java
-[FILE] backend/src/main/java/com/payshield/backend/repository/PaymentRepository.java
-[FILE] backend/src/main/java/com/payshield/backend/repository/ReconciliationJobRepository.java
-[FILE] backend/src/main/java/com/payshield/backend/repository/ReconciliationMismatchRepository.java
-[FILE] backend/src/main/java/com/payshield/backend/repository/RefundRepository.java
-[FILE] backend/src/main/java/com/payshield/backend/repository/SettlementRepository.java
-[FILE] backend/src/main/java/com/payshield/backend/repository/TransactionRepository.java
-[FILE] backend/src/main/java/com/payshield/backend/repository/UserRepository.java
-[FILE] backend/src/main/java/com/payshield/backend/repository/WalletRepository.java
-[DIR]  backend/src/main/java/com/payshield/backend/security
-[FILE] backend/src/main/java/com/payshield/backend/security/JwtAuthenticationFilter.java
-[FILE] backend/src/main/java/com/payshield/backend/security/JwtService.java
-[FILE] backend/src/main/java/com/payshield/backend/security/RateLimitFilter.java
-[DIR]  backend/src/main/java/com/payshield/backend/service
-[FILE] backend/src/main/java/com/payshield/backend/service/AuditService.java
-[FILE] backend/src/main/java/com/payshield/backend/service/AuthenticationService.java
-[FILE] backend/src/main/java/com/payshield/backend/service/FraudService.java
-[FILE] backend/src/main/java/com/payshield/backend/service/MerchantService.java
-[FILE] backend/src/main/java/com/payshield/backend/service/NotificationService.java
-[FILE] backend/src/main/java/com/payshield/backend/service/OtpService.java
-[FILE] backend/src/main/java/com/payshield/backend/service/PaymentService.java
-[FILE] backend/src/main/java/com/payshield/backend/service/ReconciliationService.java
-[FILE] backend/src/main/java/com/payshield/backend/service/RefundService.java
-[FILE] backend/src/main/java/com/payshield/backend/service/ReportService.java
-[FILE] backend/src/main/java/com/payshield/backend/service/SettlementService.java
-[FILE] backend/src/main/java/com/payshield/backend/service/TokenBlacklistService.java
-[FILE] backend/src/main/java/com/payshield/backend/service/WalletService.java
-[DIR]  backend/src/main/resources
-[FILE] backend/src/main/resources/application.yml
-[DIR]  backend/src/main/resources/db
-[DIR]  backend/src/main/resources/db/migration
-[FILE] backend/src/main/resources/db/migration/V10__create_transactions_table.sql
-[FILE] backend/src/main/resources/db/migration/V11__fix_transactions_id_type.sql
-[FILE] backend/src/main/resources/db/migration/V12__add_session_version.sql
-[FILE] backend/src/main/resources/db/migration/V13__add_optimistic_locking_to_wallet.sql
-[FILE] backend/src/main/resources/db/migration/V1__init_users_table.sql
-[FILE] backend/src/main/resources/db/migration/V2__init_merchants_table.sql
-[FILE] backend/src/main/resources/db/migration/V3__init_payments_table.sql
-[FILE] backend/src/main/resources/db/migration/V4__init_fraud_table.sql
-[FILE] backend/src/main/resources/db/migration/V5__init_refunds_table.sql
-[FILE] backend/src/main/resources/db/migration/V6__init_reconciliation_table.sql
-[FILE] backend/src/main/resources/db/migration/V7__init_settlement_table.sql
-[FILE] backend/src/main/resources/db/migration/V8__init_audit_table.sql
-[FILE] backend/src/main/resources/db/migration/V9__init_wallets_table.sql
-[DIR]  backend/src/test
-[DIR]  backend/src/test/java
-[DIR]  backend/src/test/java/com
-[DIR]  backend/src/test/java/com/payshield
-[DIR]  backend/src/test/java/com/payshield/backend
-[DIR]  backend/src/test/java/com/payshield/backend/service
-[FILE] backend/src/test/java/com/payshield/backend/service/FraudServiceTest.java
-[FILE] backend/src/test/java/com/payshield/backend/service/WalletServiceTest.java
-[FILE] backend/utkarsh_test.py
-[DIR]  cred-wallet
-[FILE] cred-wallet/.gitignore
-[FILE] cred-wallet/.oxlintrc.json
-[FILE] cred-wallet/README.md
-[FILE] cred-wallet/index.html
-[FILE] cred-wallet/package-lock.json
-[FILE] cred-wallet/package.json
-[DIR]  cred-wallet/public
-[FILE] cred-wallet/public/favicon.svg
-[FILE] cred-wallet/public/icons.svg
-[DIR]  cred-wallet/src
-[FILE] cred-wallet/src/App.css
-[FILE] cred-wallet/src/App.tsx
-[DIR]  cred-wallet/src/assets
-[FILE] cred-wallet/src/assets/hero.png
-[FILE] cred-wallet/src/assets/react.svg
-[FILE] cred-wallet/src/assets/vite.svg
-[DIR]  cred-wallet/src/context
-[FILE] cred-wallet/src/context/AuthContext.tsx
-[FILE] cred-wallet/src/index.css
-[FILE] cred-wallet/src/main.tsx
-[FILE] cred-wallet/src/mockData.ts
-[DIR]  cred-wallet/src/pages
-[FILE] cred-wallet/src/pages/Dashboard.tsx
-[FILE] cred-wallet/src/pages/Login.tsx
-[FILE] cred-wallet/src/pages/Signup.tsx
-[FILE] cred-wallet/src/pages/Transfer.tsx
-[FILE] cred-wallet/tsconfig.app.json
-[FILE] cred-wallet/tsconfig.json
-[FILE] cred-wallet/tsconfig.node.json
-[FILE] cred-wallet/vite.config.ts
-[FILE] docker-compose.yml
-[DIR]  docs
-[DIR]  docs/agile
-[FILE] docs/agile/JIRA_Backlog_Export.csv
-[FILE] docs/agile/Sprint_Retrospectives.md
-[DIR]  docs/incidents
-[FILE] docs/incidents/INC-4029_Post_Mortem.md
-[DIR]  docs/sops
-[FILE] docs/sops/Incident_Response_SOP.md
-[DIR]  frontend
-[FILE] frontend/.dockerignore
-[FILE] frontend/.gitignore
-[FILE] frontend/.oxlintrc.json
-[FILE] frontend/Dockerfile
-[FILE] frontend/README.md
-[FILE] frontend/index.html
-[FILE] frontend/package-lock.json
-[FILE] frontend/package.json
-[DIR]  frontend/public
-[FILE] frontend/public/favicon.svg
-[FILE] frontend/public/icons.svg
-[DIR]  frontend/src
-[FILE] frontend/src/App.css
-[FILE] frontend/src/App.tsx
-[DIR]  frontend/src/assets
-[FILE] frontend/src/assets/hero.png
-[FILE] frontend/src/assets/react.svg
-[FILE] frontend/src/assets/vite.svg
-[DIR]  frontend/src/context
-[FILE] frontend/src/context/AuthContext.tsx
-[FILE] frontend/src/index.css
-[FILE] frontend/src/main.tsx
-[FILE] frontend/src/mockData.ts
-... (truncated)
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client as Merchant / User Client
+    participant GW as Spring Security Filter
+    participant Svc as PaymentService
+    participant IDRepo as IdempotencyRepository
+    participant Fraud as FraudService
+    participant DB as PostgreSQL DB
+    Client->>+GW: POST /api/payments (Idempotency-Key)
+    GW->>+Svc: initiatePayment()
+    Svc->>+IDRepo: Check existing idempotency key
+    alt Key exists
+        IDRepo-->>Svc: Return cached PaymentResponse
+        Svc-->>GW: Cached JSON Response
+        GW-->>Client: 200 OK (Idempotent replay)
+    else Key does not exist
+        IDRepo-->>Svc: Empty (Proceed)
+        Svc->>+Fraud: assessTransaction() [AI Engine]
+        Fraud-->>-Svc: Risk Score & Decision
+        Svc->>+DB: Save Payment (AUTHORIZED / FAILED)
+        DB-->>-Svc: Persisted Entity
+        Svc->>IDRepo: Save idempotency record payload
+        Svc-->>-GW: New PaymentResponse
+        GW-->>-Client: 201 Created
+    end
 ```
 
-## 7. Technical Architecture & Component Knowledge
+## 5. Technology Stack and Architectural Patterns
+
+**Core Technologies:** `Java 21`, `Spring Boot 3.3`, `Spring Security (JWT + Session Versioning)`, `Spring Data JPA / Hibernate`, `PostgreSQL 15`, `Redis 7`, `Bucket4j`, `Flyway Migration`, `React 18 / TypeScript`, `Docker & Docker Compose`
+
+**Design Patterns Detected:** **Idempotent Consumer**, **Optimistic Locking**, **Token Bucket Rate Limiting**, **Session Version Invalidation**, **Layered Architecture**, **Repository Pattern**, **Strategy / Fallback Pattern**
+
+## 6. Engineering Handover and Operational Guide
+
+### 6.1 Setup Prerequisites and Environment Variables
+Prerequisites: Java 21, Docker & Docker Compose, Node.js 18+. Required Environment Variables in .env: DB_USER=payshield, DB_PASSWORD=payshield_password, JWT_SECRET=404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970. Step-by-step CLI execution: 1. docker-compose up -d. 2. cd backend && ./mvnw spring-boot:run. 3. cd frontend && npm install && npm run dev.
+
+### 6.2 Subsystem Directory Tour
+
+| Directory Path | Layer / Architectural Responsibility |
+| :--- | :--- |
+| `backend/src/main/java/com/payshield/backend/controller` | REST API Controllers handling endpoints for authentication, payments, fraud, wallets, reconciliation, and settlements. |
+| `backend/src/main/java/com/payshield/backend/service` | Core business domain services containing transactional logic, idempotency checks, fraud assessment orchestration, and ledger management. |
+| `backend/src/main/java/com/payshield/backend/security` | Security configuration including JWT filter chains, session version validation, token blacklisting, and Bucket4j rate limiting. |
+| `backend/src/main/resources/db/migration` | Flyway SQL migration scripts managing schema evolution from V1 to V13 (optimistic locking and transaction enhancements). |
+| `frontend` | React TypeScript Single Page Application providing real-time dashboards, wallet transfer interfaces, and administrative controls. |
+
+### 6.3 Critical Workflows Traced
+
+- **Idempotent Payment Initiation Workflow**
+  - *Entry Point:* `PaymentController.java`
+  - *Execution Flow:* `Client -> JwtAuthenticationFilter -> PaymentController -> PaymentService -> IdempotencyRecordRepository -> FraudService -> PaymentRepository -> DB`
+
+- **Wallet Transfer & Concurrency Pipeline**
+  - *Entry Point:* `WalletController.java`
+  - *Execution Flow:* `Client -> RateLimitFilter -> WalletController -> WalletService -> UserRepository -> WalletRepository (Optimistic Lock) -> PaymentService -> DB`
+
+### 6.4 Testing and Continuous Integration Protocols
+- **Testing Protocol:** Run backend unit and integration tests using Maven: `./mvnw test`. Concurrency tests can be executed via `cd backend && python3 concurrency_test.py`.
+- **CI/CD Protocol:** GitHub Actions CI pipeline defined in `.github/workflows/ci.yml` runs automated Maven builds, Flyway schema validation, and container image packaging.
+
+### 6.5 Technical Debt and Fragility Priority Warnings
+
+- **Priority Warning:** Synchronous HTTP calls to the Python risk engine in FraudService can introduce latency spikes during network degradation; circuit breakers should be added.
+- **Priority Warning:** In-memory Bucket4j rate limiting cache is node-local; scaling horizontally requires migrating rate limiter state to Redis.
+
+## 7. Project Evolution and Milestone Timeline
+
+```mermaid
+timeline
+    title PayShield Architectural Evolution Milestones
+    Phase 1 : Core Domain Foundation : Flyway Migrations V1-V9 & User/Merchant Tables
+    Phase 2 : Transaction & Concurrency Hardening : V10-V13 Schema Updates, Optimistic Locking & Idempotency
+    Phase 3 : Security & Rate Limiting : JWT Blacklisting, Session Versioning & Bucket4j Rate Limiter
+    Phase 4 : Reconciliation & Settlement Engines : CSV Batch Ingestion & Automated Fee Deductions
+```
+
+## 8. Architectural Decision Records and Component Knowledge
 
 ### Domain: Technical Decision
 
-#### Distributed Idempotency Enforcement
-- **Affected Module:** `backend/src/main/java/com/payshield/service/PaymentService.java`
-- **AI Confidence Score:** 99%
+#### 1. Idempotent Transaction Handling
+- **Subsystem:** `PaymentService` | **Impact:** `Critical` | **Confidence:** `98%`
 
 **Executive Summary:**
-Payments require strict prevention of double-charging caused by network retries.
+Prevents duplicate charges and retried payment requests by caching and returning previous responses for identical idempotency keys.
 
-**Implementation Details & Context:**
-The system mandates an `Idempotency-Key` header on payment requests. The backend checks existing transaction logs tied to the merchant API key before executing state transitions.
+**Technical Rationale:**
+The PaymentService checks the IdempotencyRecordRepository using the provided idempotency key. If a record exists, the serialized response payload is deserialized and returned immediately without re-executing business logic or charging the customer again.
 
-**Traceability & Evidence (Code Pointers):**
-- `concurrency_test.py`
-- `PaymentService.java`
+**Code Verification Pointers:**
+- `backend/src/main/java/com/payshield/backend/service/PaymentService.java`
 
 ---
 
-#### Atomic Payment Lifecycle State Machine
-- **Affected Module:** `backend/src/main/java/com/payshield/model/`
-- **AI Confidence Score:** 98%
+#### 2. Bucket4j IP-Based Rate Limiting
+- **Subsystem:** `RateLimitFilter` | **Impact:** `High` | **Confidence:** `94%`
 
 **Executive Summary:**
-Guiding payments through strict, un-bypassable lifecycle states.
+Mitigates denial-of-service and velocity attacks on critical financial endpoints.
 
-**Implementation Details & Context:**
-Transactions move deterministically from INITIATED -> FRAUD_CHECK -> AUTHORIZED/FAILED -> CAPTURED/REFUNDED, enforced at the service and database constraint layer.
+**Technical Rationale:**
+RateLimitFilter intercepts requests to sensitive endpoints such as wallet transfers, enforcing a token bucket limit of 5 requests per 10 seconds per IP address using Bucket4j.
 
-**Traceability & Evidence (Code Pointers):**
-- `README.md`
+**Code Verification Pointers:**
+- `backend/src/main/java/com/payshield/backend/security/RateLimitFilter.java`
 
 ---
 
-### Domain: Architecture
+### Domain: Implementation Detail
 
-#### Asynchronous Fraud Risk Evaluation
-- **Affected Module:** `risk-engine/`
-- **AI Confidence Score:** 97%
+#### 1. Optimistic Locking on Wallets
+- **Subsystem:** `WalletService` | **Impact:** `Critical` | **Confidence:** `95%`
 
 **Executive Summary:**
-Decoupling real-time payment ingestion from heavy risk and heuristic analysis.
+Protects user balances against race conditions during simultaneous transfers and deposits.
 
-**Implementation Details & Context:**
-Incoming payments trigger an evaluation via Python FastAPI and Celery workers backed by Redis, enabling millisecond risk scoring without blocking the primary transaction thread.
+**Technical Rationale:**
+JPA entity versioning (@Version) on the Wallet model ensures that concurrent updates to the same wallet detect conflicting transactions, triggering rollbacks and preventing balance corruption.
 
-**Traceability & Evidence (Code Pointers):**
-- `docker-compose.yml`
-- `risk-engine/`
+**Code Verification Pointers:**
+- `backend/src/main/resources/db/migration/V13__add_optimistic_locking_to_wallet.sql`
+- `backend/src/main/java/com/payshield/backend/model/Wallet.java`
 
 ---
 
-#### Flyway Database Migration Management
-- **Affected Module:** `backend/src/main/resources/db/migration/`
-- **AI Confidence Score:** 97%
+#### 2. Centralized Global Exception Handling
+- **Subsystem:** `GlobalExceptionHandler` | **Impact:** `Medium` | **Confidence:** `96%`
 
 **Executive Summary:**
-Version-controlled schema evolution across environments.
+Provides standardized JSON error responses across all controllers and API exceptions.
 
-**Implementation Details & Context:**
-Flyway manages PostgreSQL schema migrations automatically upon Spring Boot startup, ensuring database parity across local Docker and staging environments.
+**Technical Rationale:**
+GlobalExceptionHandler intercepts domain-specific exceptions such as InsufficientBalanceException, FraudDetectedException, and standard runtime exceptions, mapping them to structured ApiError DTOs with appropriate HTTP status codes.
 
-**Traceability & Evidence (Code Pointers):**
-- `README.md`
-
----
-
-### Domain: Feature
-
-#### Automated CSV Bank Reconciliation
-- **Affected Module:** `backend/src/main/java/com/payshield/service/ReconciliationService.java`
-- **AI Confidence Score:** 95%
-
-**Executive Summary:**
-Automated matching of captured database records against external bank settlement files.
-
-**Implementation Details & Context:**
-The reconciliation engine parses simulated CSV bank statements, comparing ledger amounts against database captures and automatically flagging anomalies or discrepancies.
-
-**Traceability & Evidence (Code Pointers):**
-- `README.md`
+**Code Verification Pointers:**
+- `backend/src/main/java/com/payshield/backend/controller/GlobalExceptionHandler.java`
 
 ---
 
 ### Domain: Security
 
-#### Merchant API Key Authentication & RBAC
-- **Affected Module:** `backend/src/main/java/com/payshield/security/`
-- **AI Confidence Score:** 98%
+#### 1. Distributed Session Invalidation & Token Blacklisting
+- **Subsystem:** `SecurityConfiguration` | **Impact:** `High` | **Confidence:** `96%`
 
 **Executive Summary:**
-Secure multi-tenant access control for merchants and administrators.
+Enables instant session revocation and logout security via token blacklisting and session versioning.
 
-**Implementation Details & Context:**
-Spring Security enforces JWT authentication for dashboard users and API key validation headers for programmatic payment submissions.
+**Technical Rationale:**
+JwtAuthenticationFilter validates incoming JWT tokens against TokenBlacklistService and checks if the extracted session version matches the current user entity version in the database, allowing immediate invalidation upon password changes or administrative revocation.
 
-**Traceability & Evidence (Code Pointers):**
-- `README.md`
+**Code Verification Pointers:**
+- `backend/src/main/java/com/payshield/backend/security/JwtAuthenticationFilter.java`
+- `backend/src/main/resources/db/migration/V12__add_session_version.sql`
 
 ---
 
-### Domain: Business Logic
+### Domain: Configuration
 
-#### Automated Fee Deduction & Settlement Batching
-- **Affected Module:** `backend/src/main/java/com/payshield/service/SettlementService.java`
-- **AI Confidence Score:** 96%
+#### 1. Flyway Database Migration Management
+- **Subsystem:** `Flyway` | **Impact:** `Critical` | **Confidence:** `99%`
 
 **Executive Summary:**
-Daily batch aggregation of captured funds with simulated platform fee deductions.
+Ensures reproducible, version-controlled database schema evolution across environments.
 
-**Implementation Details & Context:**
-Settlements aggregate daily captured transactions, deduct a standard 2.9% simulation processing fee, and generate merchant payout records.
+**Technical Rationale:**
+Flyway automatically applies incremental SQL migration scripts from V1 to V13 upon startup, validating schema consistency and tracking migration history in the flyway_schema_history table.
 
-**Traceability & Evidence (Code Pointers):**
-- `README.md`
+**Code Verification Pointers:**
+- `backend/src/main/resources/db/migration/V1__init_users_table.sql`
+- `backend/src/main/resources/db/migration/V13__add_optimistic_locking_to_wallet.sql`
 
 ---
 
-### Domain: Infrastructure
-
-#### Mailpit SMTP Integration for Notifications
-- **Affected Module:** `docker-compose.yml`
-- **AI Confidence Score:** 95%
+#### 2. Docker Compose Multi-Container Orchestration
+- **Subsystem:** `Docker` | **Impact:** `High` | **Confidence:** `99%`
 
 **Executive Summary:**
-Local email simulation for transaction receipts and security alerts.
+Orchestrates local development environments including PostgreSQL, Redis, Mailpit SMTP, backend, frontend, and risk engines.
 
-**Implementation Details & Context:**
-Dockerized Mailpit captures all outbound SMTP notifications from Spring Boot without dispatching real external emails during development and testing.
+**Technical Rationale:**
+The root docker-compose.yml file defines networked services with health checks on PostgreSQL to guarantee proper startup dependency ordering for Spring Boot and FastAPI containers.
 
-**Traceability & Evidence (Code Pointers):**
+**Code Verification Pointers:**
 - `docker-compose.yml`
 
 ---
 
-### Domain: Frontend
+### Domain: Module Responsibility
 
-#### React Recharts Financial Dashboards
-- **Affected Module:** `frontend/src/`
-- **AI Confidence Score:** 95%
+#### 1. Hybrid AI and Rule-Based Fraud Detection
+- **Subsystem:** `FraudService` | **Impact:** `Critical` | **Confidence:** `95%`
 
 **Executive Summary:**
-Real-time analytics visualization for merchant transaction volumes and revenue.
+Evaluates risk scores in real-time by communicating with an external Python ML service with static rule fallback.
 
-**Implementation Details & Context:**
-The frontend SPA utilizes React, TypeScript, Material UI, and Recharts to render interactive financial graphs and metrics.
+**Technical Rationale:**
+FraudService sends telemetry payloads (amount, device ID, SIM ICCID, customer email) to a Python AI microservice. If unreachable, it gracefully falls back to deterministic heuristic rules (e.g., suspicious email domains, high amounts).
 
-**Traceability & Evidence (Code Pointers):**
-- `README.md`
+**Code Verification Pointers:**
+- `backend/src/main/java/com/payshield/backend/service/FraudService.java`
 
 ---
 
-### Domain: Testing
-
-#### Concurrency Stress Testing Suite
-- **Affected Module:** `backend/concurrency_test.py`
-- **AI Confidence Score:** 96%
+#### 2. Automated Reconciliation Engine
+- **Subsystem:** `ReconciliationService` | **Impact:** `High` | **Confidence:** `93%`
 
 **Executive Summary:**
-Python-based concurrency scripts to validate race condition resilience.
+Reconciles internal transaction ledgers against external bank settlement CSV files.
 
-**Implementation Details & Context:**
-A dedicated concurrency testing script fires simultaneous identical payment requests to verify database locking and idempotency protection.
+**Technical Rationale:**
+ReconciliationService parses uploaded bank CSV files line by line, comparing transaction IDs and amounts against database records, automatically creating mismatch records or marking matching payments as settled.
 
-**Traceability & Evidence (Code Pointers):**
-- `backend/concurrency_test.py`
+**Code Verification Pointers:**
+- `backend/src/main/java/com/payshield/backend/service/ReconciliationService.java`
+
+---
+
+#### 3. Automated Batch Settlement Engine
+- **Subsystem:** `SettlementService` | **Impact:** `High` | **Confidence:** `93%`
+
+**Executive Summary:**
+Calculates merchant payouts and applies platform processing fees in daily batch runs.
+
+**Technical Rationale:**
+SettlementService queries captured payments for active merchants, deducts a 2.9% simulation fee, calculates net payouts, and generates pending settlement ledger records.
+
+**Code Verification Pointers:**
+- `backend/src/main/java/com/payshield/backend/service/SettlementService.java`
 
 ---
 
