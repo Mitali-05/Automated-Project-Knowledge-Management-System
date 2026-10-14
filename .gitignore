@@ -8,3 +8,6 @@ venv/
 raw_knowledge.json
 test_key.py
 *.pem
+logs/
+*.lock
+projects_store.json
