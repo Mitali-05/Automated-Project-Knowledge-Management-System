@@ -1,63 +1,74 @@
 """
-Central configuration. Nothing here is secret by itself - actual keys are
-read from environment variables / the Streamlit sidebar at runtime, never
-hardcoded and never logged.
+Central configuration for PRISM.
+Environment settings for ReportAgent (LLM1) and VerificationAgent (LLM2 / AWS Bedrock).
 """
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 GITHUB_API = "https://api.github.com"
 
-# Supported LLM providers, each OpenAI-compatible so we can reuse one client
-# class. Gemini and Groq both expose an OpenAI-compatible /chat/completions
-# endpoint; Phi (via Azure AI Foundry or Ollama) can be added the same way.
-# app/config.py
-
-# app/config.py
-
+# Supported LLM providers
 LLM_PROVIDERS = {
+    "gemini": {
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "model": os.getenv("LLM1_MODEL", "gemini-3.5-flash-lite"),
+        "context_window_tokens": 1_000_000,
+        "notes": "Google Gemini via OpenAI-compatible endpoint.",
+    },
     "gemini-3.5-flash-lite": {
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
         "model": "gemini-3.5-flash-lite",
         "context_window_tokens": 1_000_000,
-        "notes": "Best Free Tier Model: 15 Requests Per Minute, 500 Requests Per Day.",
+        "notes": "Standard Model: Gemini 3.5 Flash Lite.",
+    },
+    "gemini-2.5-flash": {
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "model": "gemini-2.5-flash",
+        "context_window_tokens": 1_000_000,
+        "notes": "Fast Agent (Stable): Rapid synthesis.",
     },
     "gemini-3.1-flash-lite": {
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
         "model": "gemini-3.1-flash-lite",
         "context_window_tokens": 1_000_000,
-        "notes": "Backup Free Tier Model: 15 RPM, 500 Requests Per Day.",
+        "notes": "Backup Model: Gemini 3.1 Flash Lite.",
     },
-    "gemini-3.8-flash": {
-        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
-        "model": "gemini-3.8-flash",
-        "context_window_tokens": 1_000_000,
-        "notes": "Strict Limits: 20 Requests Per Day on Free Tier.",
-    },
-    "gemini-2.0-flash": {
-        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
-        "model": "gemini-2.0-flash",
-        "context_window_tokens": 1_000_000,
-        "notes": "Fast Agent (Latest 2.0 Stable): 1500 Requests Per Day on Free Tier.",
-    },
+    "bedrock": {
+        "base_url": "aws_bedrock",
+        "model": os.getenv("LLM2_MODEL", "anthropic.claude-3-5-sonnet-20240620-v1:0"),
+        "context_window_tokens": 200_000,
+        "notes": "AWS Bedrock: Enterprise verification agent powered by Claude 3.5 Sonnet / Haiku / Nova.",
+    }
 }
 
-DEFAULT_PROVIDER = "gemini-3.5-flash-lite"
+# LLM 1 (Report / Synthesis Agent)
+LLM1_PROVIDER = os.getenv("LLM1_PROVIDER", "gemini")
+LLM1_MODEL = os.getenv("LLM1_MODEL", "gemini-3.5-flash-lite")
+LLM1_API_KEY = os.getenv("LLM1_API_KEY") or os.getenv("LLM_API_KEY", "")
 
-# Token budget per single LLM call. Kept well under any provider's real
-# limit so we have headroom for the system prompt + JSON response.
-MAX_INPUT_TOKENS_PER_BATCH = int(os.getenv("MAX_INPUT_TOKENS_PER_BATCH", "6000"))
+# LLM 2 (Verification Agent: Grounding, Evidence Checking & Metrics)
+LLM2_PROVIDER = os.getenv("LLM2_PROVIDER", "bedrock")
+LLM2_MODEL = os.getenv("LLM2_MODEL", "anthropic.claude-3-5-sonnet-20240620-v1:0")
+LLM2_API_KEY = os.getenv("LLM2_API_KEY", "")
 
-# Rough chars-per-token heuristic used when tiktoken isn't installed.
+# AWS Bedrock Settings
+AWS_REGION = os.getenv("AWS_REGION", "eu-north-1")
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "")
+
+DEFAULT_PROVIDER = LLM1_PROVIDER
+
+# Token budget per single LLM call
+MAX_INPUT_TOKENS_PER_BATCH = int(os.getenv("MAX_INPUT_TOKENS_PER_BATCH", "16000"))
 CHARS_PER_TOKEN_ESTIMATE = 4
 
-# Source file fetching limits (Phase 3 "get me the code" requirement)
-MAX_SOURCE_FILES = int(os.getenv("MAX_SOURCE_FILES", "12"))
-MAX_FILE_BYTES = int(os.getenv("MAX_FILE_BYTES", "20_000"))
+# Source file fetching limits (Deep repository audit)
+MAX_SOURCE_FILES = int(os.getenv("MAX_SOURCE_FILES", "60"))
+MAX_FILE_BYTES = int(os.getenv("MAX_FILE_BYTES", "40000"))
 SOURCE_FILE_EXTENSIONS = (
-    ".py", ".java", ".ts", ".tsx", ".js", ".jsx", ".go", ".rb",
-    ".md", ".yml", ".yaml", ".json", ".sql",
+    ".py", ".java", ".ts", ".tsx", ".js", ".jsx", ".go", ".rb", ".cs", ".cpp", ".c",
+    ".md", ".yml", ".yaml", ".json", ".sql", ".proto", ".graphql", ".toml", ".gradle", ".xml"
 )
-SKIP_PATH_FRAGMENTS = ("node_modules/", "dist/", "build/", ".git/", "vendor/", "test/", "tests/")
+SKIP_PATH_FRAGMENTS = ("node_modules/", "dist/", "build/", ".git/", "vendor/", "target/")

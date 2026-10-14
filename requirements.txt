@@ -10,3 +10,7 @@ PyJWT
 cryptography
 psycopg2-binary
 pgvector
+matplotlib
+python-pptx
+boto3
+filelock
