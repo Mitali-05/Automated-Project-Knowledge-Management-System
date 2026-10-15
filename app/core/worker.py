@@ -16,6 +16,12 @@ import logging
 import traceback
 from pathlib import Path
 
+# Add right after imports:
+if sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if sys.stderr.encoding.lower() != "utf-8":
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # Ensure the project root is in sys.path
 PROJECT_ROOT = str(Path(__file__).parent.parent.parent)
 if PROJECT_ROOT not in sys.path:
@@ -300,7 +306,7 @@ def run_extraction(project_id: str, provider: str, llm_key: str, github_token: s
             "pushed_to_aws": pushed,
             "has_verification": result.verification_report is not None
         })
-        logger.info(f"✅ Project {project_id} completed successfully.")
+        logger.info(f"[SUCCESS] Project {project_id} completed successfully.")
 
     except Exception as e:
         logger.error(f"Extraction failed: {e}")

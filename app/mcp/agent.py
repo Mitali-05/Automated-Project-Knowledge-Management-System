@@ -24,18 +24,28 @@ async def run_autonomous_extraction(
     
     logger.info(f"Starting autonomous agent for {owner}/{repo}")
     
+    # In app/mcp/agent.py, update tools_response loop:
     tools_response = await mcp_session.list_tools()
     
+    # Restrict LLM1 strictly to read-only inspection tools
+    READ_ONLY_TOOL_WHITELIST = {
+        "get_file_contents", "read_file", "list_directory", 
+        "get_file_tree", "list_commits", "get_commit"
+    }
+
     openai_tools = []
     for t in tools_response.tools:
-        openai_tools.append({
-            "type": "function",
-            "function": {
-                "name": t.name,
-                "description": t.description,
-                "parameters": t.input_schema
-            }
-        })
+        if t.name in READ_ONLY_TOOL_WHITELIST or "read" in t.name or "get" in t.name:
+            if "create" in t.name or "update" in t.name or "delete" in t.name or "push" in t.name:
+                continue
+            openai_tools.append({
+                "type": "function",
+                "function": {
+                    "name": t.name,
+                    "description": t.description,
+                    "parameters": t.input_schema
+                }
+            })
         
     tree_context = ""
     if file_tree:

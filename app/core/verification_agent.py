@@ -1,8 +1,7 @@
 """
 Verification Agent (LLM 2):
 Audits the architectural report and evidence synthesized by ReportAgent (LLM 1).
-Validates code citations, detects repository ML models, and computes grounding metrics:
-Evidence Precision, Subsystem Coverage Recall, Hallucination Rate, and Trust Score.
+Validates code citations, detects repository ML models, and computes grounding metrics.
 """
 import os
 import json
@@ -28,7 +27,7 @@ You must inspect:
 Return ONLY a valid JSON object strictly matching this schema:
 {
   "overall_trust_score": float (0-100),
-  "verdict": "VERIFIED_PRODUCTION_GRADE" | "VERIFIED_WITH_WARNINGS" | "REJECTED",
+  "verdict": "VERIFIED_PRODUCTION_GRADE" | "VERIFIED_WITH_WARNINGS" | "REJECTED" | "AUDIT_FAILED",
   "evidence_precision_score": float (0-100, proportion of cited code pointers verified),
   "subsystem_recall_coverage": float (0-100, proportion of top-level architectural subsystems audited),
   "hallucination_rate": float (0-100, % of ungrounded or speculative claims),
@@ -61,45 +60,48 @@ class VerificationAgent:
         repo: str = "",
         project_id: str = ""
     ) -> VerificationReport:
-        """
-        Executes a dual-layered empirical and LLM2-driven audit of ReportAgent's findings.
-        """
-        all_tree_paths = [item.get("path", "").lower() for item in (file_tree or []) if item.get("path")]
+        all_tree_paths = {
+            item.get("path", "").strip().lower() 
+            for item in (file_tree or []) if item.get("path")
+        }
         
         # 1. Empirical Codebase ML Detection
         ml_extensions = (".pkl", ".joblib", ".pt", ".pth", ".onnx", ".h5", ".tflite")
         ml_keywords = ("sklearn", "torch", "tensorflow", "keras", "xgboost", "lightgbm")
         
-        has_ml_files = any(any(p.endswith(ext) for ext in ml_extensions) for p in all_tree_paths)
-        has_ml_scripts = any("train" in p or "evaluate" in p or "model" in p for p in all_tree_paths)
-        
-        detected_frameworks = []
-        for tech in result.tech_stack:
-            if any(k in tech.lower() for k in ml_keywords):
-                detected_frameworks.append(tech)
-
+        has_ml_files = any(p.endswith(ml_extensions) for p in all_tree_paths)
+        detected_frameworks = [
+            tech for tech in result.tech_stack 
+            if any(k in tech.lower() for k in ml_keywords)
+        ]
         ml_detected = has_ml_files or len(detected_frameworks) > 0
 
-        # 2. Empirical Evidence Grounding Check
+        # 2. Strict Empirical Evidence Grounding Check
         total_evidence_cited = 0
         verified_evidence_count = 0
+        unverified_evidence = []
         
         for item in result.knowledge_items:
             for ev in item.evidence_ids:
                 total_evidence_cited += 1
                 clean_ev = ev.strip().lower()
-                # Check if evidence matches any file path in tree
-                if any(clean_ev in p or p.endswith(clean_ev) for p in all_tree_paths):
+                
+                # Strict check: exact path match or tail path match
+                is_valid = clean_ev in all_tree_paths or any(
+                    p.endswith("/" + clean_ev) or p == clean_ev for p in all_tree_paths
+                )
+                
+                if is_valid:
                     verified_evidence_count += 1
-                elif any(word in p for p in all_tree_paths for word in clean_ev.split() if len(word) > 4):
-                    verified_evidence_count += 1
+                else:
+                    unverified_evidence.append(ev)
 
         empirical_precision = (
             (verified_evidence_count / total_evidence_cited * 100) 
-            if total_evidence_cited > 0 else 95.0
+            if total_evidence_cited > 0 else 0.0
         )
 
-        # 3. Invoke LLM 2 (AWS Bedrock / Verification Agent)
+        # 3. Payload for Verification LLM
         audit_payload = {
             "repository": f"{owner}/{repo}" if owner and repo else result.project_name,
             "project_name": result.project_name,
@@ -116,9 +118,10 @@ class VerificationAgent:
                 }
                 for k in result.knowledge_items[:15]
             ],
-            "file_tree_sample": all_tree_paths[:150],
+            "file_tree_sample": sorted(list(all_tree_paths))[:150],
             "empirical_evidence_count": total_evidence_cited,
-            "empirical_verified_count": verified_evidence_count
+            "empirical_verified_count": verified_evidence_count,
+            "unverified_citations": unverified_evidence
         }
 
         user_content = (
@@ -127,7 +130,6 @@ class VerificationAgent:
             f"Provide an objective verification report evaluating fact grounding, evidence precision, and ML applicability."
         )
 
-        # ── Log request to LLM2 ──
         if project_id:
             log_llm2_request(
                 project_id=project_id,
@@ -145,7 +147,6 @@ class VerificationAgent:
                 temperature=0.0
             )
             
-            # ── Log successful LLM2 response ──
             if project_id:
                 log_llm2_response(
                     project_id=project_id,
@@ -157,7 +158,7 @@ class VerificationAgent:
             
             report = VerificationReport.model_validate(raw_response)
             
-            # Reconcile empirical metrics
+            # Reconcile empirical evidence checks
             if report.verified_claims_count == 0 and total_evidence_cited > 0:
                 report.verified_claims_count = verified_evidence_count
                 report.unsupported_claims_count = max(0, total_evidence_cited - verified_evidence_count)
@@ -165,9 +166,8 @@ class VerificationAgent:
             return report
 
         except Exception as e:
-            logger.warning(f"VerificationAgent LLM2 invocation notice: {e}. Generating deterministic audit fallback.")
+            logger.error(f"VerificationAgent LLM2 invocation failed: {e}. Refusing to emit unverified 100% scores.")
             
-            # ── Log LLM2 error response ──
             if project_id:
                 log_llm2_response(
                     project_id=project_id,
@@ -177,45 +177,42 @@ class VerificationAgent:
                     parsed_successfully=False,
                     error=str(e)
                 )
-            
-            # Deterministic, empirical fallback
+
+            # Fail-closed report: do not inflate scores if the auditor crashed
             ml_audit = MLCodebaseAudit(
                 ml_models_detected=ml_detected,
                 detected_frameworks=detected_frameworks,
-                roc_auc_score=0.94 if ml_detected else None,
-                accuracy_score=0.92 if ml_detected else None,
-                precision_score=0.91 if ml_detected else None,
-                recall_score=0.89 if ml_detected else None,
-                notes=(
-                    f"ML Pipeline detected ({', '.join(detected_frameworks)}) with model evaluation artifacts." 
-                    if ml_detected else 
-                    "No predictive Machine Learning models detected in codebase. Classical ML classification metrics (ROC-AUC) do not apply to deterministic enterprise API & service architectures."
+                roc_auc_score=None,
+                accuracy_score=None,
+                precision_score=None,
+                recall_score=None,
+                notes="Auditor LLM unavailable. Empirical inspection only: " + (
+                    "ML indicators found." if ml_detected else "Deterministic application."
                 )
             )
-            
+
             fallback_report = VerificationReport(
-                overall_trust_score=round(max(85.0, empirical_precision), 1),
-                verdict="VERIFIED_PRODUCTION_GRADE" if empirical_precision >= 85 else "VERIFIED_WITH_WARNINGS",
+                overall_trust_score=round(empirical_precision * 0.5, 1),
+                verdict="AUDIT_FAILED",
                 evidence_precision_score=round(empirical_precision, 1),
-                subsystem_recall_coverage=round(min(98.0, 80.0 + result.analytics_metrics.core_module_count * 2.5), 1),
-                hallucination_rate=round(max(1.0, 100.0 - empirical_precision), 1),
+                subsystem_recall_coverage=0.0,
+                hallucination_rate=round(100.0 - empirical_precision, 1),
                 ml_audit=ml_audit,
                 verified_claims_count=verified_evidence_count,
                 unsupported_claims_count=max(0, total_evidence_cited - verified_evidence_count),
                 audit_findings=[
-                    f"Audited {len(result.knowledge_items)} verified architectural knowledge nodes against repository tree.",
-                    f"Evidence citation grounding rate: {round(empirical_precision, 1)}% verified against physical source paths.",
-                    "No speculative or hallucinated external libraries detected in manifest files."
+                    f"CRITICAL: Auditor (LLM2) failed with error: {str(e)}.",
+                    f"Empirical evidence grounding: {verified_evidence_count}/{total_evidence_cited} paths physically confirmed.",
+                    "Overall verdict marked as AUDIT_FAILED until auditor service credentials are restored."
                 ],
-                verification_agent_notes="Verification completed via empirical repository grounding and manifest verification."
+                verification_agent_notes=f"Audit execution incomplete due to LLM2 failure: {str(e)}"
             )
-            
-            # ── Log deterministic fallback ──
+
             if project_id:
                 log_llm2_fallback(
                     project_id=project_id,
                     reason=str(e),
                     fallback_report=fallback_report.model_dump()
                 )
-            
+
             return fallback_report
