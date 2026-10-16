@@ -58,7 +58,7 @@ Every Mermaid chart MUST look like a Principal Architect designed it in a vector
 
 1. MANDATORY INIT DIRECTIVE FOR ALL FLOWCHARTS (`architecture_mermaid_chart` & `directory_dependency_chart`):
    Start the diagram string with this exact configuration line:
-   `%%{init: {'theme': 'base', 'themeVariables': {'fontFamily': 'Inter, Segoe UI, Arial, sans-serif', 'fontSize': '15px', 'primaryColor': '#1E293B', 'primaryTextColor': '#F8FAFC', 'primaryBorderColor': '#475569', 'lineColor': '#334155', 'secondaryColor': '#0F172A', 'tertiaryColor': '#F1F5F9', 'ClusterBkg': '#F8FAFC', 'ClusterBorder': '#94A3B8'}}}%%`
+   `%%{{init: {{'theme': 'base', 'themeVariables': {{'fontFamily': 'Inter, Segoe UI, Arial, sans-serif', 'fontSize': '15px', 'primaryColor': '#1E293B', 'primaryTextColor': '#F8FAFC', 'primaryBorderColor': '#475569', 'lineColor': '#334155', 'secondaryColor': '#0F172A', 'tertiaryColor': '#F1F5F9', 'ClusterBkg': '#F8FAFC', 'ClusterBorder': '#94A3B8'}}}}}}%%`
 
 2. MANDATORY COLOR CLASSES FOR FLOWCHARTS:
    Append these `classDef` declarations at the bottom of `architecture_mermaid_chart` and `directory_dependency_chart` and assign every node to the appropriate class using `:::className`:
@@ -80,7 +80,7 @@ Every Mermaid chart MUST look like a Principal Architect designed it in a vector
 
 5. CRITICAL WORKFLOW SEQUENCE DIAGRAM (`execution_sequence_chart`):
    - Start with:
-     `%%{init: {'theme': 'base', 'themeVariables': {'fontFamily': 'Inter, Segoe UI, Arial, sans-serif', 'fontSize': '15px', 'actorBkg': '#0F172A', 'actorTextColor': '#FFFFFF', 'actorBorder': '#334155', 'signalColor': '#1E293B', 'signalTextColor': '#0F172A', 'activationBkgColor': '#E2E8F0', 'activationBorderColor': '#475569'}}}%%`
+     `%%{{init: {{'theme': 'base', 'themeVariables': {{'fontFamily': 'Inter, Segoe UI, Arial, sans-serif', 'fontSize': '15px', 'actorBkg': '#0F172A', 'actorTextColor': '#FFFFFF', 'actorBorder': '#334155', 'signalColor': '#1E293B', 'signalTextColor': '#0F172A', 'activationBkgColor': '#E2E8F0', 'activationBorderColor': '#475569'}}}}}}%%`
    - Use `sequenceDiagram` and `autonumber`.
    - Limit to 4 to 6 participants maximum so horizontal spacing remains wide and legible on 16:9 slides.
    - Include concrete endpoints, method calls, lock/cache checks, and HTTP/status return payloads.
@@ -88,12 +88,12 @@ Every Mermaid chart MUST look like a Principal Architect designed it in a vector
 6. MILESTONE AND EVOLUTION TIMELINE (`milestone_timeline_mermaid_chart`):
    - NOTE: Many PDF/PPTX Mermaid renderers fail on the experimental `timeline` keyword or render microscopic text.
    - If the renderer supports `timeline`, keep it strictly to 3 phases with max 2 short items per phase (under 25 chars per item):
-     `%%{init: {'theme': 'base', 'themeVariables': {'fontFamily': 'Inter, Segoe UI, Arial, sans-serif', 'fontSize': '16px', 'cScale0': '#1E293B', 'cScaleLabel0': '#FFFFFF', 'cScale1': '#0284C7', 'cScaleLabel1': '#FFFFFF', 'cScale2': '#059669', 'cScaleLabel2': '#FFFFFF'}}}%%`
+     `%%{{init: {{'theme': 'base', 'themeVariables': {{'fontFamily': 'Inter, Segoe UI, Arial, sans-serif', 'fontSize': '16px', 'cScale0': '#1E293B', 'cScaleLabel0': '#FFFFFF', 'cScale1': '#0284C7', 'cScaleLabel1': '#FFFFFF', 'cScale2': '#059669', 'cScaleLabel2': '#FFFFFF'}}}}}}%%`
      `timeline`
    - Keep labels ultra-concise (3-5 words max per milestone) so text never overflows boxes.
 
 7. DIRECTORY AND MODULE DEPENDENCY MAP (`directory_dependency_chart`):
-   - Use `flowchart LR` with the mandatory `%%{init}%%` header and `classDef` classes.
+   - Use `flowchart LR` with the mandatory `%%{{init}}%%` header and `classDef` classes.
    - Maximum 6 to 8 high-level module nodes showing clean unidirectional or layered dependencies.
 
 ================================================================================

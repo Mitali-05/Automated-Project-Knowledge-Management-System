@@ -78,3 +78,26 @@ def fetch_repo_tree(token: str, owner: str, repo: str) -> list:
         return []
     except Exception:
         return []
+
+def check_repo_access(token: str, owner: str, repo: str) -> tuple[bool, str]:
+    """Checks whether the target repository is accessible, public, or private."""
+    url = f"https://api.github.com/repos/{owner}/{repo}"
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    if token and token.strip() and token.strip() != "__NONE__":
+        headers["Authorization"] = f"Bearer {token.strip()}"
+    try:
+        r = requests.get(url, headers=headers)
+        if r.status_code == 200:
+            data = r.json()
+            is_private = data.get("private", False)
+            return True, f"Repository accessible ({'private' if is_private else 'public'})."
+        elif r.status_code == 404:
+            return False, "Repository not found or access denied. If this is a private repository, please authorize access via 'Connect GitHub'."
+        elif r.status_code in (401, 403):
+            return False, "Access forbidden or rate limited. Please authorize access via 'Connect GitHub'."
+        return False, f"GitHub API returned HTTP {r.status_code}."
+    except Exception as e:
+        return False, f"Could not reach GitHub API: {str(e)}"

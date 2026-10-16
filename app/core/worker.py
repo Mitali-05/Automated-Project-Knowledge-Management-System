@@ -123,9 +123,20 @@ def run_extraction(project_id: str, provider: str, llm_key: str, github_token: s
         })
         logger.info("Phase 1: Fetching repository tree...")
 
-        from app.github.auth import fetch_repo_tree
+        from app.github.auth import fetch_repo_tree, check_repo_access
         tree = fetch_repo_tree(github_token, owner, repo)
         logger.info(f"Fetched {len(tree)} tree entries.")
+
+        if not tree:
+            accessible, reason = check_repo_access(github_token, owner, repo)
+            if not accessible:
+                logger.warning(f"Repository {owner}/{repo} access denied or not found: {reason}")
+                _update_project(project_id, {
+                    "status": "FAILED",
+                    "status_message": reason,
+                    "staging_buffer": None
+                })
+                return
 
         # ── Phase 2: Autonomous agent extraction ───────────────
         _update_project(project_id, {

@@ -52,8 +52,9 @@ async def run_autonomous_extraction(
         paths = [item.get("path") for item in file_tree[:200] if item.get("path")]
         tree_context = f"\n\nHere is the repository file tree:\n" + "\n".join(f"- {p}" for p in paths)
         
+    system_prompt = AGENT_SYSTEM_PROMPT.replace("{owner}", owner).replace("{repo}", repo)
     messages = [
-        {"role": "system", "content": AGENT_SYSTEM_PROMPT.format(owner=owner, repo=repo)},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": f"Please extract technical knowledge, architecture, and onboarding documentation from {owner}/{repo}.{tree_context}\n\nUse your 'get_file_contents' tool to read core files and inspect the code."}
     ]
     
