@@ -99,6 +99,21 @@ def run_extraction(project_id: str, provider: str, llm_key: str, github_token: s
     owner = proj["owner"]
     repo = proj["repo"]
 
+    # Auto-resolve github_token if not passed or empty
+    if not github_token:
+        github_token = os.getenv("GITHUB_TOKEN") or os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN") or ""
+        if not github_token:
+            app_id = os.getenv("GITHUB_APP_ID")
+            inst_id = os.getenv("GITHUB_INSTALLATION_ID")
+            pem_files = list(Path(PROJECT_ROOT).glob("*.pem"))
+            if app_id and inst_id and pem_files:
+                try:
+                    from app.github.auth import get_installation_access_token
+                    github_token = get_installation_access_token(app_id, str(pem_files[0]), inst_id)
+                    logger.info("Automatically generated GitHub App installation token for worker.")
+                except Exception as te:
+                    logger.warning(f"Could not auto-generate GitHub App token: {te}")
+
     try:
         # ── Phase 1: Fetch repo tree ───────────────────────────
         _update_project(project_id, {

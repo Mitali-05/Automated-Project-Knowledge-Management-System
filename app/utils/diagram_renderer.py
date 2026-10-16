@@ -69,14 +69,15 @@ def render_mermaid_to_png(mermaid_text: str, filename_prefix: str) -> str | None
             "https://kroki.io/mermaid/png",
             data=code.encode("utf-8"),
             headers={"Content-Type": "text/plain; charset=utf-8"},
-            timeout=10
+            timeout=3
         )
         if resp.status_code == 200 and len(resp.content) > 500:
             with open(output_png, "wb") as f:
                 f.write(resp.content)
             return str(output_png.resolve())
     except Exception as e:
-        print(f"Kroki render notice: {e}. Trying Mermaid.ink CDN...")
+        # Gracefully fall back to Mermaid.ink CDN
+        pass
 
     # ── Strategy 3: Mermaid.ink CDN GET fallback ──
     try:
