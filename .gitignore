@@ -11,3 +11,4 @@ test_key.py
 logs/
 *.lock
 projects_store.json
+generated_diagrams/

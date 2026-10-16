@@ -74,7 +74,7 @@ def _update_project(project_id: str, updates: dict):
 
 # ── Main Worker Logic ──────────────────────────────────────────────
 
-def run_extraction(project_id: str, provider: str, llm_key: str, github_token: str, push_to_aws: bool):
+def run_extraction(project_id: str, provider: str, llm_key: str, github_token: str, push_to_aws: bool, user_id: int = 1, org_id: int = 1):
     """Execute the full extraction pipeline for a project."""
     
     # Set up logging for this worker
@@ -257,46 +257,51 @@ def run_extraction(project_id: str, provider: str, llm_key: str, github_token: s
                 "error": str(ve)
             }, status="FAILED", context="Verification agent encountered an error")
 
-        # ── Phase 5: Optional AWS push ─────────────────────────
-        pushed = False
-        if push_to_aws:
-            try:
-                _update_project(project_id, {
-                    "status_message": "Committing verified embeddings to AWS Aurora PostgreSQL..."
-                })
-                from app.core.db import VectorDatabase
-                db = VectorDatabase()
-                db.initialize_schema()
-                for item in result.knowledge_items:
-                    embed_text = f"Title: {item.title}\nSummary: {item.summary}\nModule: {item.module}"
-                    vector = llm_client.embed_text(embed_text)
-                    db.insert_knowledge(
-                        repository_name=f"{owner}/{repo}",
-                        knowledge_type=item.knowledge_type,
-                        title=item.title,
-                        summary=item.summary,
-                        details=item.details or "",
-                        evidence=",".join(item.evidence_ids) if item.evidence_ids else "",
-                        embedding=vector
-                    )
-                pushed = True
-                logger.info("AWS push completed.")
-            except Exception as de:
-                logger.warning(f"Failed to push to AWS: {de}")
-
-        # ── Final Commit ───────────────────────────────────────
-        # Read the latest staging buffer and commit to result_data
+        # ── Final Commit & Optional Cloud Push ───────────────────
         store = _read_store()
         proj_latest = store.get(project_id, {})
         final_data = proj_latest.get("staging_buffer") or result.model_dump()
 
+        pushed = False
+        db_proj_id = None
+        if push_to_aws:
+            try:
+                _update_project(project_id, {
+                    "status_message": "Committing verified blueprints and embeddings to AWS Aurora PostgreSQL..."
+                })
+                from app.core.db import VectorDatabase
+                db = VectorDatabase()
+                db.initialize_schema()
+                vectors = []
+                for item in result.knowledge_items:
+                    embed_text = f"Title: {item.title}\nSummary: {item.summary}\nModule: {item.module}"
+                    vector = llm_client.embed_text(embed_text)
+                    vectors.append(vector)
+                
+                db_proj_id = db.save_full_project(
+                    project_name=result.project_name,
+                    repo_url=f"https://github.com/{owner}/{repo}",
+                    problem_statement=result.problem_statement,
+                    knowledge_items=result.knowledge_items,
+                    vectors=vectors,
+                    user_id=user_id,
+                    org_id=org_id,
+                    result_data=final_data
+                )
+                pushed = True
+                logger.info(f"AWS push completed successfully with DB Project ID: {db_proj_id}")
+            except Exception as de:
+                logger.warning(f"Failed to push to AWS: {de}")
+
+        # When pushed to AWS, purge local payload to keep local disk clean
         _update_project(project_id, {
-            "result_data": final_data,
+            "result_data": None if pushed else final_data,
             "staging_buffer": None,
             "status": "COMPLETED",
             "progress": 100,
-            "status_message": "Architectural synthesis complete. Deliverables ready.",
-            "pushed_to_aws": pushed
+            "status_message": "Architectural synthesis complete. Synced to AWS Aurora RDS." if pushed else "Architectural synthesis complete. Stored in local session.",
+            "pushed_to_aws": pushed,
+            "db_id": db_proj_id
         })
 
         # ── Log pipeline completion ──
@@ -322,7 +327,7 @@ def run_extraction(project_id: str, provider: str, llm_key: str, github_token: s
 
 if __name__ == "__main__":
     if len(sys.argv) < 6:
-        print("Usage: python -m app.core.worker <project_id> <provider> <llm_key> <github_token> <push_to_aws>")
+        print("Usage: python -m app.core.worker <project_id> <provider> <llm_key> <github_token> <push_to_aws> [user_id] [org_id]")
         sys.exit(1)
 
     pid = sys.argv[1]
@@ -330,5 +335,7 @@ if __name__ == "__main__":
     key = sys.argv[3] if sys.argv[3] != "__NONE__" else None
     gh_token = sys.argv[4] if sys.argv[4] != "__NONE__" else ""
     push = sys.argv[5].lower() == "true"
+    u_id = int(sys.argv[6]) if len(sys.argv) > 6 and sys.argv[6].isdigit() else 1
+    o_id = int(sys.argv[7]) if len(sys.argv) > 7 and sys.argv[7].isdigit() else 1
 
-    run_extraction(pid, prov, key, gh_token, push)
+    run_extraction(pid, prov, key, gh_token, push, user_id=u_id, org_id=o_id)
