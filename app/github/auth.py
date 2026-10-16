@@ -61,9 +61,11 @@ def fetch_repo_tree(token: str, owner: str, repo: str) -> list:
     url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/main?recursive=1"
     headers = {
         "Accept": "application/vnd.github+json",
-        "Authorization": f"Bearer {token}",
         "X-GitHub-Api-Version": "2022-11-28",
     }
+    if token and token.strip() and token.strip() != "__NONE__":
+        headers["Authorization"] = f"Bearer {token.strip()}"
+
     try:
         r = requests.get(url, headers=headers)
         if r.status_code == 200:
