@@ -1,10 +1,10 @@
 package com.pkm.auth;
 
-import com.pkm.auth.dto.AuthResponse;
-import com.pkm.auth.dto.LoginRequest;
-import com.pkm.auth.dto.SignupRequest;
+import com.pkm.common.CurrentUser;
+import com.pkm.user.UserDto;
+import com.pkm.user.UserService;
 import jakarta.validation.Valid;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -12,18 +12,26 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final UserService userService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, UserService userService) {
         this.authService = authService;
+        this.userService = userService;
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<AuthResponse> signup(@Valid @RequestBody SignupRequest request) {
-        return ResponseEntity.ok(authService.signup(request));
+    @ResponseStatus(HttpStatus.CREATED)
+    public AuthResponse signup(@Valid @RequestBody SignupRequest request) {
+        return authService.signup(request);
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
-        return ResponseEntity.ok(authService.login(request));
+    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
+        return authService.login(request);
+    }
+
+    @GetMapping("/me")
+    public UserDto me() {
+        return userService.get(CurrentUser.id());
     }
 }

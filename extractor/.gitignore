@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.py[cod]
+.env
+.streamlit/
+*.pyc
+venv/
+raw_knowledge.json
+test_key.py
+*.pem
+logs/
+*.lock
+projects_store.json
+generated_diagrams/

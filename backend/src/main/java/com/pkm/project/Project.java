@@ -20,7 +20,7 @@ public class Project {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "org_id", nullable = false)
     private Organization organization;
 
@@ -30,10 +30,13 @@ public class Project {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt = Instant.now();
 }

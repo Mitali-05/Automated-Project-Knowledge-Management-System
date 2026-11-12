@@ -1,32 +1,65 @@
 server:
-  port: 8081
+  port: ${PORT:8081}
+  error:
+    include-message: never
+    include-stacktrace: never
 
 spring:
-  config:
-    import: optional:file:../.env
   application:
     name: pkm-backend
+  # Convenience for local development: load key=value pairs from a .env file
+  # (repo root or backend/ folder). Real environment variables always win.
+  config:
+    import:
+      - optional:file:../.env[.properties]
+      - optional:file:./.env[.properties]
 
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:postgres}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:pkm_dev}
     username: ${DB_USERNAME:pkm_user}
     password: ${DB_PASSWORD:pkm_local_pw}
     driver-class-name: org.postgresql.Driver
 
   jpa:
+    open-in-view: false
     hibernate:
-      ddl-auto: validate   # schema is owned by Flyway migrations, not Hibernate auto-gen
+      ddl-auto: validate   # the schema is owned by Flyway migrations, never by Hibernate
     show-sql: false
-    properties:
-      hibernate:
-        format_sql: true
 
   flyway:
     enabled: true
     locations: classpath:db/migration
-    baseline-on-migrate: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    com.pkm: INFO
 
 app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
   jwt:
-    secret: ${JWT_SECRET:local-dev-only-secret-change-me-please-32chars}
-    expiration-ms: ${JWT_EXPIRATION_MS:86400000}   # 24h
+    # REQUIRED. 32+ random characters, e.g. `openssl rand -base64 48`. The app refuses to start without it.
+    secret: ${JWT_SECRET:}
+    expiration-ms: ${JWT_EXPIRATION_MS:28800000}   # 8 hours
+  rate-limit:
+    # Max login / signup / join-organization POSTs per client address per minute (then HTTP 429).
+    auth-per-minute: ${AUTH_RATE_LIMIT_PER_MINUTE:10}
+  github:
+    app-id: ${GITHUB_APP_ID:}
+    app-slug: ${GITHUB_APP_SLUG:}
+    private-key-base64: ${GITHUB_APP_PRIVATE_KEY_BASE64:}
+    # Optional but recommended: lets the backend verify that the user really owns the installation they claim.
+    client-id: ${GITHUB_APP_CLIENT_ID:}
+    client-secret: ${GITHUB_APP_CLIENT_SECRET:}
+  ingest:
+    # Shared secret for the extraction service (Python). Leave empty to disable the /api/ingest endpoints.
+    service-key: ${INGEST_SERVICE_KEY:}

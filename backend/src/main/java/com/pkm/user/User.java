@@ -1,6 +1,5 @@
 package com.pkm.user;
 
-import com.pkm.org.Organization;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -8,6 +7,7 @@ import lombok.Setter;
 
 import java.time.Instant;
 
+/** An account. Organization membership lives in {@code organization_members}; a user can belong to many. */
 @Entity
 @Table(name = "users")
 @Getter
@@ -19,13 +19,10 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "org_id", nullable = false)
-    private Organization organization;
-
     @Column(nullable = false)
     private String name;
 
+    /** Always stored lower-case. */
     @Column(nullable = false, unique = true)
     private String email;
 
