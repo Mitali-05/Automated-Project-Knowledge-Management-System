@@ -57,9 +57,16 @@ app:
     app-id: ${GITHUB_APP_ID:}
     app-slug: ${GITHUB_APP_SLUG:}
     private-key-base64: ${GITHUB_APP_PRIVATE_KEY_BASE64:}
-    # Optional but recommended: lets the backend verify that the user really owns the installation they claim.
     client-id: ${GITHUB_APP_CLIENT_ID:}
     client-secret: ${GITHUB_APP_CLIENT_SECRET:}
+    token: ${GITHUB_TOKEN:}
   ingest:
-    # Shared secret for the extraction service (Python). Leave empty to disable the /api/ingest endpoints.
     service-key: ${INGEST_SERVICE_KEY:}
+  extractor:
+    python-path: ${EXTRACTOR_PYTHON_PATH:}
+    working-dir: ${EXTRACTOR_WORKING_DIR:}
+    poll-seconds: ${PRISM_POLL_SECONDS:2}
+    auto-start: ${EXTRACTOR_AUTO_START:true}
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
+    model: ${GEMINI_MODEL:gemini-3.8-flash}

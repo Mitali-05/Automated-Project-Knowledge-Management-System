@@ -33,6 +33,15 @@ public class GitHubAppService {
     public record InstallationRepo(long id, String fullName, String url, boolean isPrivate, String description) {
     }
 
+    public record CommitInfo(String sha, String message, String author, Instant date) {
+    }
+
+    public record FileChange(String filename, String status, String previousFilename) {
+    }
+
+    public record CompareResult(String baseSha, String headSha, String status, List<FileChange> files) {
+    }
+
     @Value("${app.github.app-id:}")
     private String appId;
     @Value("${app.github.app-slug:}")
@@ -43,6 +52,8 @@ public class GitHubAppService {
     private String clientId;
     @Value("${app.github.client-secret:}")
     private String clientSecret;
+    @Value("${app.github.token:${GITHUB_TOKEN:}}")
+    private String githubToken;
 
     private final RestClient github = RestClient.builder()
             .baseUrl(API)
@@ -106,6 +117,64 @@ public class GitHubAppService {
             throw upstream("Could not load repositories from GitHub.");
         }
         return result;
+    }
+
+    public CommitInfo getHeadCommit(String owner, String repo, String installationId) {
+        String token = (installationId != null && notBlank(installationId) && isConfigured())
+                ? installationToken(installationId) : (notBlank(githubToken) ? githubToken : null);
+        try {
+            var req = github.get().uri("/repos/{owner}/{repo}/commits/HEAD", owner, repo);
+            if (token != null) {
+                req.headers(h -> h.setBearerAuth(token));
+            }
+            JsonNode body = req.retrieve().body(JsonNode.class);
+            if (body == null || !body.hasNonNull("sha")) {
+                return null;
+            }
+            String sha = body.get("sha").asText();
+            String message = body.path("commit").path("message").asText("");
+            String author = body.path("commit").path("author").path("name").asText("Unknown");
+            String dateStr = body.path("commit").path("author").path("date").asText(null);
+            Instant date = dateStr != null ? Instant.parse(dateStr) : Instant.now();
+            return new CommitInfo(sha, message, author, date);
+        } catch (Exception e) {
+            log.warn("Failed to get head commit for {}/{}: {}", owner, repo, e.getMessage());
+            return null;
+        }
+    }
+
+    public CompareResult compareCommits(String owner, String repo, String baseSha, String headSha, String installationId) {
+        if (baseSha == null || headSha == null || baseSha.isBlank() || headSha.isBlank() || baseSha.equals(headSha)) {
+            return new CompareResult(baseSha, headSha, "identical", List.of());
+        }
+        String token = (installationId != null && notBlank(installationId) && isConfigured())
+                ? installationToken(installationId) : (notBlank(githubToken) ? githubToken : null);
+        try {
+            var req = github.get().uri("/repos/{owner}/{repo}/compare/{base}...{head}", owner, repo, baseSha, headSha);
+            if (token != null) {
+                req.headers(h -> h.setBearerAuth(token));
+            }
+            JsonNode body = req.retrieve().body(JsonNode.class);
+            if (body == null) {
+                return new CompareResult(baseSha, headSha, "unknown", List.of());
+            }
+            String status = body.path("status").asText("unknown");
+            List<FileChange> changes = new ArrayList<>();
+            JsonNode files = body.path("files");
+            if (files.isArray()) {
+                for (JsonNode f : files) {
+                    changes.add(new FileChange(
+                            f.path("filename").asText(""),
+                            f.path("status").asText("modified"),
+                            f.path("previous_filename").isNull() ? null : f.path("previous_filename").asText(null)
+                    ));
+                }
+            }
+            return new CompareResult(baseSha, headSha, status, changes);
+        } catch (Exception e) {
+            log.warn("Failed to compare commits {}...{} for {}/{}: {}", baseSha, headSha, owner, repo, e.getMessage());
+            return new CompareResult(baseSha, headSha, "error", List.of());
+        }
     }
 
     /**

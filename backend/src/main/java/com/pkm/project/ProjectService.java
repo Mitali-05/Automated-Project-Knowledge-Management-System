@@ -2,6 +2,7 @@ package com.pkm.project;
 
 import com.pkm.activity.ActivityService;
 import com.pkm.common.ApiException;
+import com.pkm.ingest.ExtractionBridgeService;
 import com.pkm.knowledge.KnowledgeItemRepository;
 import com.pkm.notification.NotificationService;
 import com.pkm.org.OrgAccess;
@@ -31,6 +32,8 @@ public class ProjectService {
     private final OrganizationMemberRepository orgMembers;
     private final ActivityService activity;
     private final NotificationService notifications;
+    private final ExtractionBridgeService extractionBridgeService;
+    private final ExtractionJobRepository extractionJobRepository;
 
     public ProjectService(ProjectRepository projectRepository,
                           ProjectMemberRepository memberRepository,
@@ -41,7 +44,9 @@ public class ProjectService {
                           OrgAccess orgAccess,
                           OrganizationMemberRepository orgMembers,
                           ActivityService activity,
-                          NotificationService notifications) {
+                          NotificationService notifications,
+                          ExtractionBridgeService extractionBridgeService,
+                          ExtractionJobRepository extractionJobRepository) {
         this.projectRepository = projectRepository;
         this.memberRepository = memberRepository;
         this.repoLinkRepository = repoLinkRepository;
@@ -52,6 +57,8 @@ public class ProjectService {
         this.orgMembers = orgMembers;
         this.activity = activity;
         this.notifications = notifications;
+        this.extractionBridgeService = extractionBridgeService;
+        this.extractionJobRepository = extractionJobRepository;
     }
 
     // ------------------------------------------------------------------ queries
@@ -139,6 +146,7 @@ public class ProjectService {
         }
         ProjectRepositoryLink link = linkRepository(me.getProject(), ref, me.getUser());
         touch(me.getProject());
+        extractionBridgeService.triggerExtraction();
         return RepositoryDto.from(link);
     }
 
@@ -155,7 +163,6 @@ public class ProjectService {
         touch(me.getProject());
     }
 
-    /** Marks every repository as waiting for (re-)extraction. The extraction service picks them up. */
     @Transactional
     public int requestSync(Long projectId, Long userId) {
         ProjectMember me = access.requireMember(projectId, userId);
@@ -169,10 +176,97 @@ public class ProjectService {
                 r.setSyncStatus(SyncStatus.PENDING);
                 r.setLastSyncMessage(null);
                 queued++;
+
+                ExtractionJob job = new ExtractionJob();
+                job.setProject(me.getProject());
+                job.setRepository(r);
+                job.setStatus("PENDING");
+                job.setProgress(10);
+                job.setStatusMessage("Queued for repository synchronization");
+                job.setLogs("STATUS: 10 | QUEUED | Repository queued for extraction (" + r.getRepoOwner() + "/" + r.getRepoName() + ")\n");
+                job.setTriggeredBy(me.getUser());
+                job.setStartedAt(Instant.now());
+                job.setItemsExtracted(0);
+                extractionJobRepository.save(job);
             }
         }
         activity.record(me.getProject(), "SYNC_REQUESTED", "Knowledge sync requested", me.getUser().getName(), null);
+        if (queued > 0) {
+            extractionBridgeService.triggerExtraction();
+        }
         return queued;
+    }
+
+    public SyncStatusDto getSyncStatus(Long projectId, Long userId) {
+        access.requireMember(projectId, userId);
+        List<ExtractionJob> activeJobs = extractionJobRepository.findActiveJobs(projectId);
+        ExtractionJob job = null;
+        if (!activeJobs.isEmpty()) {
+            job = activeJobs.get(0);
+        } else {
+            job = extractionJobRepository.findFirstByProjectIdOrderByStartedAtDesc(projectId).orElse(null);
+        }
+
+        if (job == null) {
+            return new SyncStatusDto(null, projectId, null, null, "IDLE", 0, "Idle", "No sync jobs found", null, null, null, 0, 0, null, null, false);
+        }
+
+        boolean active = "PENDING".equalsIgnoreCase(job.getStatus()) || "RUNNING".equalsIgnoreCase(job.getStatus());
+        int elapsed = job.getDurationSeconds() != null ? job.getDurationSeconds()
+                : (int) java.time.Duration.between(job.getStartedAt(), job.getCompletedAt() != null ? job.getCompletedAt() : Instant.now()).toSeconds();
+
+        String repoName = job.getRepository() != null ? job.getRepository().getRepoOwner() + "/" + job.getRepository().getRepoName() : null;
+        String stage = resolveStage(job.getProgress(), job.getStatus());
+
+        return new SyncStatusDto(
+                job.getId(),
+                job.getProject().getId(),
+                job.getRepository() != null ? job.getRepository().getId() : null,
+                repoName,
+                job.getStatus(),
+                job.getProgress(),
+                stage,
+                job.getStatusMessage(),
+                job.getLogs(),
+                job.getStartedAt(),
+                job.getCompletedAt(),
+                elapsed,
+                job.getItemsExtracted(),
+                job.getTrustScore(),
+                job.getErrorMessage(),
+                active
+        );
+    }
+
+    public List<SyncHistoryDto> getSyncHistory(Long projectId, Long userId) {
+        access.requireMember(projectId, userId);
+        return extractionJobRepository.findByProjectIdOrderByStartedAtDesc(projectId).stream()
+                .limit(20)
+                .map(j -> new SyncHistoryDto(
+                        j.getId(),
+                        j.getRepository() != null ? j.getRepository().getId() : null,
+                        j.getRepository() != null ? j.getRepository().getRepoOwner() + "/" + j.getRepository().getRepoName() : null,
+                        j.getStatus(),
+                        j.getProgress(),
+                        j.getStatusMessage(),
+                        j.getStartedAt(),
+                        j.getCompletedAt(),
+                        j.getDurationSeconds(),
+                        j.getItemsExtracted(),
+                        j.getTrustScore(),
+                        j.getErrorMessage()
+                ))
+                .toList();
+    }
+
+    private String resolveStage(int progress, String status) {
+        if ("FAILED".equalsIgnoreCase(status)) return "Extraction Failed";
+        if ("COMPLETED".equalsIgnoreCase(status) || progress >= 100) return "Completed";
+        if (progress < 20) return "Initializing Pipeline";
+        if (progress < 40) return "Connecting & Fetching Tree";
+        if (progress < 65) return "AI Knowledge Extraction";
+        if (progress < 85) return "Vector Embeddings & Ingestion";
+        return "Finalizing Blueprints";
     }
 
     // ------------------------------------------------------------------ members

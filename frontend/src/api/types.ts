@@ -1,6 +1,7 @@
 export type SyncStatus = 'Pending' | 'Syncing' | 'Synced' | 'Failed'
 export type ProjectRole = 'owner' | 'contributor'
 export type Freshness = 'Fresh' | 'Stale' | 'Outdated'
+export type ChangeFreshness = 'CURRENT' | 'POTENTIALLY_STALE' | 'OUTDATED' | 'UNKNOWN'
 
 export interface User {
   id: number
@@ -118,6 +119,7 @@ export interface KnowledgeItem {
   module: string | null
   confidence: number | null
   freshness: Freshness
+  changeFreshness?: ChangeFreshness
   repositoryUrl: string | null
   createdAt: string
   updatedAt: string
@@ -261,7 +263,129 @@ export interface RepositoryReport {
   name: string
   url: string
   generatedAt: string
-  /** Which generated downloads exist: "pdf" and/or "pptx". */
   files: string[]
   report: ExtractionReport
+}
+
+export interface FreshnessOverview {
+  projectId: number
+  currentCount: number
+  potentiallyStaleCount: number
+  outdatedCount: number
+  unknownCount: number
+  totalCount: number
+  lastSyncAt: string | null
+  lastSnapshotCommit: string | null
+}
+
+export interface AffectedKnowledge {
+  knowledgeId: number
+  title: string
+  module: string | null
+  changeStatus: ChangeFreshness
+  ageStatus: Freshness
+  lastVerifiedCommit: string | null
+  affectedCommit: string | null
+  changedFiles: string[]
+  reason: string | null
+  detectedAt: string
+}
+
+export interface ChangeHistoryItem {
+  id: number
+  commitSha: string
+  changeType: string
+  filePath: string
+  author: string | null
+  commitMessage: string | null
+  detectedAt: string
+}
+
+export interface KnowledgeFreshnessDetail {
+  knowledgeId: number
+  title: string
+  module: string | null
+  changeStatus: ChangeFreshness
+  ageStatus: Freshness
+  lastVerifiedCommit: string | null
+  affectedCommit: string | null
+  changedFiles: string[]
+  reason: string | null
+  detectedAt: string
+  lastVerifiedAt: string
+  revalidationStatus: string
+  history: ChangeHistoryItem[]
+}
+
+export interface Citation {
+  index: number
+  knowledgeId: number
+  title: string
+  module: string | null
+  repositoryName: string | null
+  sourceFile: string | null
+  evidenceType: string | null
+  excerpt: string | null
+  commitSha: string | null
+  url: string | null
+  changeStatus: string | null
+}
+
+export interface ChatMessage {
+  id: number
+  role: 'user' | 'assistant'
+  content: string
+  citations: Citation[]
+  freshnessWarning?: string | null
+  createdAt: string
+}
+
+export interface ChatConversation {
+  id: number
+  title: string
+  createdAt: string
+  updatedAt: string
+  lastMessage: string
+  messageCount: number
+}
+
+export interface ChatResponse {
+  conversationId: number
+  message: string
+  citations: Citation[]
+  freshnessWarning?: string | null
+}
+
+export interface ExtractionSyncStatus {
+  id: number | null
+  projectId: number
+  repositoryId: number | null
+  repositoryName: string | null
+  status: 'IDLE' | 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED'
+  progress: number
+  stage: string | null
+  statusMessage: string | null
+  logs: string | null
+  startedAt: string | null
+  completedAt: string | null
+  durationSeconds: number | null
+  itemsExtracted: number | null
+  trustScore: number | null
+  errorMessage: string | null
+  active: boolean
+}
+
+export interface SyncHistoryItem {
+  id: number
+  repositoryId: number | null
+  repositoryName: string | null
+  status: string
+  progress: number
+  statusMessage: string | null
+  startedAt: string
+  completedAt: string | null
+  durationSeconds: number | null
+  itemsExtracted: number | null
+  trustScore: number | null
+  errorMessage: string | null
 }

@@ -3,6 +3,8 @@ import type {
   Activity, AppNotification, AuthResponse, CreateProjectInput, Dashboard, GithubRepoOption,
   GithubStatus, KnowledgeItem, Member, Meta, OrgDetail, OrgMember, OrgSummary, Page, ProjectDetail,
   ProjectSummary, Repository, RepositoryReport, SignupInput, User,
+  FreshnessOverview, AffectedKnowledge, KnowledgeFreshnessDetail,
+  ChatConversation, ChatMessage, ChatResponse, ExtractionSyncStatus, SyncHistoryItem,
 } from './types'
 
 export const authApi = {
@@ -44,6 +46,8 @@ export const projectApi = {
   removeRepository: (id: number, repoId: number) =>
     http.delete(`/api/projects/${id}/repositories/${repoId}`),
   sync: (id: number) => http.post<{ queued: number }>(`/api/projects/${id}/sync`),
+  syncStatus: (id: number) => http.get<ExtractionSyncStatus>(`/api/projects/${id}/sync/status`),
+  syncHistory: (id: number) => http.get<SyncHistoryItem[]>(`/api/projects/${id}/sync/history`),
   addMember: (id: number, userId: number) =>
     http.post<Member>(`/api/projects/${id}/members`, { userId }),
   removeMember: (id: number, userId: number) =>
@@ -86,4 +90,25 @@ export const githubApi = {
 
 export const metaApi = {
   get: () => http.get<Meta>('/api/meta'),
+}
+
+export const freshnessApi = {
+  overview: (projectId: number) => http.get<FreshnessOverview>(`/api/projects/${projectId}/freshness`),
+  affected: (projectId: number) => http.get<AffectedKnowledge[]>(`/api/projects/${projectId}/freshness/affected`),
+  detail: (projectId: number, knowledgeId: number) => http.get<KnowledgeFreshnessDetail>(`/api/projects/${projectId}/knowledge/${knowledgeId}/freshness`),
+  recheck: (projectId: number) => http.post<FreshnessOverview>(`/api/projects/${projectId}/freshness/recheck`),
+  revalidate: (projectId: number, knowledgeId: number) => http.post<KnowledgeFreshnessDetail>(`/api/projects/${projectId}/knowledge/${knowledgeId}/revalidate`),
+}
+
+export const assistantApi = {
+  chat: (projectId: number, message: string, conversationId?: number) =>
+    http.post<ChatResponse>(`/api/projects/${projectId}/assistant/chat`, { message, conversationId }),
+  conversations: (projectId: number) =>
+    http.get<ChatConversation[]>(`/api/projects/${projectId}/assistant/conversations`),
+  messages: (projectId: number, conversationId: number) =>
+    http.get<ChatMessage[]>(`/api/projects/${projectId}/assistant/conversations/${conversationId}`),
+  renameConversation: (projectId: number, conversationId: number, title: string) =>
+    http.patch<ChatConversation>(`/api/projects/${projectId}/assistant/conversations/${conversationId}`, { title }),
+  deleteConversation: (projectId: number, conversationId: number) =>
+    http.delete(`/api/projects/${projectId}/assistant/conversations/${conversationId}`),
 }

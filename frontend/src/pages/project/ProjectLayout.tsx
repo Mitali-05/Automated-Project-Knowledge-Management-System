@@ -1,5 +1,6 @@
+import { useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { AlertCircle, ArrowLeft, BookOpen, CheckCircle2, Clock, FileText, History, LayoutDashboard, FileBarChart, MessageSquare, RefreshCw, Settings, Ticket, type LucideIcon } from 'lucide-react'
+import { AlertCircle, ArrowLeft, BookOpen, CheckCircle2, Clock, History, LayoutDashboard, FileBarChart, MessageSquare, RefreshCw, Settings, Sparkles, Ticket, type LucideIcon } from 'lucide-react'
 import { Link, NavLink, Outlet, useParams } from 'react-router-dom'
 import { projectApi } from '../../api/endpoints'
 import type { ProjectDetail, SyncStatus } from '../../api/types'
@@ -12,14 +13,14 @@ export interface ProjectContext {
   reload: () => void
 }
 
-const tabs: { label: string; path: string; icon: LucideIcon; soon?: boolean }[] = [
+const tabs: { label: string; path: string; icon: LucideIcon; soon?: boolean; highlight?: boolean }[] = [
   { label: 'Overview', path: '', icon: LayoutDashboard },
+  { label: 'Ask PRISM', path: 'assistant', icon: Sparkles, highlight: true },
   { label: 'Knowledge', path: 'knowledge', icon: BookOpen },
   { label: 'Report', path: 'report', icon: FileBarChart },
   { label: 'History', path: 'history', icon: History },
   { label: 'Jira', path: 'jira', icon: Ticket, soon: true },
   { label: 'Prompts', path: 'prompts', icon: MessageSquare, soon: true },
-  { label: 'Documentation', path: 'documentation', icon: FileText, soon: true },
   { label: 'Settings', path: 'settings', icon: Settings },
 ]
 
@@ -35,6 +36,17 @@ export default function ProjectLayout() {
   const id = Number(projectId)
   const valid = Number.isInteger(id) && id > 0
   const { data, loading, error, reload } = useAsync(() => (valid ? projectApi.get(id) : Promise.reject(new Error('Project not found'))), [id, valid])
+
+  useEffect(() => {
+    if (!data) return
+    const isSyncing = data.project.syncStatus === 'Syncing' || data.project.syncStatus === 'Pending' ||
+      data.repositories.some((r) => r.syncStatus === 'Syncing' || r.syncStatus === 'Pending')
+    if (!isSyncing) return
+    const interval = setInterval(() => {
+      void reload()
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [data, reload])
 
   if (loading && !data) return <div className="mx-auto max-w-7xl p-8"><LoadingState rows={2} /></div>
   if (error || !data) {
@@ -70,9 +82,11 @@ export default function ProjectLayout() {
               className={({ isActive }) => cn(
                 'flex items-center gap-2 whitespace-nowrap rounded-t-lg border-b-2 px-4 py-2.5 text-sm font-medium transition-all duration-200',
                 isActive ? 'border-primary-indigo bg-primary-light-indigo/30 text-primary-indigo' : 'border-transparent text-text-secondary hover:bg-surface-background hover:text-text-primary',
+                t.highlight && !isActive && 'text-indigo-600 font-semibold'
               )}>
               <t.icon size={16} aria-hidden />{t.label}
               {t.soon && <span className="rounded bg-surface-border px-1.5 text-[10px] font-semibold uppercase text-text-muted">Soon</span>}
+              {t.highlight && <span className="rounded bg-gradient-to-r from-indigo-500 to-purple-500 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white shadow-sm">AI</span>}
             </NavLink>
           ))}
         </nav>
