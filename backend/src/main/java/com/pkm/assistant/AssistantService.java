@@ -160,7 +160,20 @@ public class AssistantService {
         }
 
         String systemPrompt = buildSystemPrompt(project.getName(), candidates, allItems.isEmpty());
-        String assistantAnswer = geminiClient.generateResponse(systemPrompt, history, request.message());
+        String assistantAnswer = null;
+        try {
+            if (geminiClient != null) {
+                assistantAnswer = geminiClient.generateResponse(systemPrompt, history, request.message());
+            }
+        } catch (Exception e) {
+            log.warn("Gemini generation failed: {}", e.getMessage());
+        }
+
+        if (assistantAnswer == null || assistantAnswer.isBlank()) {
+            assistantAnswer = allItems.isEmpty()
+                    ? "I couldn't find sufficient evidence in this project's indexed knowledge to answer that confidently. Please link a repository and run knowledge extraction first."
+                    : "I am unable to generate a response at this moment. Please try again.";
+        }
 
         List<CitationDto> citedList = resolveCitedReferences(assistantAnswer, candidates);
 
