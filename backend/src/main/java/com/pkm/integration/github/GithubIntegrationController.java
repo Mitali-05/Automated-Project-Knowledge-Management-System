@@ -40,4 +40,9 @@ public class GithubIntegrationController {
     public List<GithubIntegrationService.RepoOption> repositories(@RequestParam Long orgId) {
         return service.repositories(CurrentUser.id(), orgId);
     }
+
+    @DeleteMapping("/disconnect")
+    public void disconnect(@RequestParam Long orgId) {
+        service.disconnect(CurrentUser.id(), orgId);
+    }
 }

@@ -9,6 +9,11 @@ public record RepositoryDto(Long id, String provider, String url, String owner, 
 
     public static RepositoryDto from(ProjectRepositoryLink r) {
         return new RepositoryDto(r.getId(), r.getProvider(), r.getUrl(), r.getRepoOwner(), r.getRepoName(),
-                r.getSyncStatus().name(), r.getLastSyncedAt(), r.getLastSyncMessage(), r.getAddedAt());
+                switch (r.getSyncStatus()) {
+                    case PENDING -> "Pending";
+                    case SYNCING -> "Syncing";
+                    case SYNCED -> "Synced";
+                    case FAILED -> "Failed";
+                }, r.getLastSyncedAt(), r.getLastSyncMessage(), r.getAddedAt());
     }
 }
