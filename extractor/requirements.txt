@@ -5,6 +5,7 @@ pydantic>=2.7,<3
 openai>=1.50,<2
 tiktoken>=0.7,<1
 reportlab
+PyMuPDF>=1.24,<2
 mcp
 PyJWT
 cryptography

@@ -32,6 +32,7 @@ public class GeminiClient {
     private static final Logger log = LoggerFactory.getLogger(GeminiClient.class);
     private static final String GEMINI_API_BASE = "https://generativelanguage.googleapis.com";
     private static final List<String> FALLBACK_MODELS = List.of(
+            "gemini-3.5-flash-lite",
             "gemini-3.1-flash-lite-preview",
             "gemini-flash-lite-latest",
             "gemini-3-flash-preview"
@@ -40,7 +41,7 @@ public class GeminiClient {
     @Value("${app.gemini.api-key:}")
     private String apiKey;
 
-    @Value("${app.gemini.model:gemini-3.8-flash}")
+    @Value("${app.gemini.model:gemini-3.5-flash-lite}")
     private String model;
 
     private final RestClient restClient;
@@ -114,33 +115,153 @@ public class GeminiClient {
         }
         candidateModels.addAll(degradedCandidates);
 
+        ApiException lastApiError = null;
         Exception lastException = null;
+
         for (String targetModel : candidateModels) {
-            try {
-                String result = executeGenerateContent(targetModel, systemInstruction, history, userMessage);
-                if (result != null && !result.isBlank()) {
-                    degradedModels.remove(targetModel);
-                    return result;
+            final int maxAttempts = 2;
+            long backoffMs = 1000;
+
+            for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+                try {
+                    String result = executeGenerateContent(targetModel, systemInstruction, history, userMessage);
+                    if (result != null && !result.isBlank()) {
+                        degradedModels.remove(targetModel);
+                        return result;
+                    }
+                } catch (ApiException e) {
+                    lastApiError = e;
+                    lastException = e;
+                    if (e.getStatus() == HttpStatus.UNAUTHORIZED || e.getStatus() == HttpStatus.BAD_REQUEST) {
+                        break;
+                    }
+                    if (attempt < maxAttempts) {
+                        try {
+                            String openAiResult = executeGenerateContentOpenAI(targetModel, systemInstruction, history, userMessage);
+                            if (openAiResult != null && !openAiResult.isBlank()) {
+                                degradedModels.remove(targetModel);
+                                return openAiResult;
+                            }
+                        } catch (Exception ignored) {
+                        }
+                        try {
+                            Thread.sleep(backoffMs);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                        }
+                        backoffMs = Math.min(backoffMs * 2, 4000);
+                    }
+                } catch (Exception e) {
+                    lastException = e;
+                    if (attempt < maxAttempts) {
+                        try {
+                            Thread.sleep(backoffMs);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                        }
+                        backoffMs = Math.min(backoffMs * 2, 4000);
+                    }
                 }
-            } catch (ApiException e) {
-                if (e.getStatus() == HttpStatus.UNAUTHORIZED) {
-                    throw e;
-                }
-                degradedModels.put(targetModel, Instant.now().plusSeconds(600));
-                lastException = e;
-                log.warn("Gemini model {} request failed, trying next candidate: {}", targetModel, e.getMessage());
-            } catch (Exception e) {
-                degradedModels.put(targetModel, Instant.now().plusSeconds(600));
-                lastException = e;
-                log.warn("Gemini invocation with model {} failed: {}", targetModel, e.getMessage());
             }
+
+            degradedModels.put(targetModel, Instant.now().plusSeconds(600));
         }
 
-        if (lastException instanceof ApiException ae) {
-            throw ae;
+        if (lastApiError != null) {
+            throw lastApiError;
         }
         throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR,
                 "Failed to communicate with AI Assistant: " + (lastException != null ? lastException.getMessage() : "Unknown error"));
+    }
+
+    private String executeGenerateContentOpenAI(
+            String targetModel,
+            String systemInstruction,
+            List<Map<String, String>> history,
+            String userMessage) {
+
+        List<Map<String, String>> messages = new ArrayList<>();
+        if (systemInstruction != null && !systemInstruction.isBlank()) {
+            messages.add(Map.of("role", "system", "content", systemInstruction));
+        }
+        if (history != null && !history.isEmpty()) {
+            for (Map<String, String> item : history) {
+                String role = item.getOrDefault("role", "user");
+                String text = item.getOrDefault("text", "");
+                if (!text.isBlank()) {
+                    String normRole = "assistant".equalsIgnoreCase(role) || "model".equalsIgnoreCase(role) ? "assistant" : "user";
+                    messages.add(Map.of("role", normRole, "content", text));
+                }
+            }
+        }
+        messages.add(Map.of("role", "user", "content", userMessage));
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("model", targetModel);
+        payload.put("messages", messages);
+        payload.put("temperature", 0.2);
+        payload.put("max_tokens", 2048);
+
+        try {
+            String responseBody = restClient.post()
+                    .uri("/v1beta/openai/chat/completions")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .body(payload)
+                    .retrieve()
+                    .body(String.class);
+
+            if (responseBody == null || responseBody.isBlank()) {
+                throw new ApiException(HttpStatus.BAD_GATEWAY, "Received empty response from Gemini API.");
+            }
+
+            JsonNode response = objectMapper.readTree(responseBody);
+            if (response == null) {
+                throw new ApiException(HttpStatus.BAD_GATEWAY, "Received empty response tree from Gemini API.");
+            }
+
+            if (response.has("error")) {
+                String errMsg = response.path("error").path("message").asText("Gemini error");
+                throw new ApiException(HttpStatus.BAD_GATEWAY, "Gemini API error: " + errMsg);
+            }
+
+            JsonNode choices = response.path("choices");
+            if (choices.isArray() && !choices.isEmpty()) {
+                String content = choices.get(0).path("message").path("content").asText("").trim();
+                if (!content.isEmpty()) {
+                    return content;
+                }
+            }
+
+            throw new ApiException(HttpStatus.BAD_GATEWAY, "Gemini returned no answer content");
+        } catch (HttpClientErrorException.TooManyRequests e) {
+            log.warn("Gemini rate limit encountered for model {}: {}", targetModel, e.getMessage());
+            throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,
+                    "Gemini API rate limit exceeded. Please wait a moment and try again.");
+        } catch (HttpClientErrorException.Forbidden | HttpClientErrorException.Unauthorized e) {
+            log.error("Gemini authentication failure: {}", e.getMessage());
+            throw new ApiException(HttpStatus.UNAUTHORIZED,
+                    "Invalid Gemini API key. Please verify your GEMINI_API_KEY configuration.");
+        } catch (HttpClientErrorException.NotFound e) {
+            log.warn("Gemini model {} not found: {}", targetModel, e.getMessage());
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "Requested Gemini model '" + targetModel + "' was not found or is unavailable.");
+        } catch (HttpServerErrorException.ServiceUnavailable e) {
+            log.warn("Gemini model {} unavailable (503): {}", targetModel, e.getMessage());
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Gemini model " + targetModel + " is experiencing high demand (503).");
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            log.warn("Gemini HTTP error {}: {}", e.getStatusCode(), e.getMessage());
+            throw new ApiException(HttpStatus.BAD_GATEWAY,
+                    "Gemini API error (" + e.getStatusCode() + "): " + e.getStatusText());
+        } catch (ApiException ae) {
+            throw ae;
+        } catch (Exception e) {
+            log.warn("Gemini request execution failure for {}: {}", targetModel, e.getMessage());
+            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Gemini invocation failure: " + e.getMessage());
+        }
     }
 
     private String executeGenerateContent(
@@ -186,6 +307,7 @@ public class GeminiClient {
         try {
             ResponseEntity<byte[]> responseEntity = restClient.post()
                     .uri(uri)
+                    .header("x-goog-api-key", apiKey)
                     .contentType(MediaType.APPLICATION_JSON)
                     .accept(MediaType.APPLICATION_JSON, MediaType.ALL)
                     .body(payload)
@@ -226,7 +348,7 @@ public class GeminiClient {
                 }
             }
 
-            return "I couldn't find sufficient evidence in this project's indexed knowledge to answer that confidently.";
+            throw new ApiException(HttpStatus.BAD_GATEWAY, "Gemini returned no answer content");
         } catch (HttpClientErrorException.TooManyRequests e) {
             log.warn("Gemini rate limit encountered for model {}: {}", targetModel, e.getMessage());
             throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,
@@ -239,6 +361,10 @@ public class GeminiClient {
             log.warn("Gemini model {} not found: {}", targetModel, e.getMessage());
             throw new ApiException(HttpStatus.BAD_REQUEST,
                     "Requested Gemini model '" + targetModel + "' was not found or is unavailable.");
+        } catch (HttpServerErrorException.ServiceUnavailable e) {
+            log.warn("Gemini model {} unavailable (503): {}", targetModel, e.getMessage());
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Gemini model " + targetModel + " is experiencing high demand (503).");
         } catch (HttpClientErrorException | HttpServerErrorException e) {
             log.warn("Gemini HTTP error {}: {}", e.getStatusCode(), e.getMessage());
             throw new ApiException(HttpStatus.BAD_GATEWAY,
@@ -257,34 +383,63 @@ public class GeminiClient {
             return Collections.emptyList();
         }
 
-        String uri = "/v1beta/models/gemini-embedding-001:embedContent?key=" + apiKey;
-        Map<String, Object> payload = Map.of(
-                "model", "models/gemini-embedding-001",
-                "content", Map.of("parts", List.of(Map.of("text", text))),
-                "outputDimensionality", 768
-        );
-
         try {
-            ResponseEntity<byte[]> responseEntity = restClient.post()
-                    .uri(uri)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .accept(MediaType.APPLICATION_JSON, MediaType.ALL)
-                    .body(payload)
-                    .retrieve()
-                    .toEntity(byte[].class);
+            if (apiKey.startsWith("AQ.") || apiKey.contains(".") || !apiKey.startsWith("AIzaSy")) {
+                ResponseEntity<byte[]> responseEntity = restClient.post()
+                        .uri("/v1beta/openai/embeddings")
+                        .header("Authorization", "Bearer " + apiKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON, MediaType.ALL)
+                        .body(Map.of("model", "gemini-embedding-001", "input", text))
+                        .retrieve()
+                        .toEntity(byte[].class);
 
-            byte[] bodyBytes = responseEntity.getBody();
-            if (bodyBytes != null && bodyBytes.length > 0) {
-                byte[] decompressed = decompressIfGzip(bodyBytes);
-                JsonNode response = objectMapper.readTree(decompressed);
-                if (response != null && response.has("embedding")) {
-                    JsonNode values = response.path("embedding").path("values");
-                    if (values.isArray()) {
-                        List<Double> list = new ArrayList<>();
-                        for (JsonNode val : values) {
-                            list.add(val.asDouble());
+                byte[] bodyBytes = responseEntity.getBody();
+                if (bodyBytes != null && bodyBytes.length > 0) {
+                    byte[] decompressed = decompressIfGzip(bodyBytes);
+                    JsonNode response = objectMapper.readTree(decompressed);
+                    if (response != null && response.has("data")) {
+                        JsonNode dataArr = response.path("data");
+                        if (dataArr.isArray() && !dataArr.isEmpty()) {
+                            JsonNode embNode = dataArr.get(0).path("embedding");
+                            if (embNode.isArray()) {
+                                List<Double> list = new ArrayList<>();
+                                for (JsonNode val : embNode) {
+                                    list.add(val.asDouble());
+                                }
+                                return list;
+                            }
                         }
-                        return list;
+                    }
+                }
+            } else {
+                String uri = "/v1beta/models/gemini-embedding-001:embedContent?key=" + apiKey;
+                Map<String, Object> payload = Map.of(
+                        "model", "models/gemini-embedding-001",
+                        "content", Map.of("parts", List.of(Map.of("text", text))),
+                        "outputDimensionality", 768
+                );
+                ResponseEntity<byte[]> responseEntity = restClient.post()
+                        .uri(uri)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON, MediaType.ALL)
+                        .body(payload)
+                        .retrieve()
+                        .toEntity(byte[].class);
+
+                byte[] bodyBytes = responseEntity.getBody();
+                if (bodyBytes != null && bodyBytes.length > 0) {
+                    byte[] decompressed = decompressIfGzip(bodyBytes);
+                    JsonNode response = objectMapper.readTree(decompressed);
+                    if (response != null && response.has("embedding")) {
+                        JsonNode values = response.path("embedding").path("values");
+                        if (values.isArray()) {
+                            List<Double> list = new ArrayList<>();
+                            for (JsonNode val : values) {
+                                list.add(val.asDouble());
+                            }
+                            return list;
+                        }
                     }
                 }
             }
@@ -307,7 +462,7 @@ public class GeminiClient {
 
     private String normalizeModelName(String modelName) {
         if (modelName == null || modelName.isBlank()) {
-            return "gemini-3.1-flash-lite-preview";
+            return "gemini-3.5-flash-lite";
         }
         return modelName.startsWith("models/") ? modelName.substring(7) : modelName;
     }

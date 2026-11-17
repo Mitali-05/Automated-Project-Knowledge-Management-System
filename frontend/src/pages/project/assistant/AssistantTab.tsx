@@ -9,7 +9,7 @@ import { AssistantWelcome } from './AssistantWelcome'
 import { ChatMessageView } from './ChatMessageView'
 import { ChatInput } from './ChatInput'
 import { AssistantLoadingState } from './AssistantLoadingState'
-import { ErrorState } from '../../../components/ui/States'
+import { ErrorState, LoadingState } from '../../../components/ui/States'
 
 export default function AssistantTab() {
   const { projectId } = useParams()
@@ -23,6 +23,8 @@ export default function AssistantTab() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [fetchingMessages, setFetchingMessages] = useState(false)
+  const [fetchingConversations, setFetchingConversations] = useState(true)
+  const [historyAttempt, setHistoryAttempt] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -38,11 +40,14 @@ export default function AssistantTab() {
   }, [id])
 
   const loadConversations = useCallback(async () => {
+    setFetchingConversations(true)
     try {
       const list = await assistantApi.conversations(id)
       setConversations(list)
     } catch (err: unknown) {
-      console.error(err)
+      setError(err instanceof Error ? err.message : 'Could not load conversations')
+    } finally {
+      setFetchingConversations(false)
     }
   }, [id])
 
@@ -55,11 +60,13 @@ export default function AssistantTab() {
   useEffect(() => {
     if (!activeId) {
       setMessages([])
+      setFetchingMessages(false)
       return
     }
 
     let cancelled = false
     setFetchingMessages(true)
+    setMessages([])
     setError(null)
 
     assistantApi.messages(id, activeId)
@@ -79,7 +86,7 @@ export default function AssistantTab() {
     return () => {
       cancelled = true
     }
-  }, [id, activeId])
+  }, [id, activeId, historyAttempt])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -108,9 +115,8 @@ export default function AssistantTab() {
     try {
       const res = await assistantApi.chat(id, text, activeId ?? undefined)
 
-      if (!activeId) {
+      if (!activeId || activeId !== res.conversationId) {
         setActiveId(res.conversationId)
-        void loadConversations()
       }
 
       const assistantMsg: ChatMessage = {
@@ -126,6 +132,7 @@ export default function AssistantTab() {
       void loadConversations()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to generate response')
+      void loadConversations()
     } finally {
       setLoading(false)
     }
@@ -143,11 +150,15 @@ export default function AssistantTab() {
     try {
       await assistantApi.deleteConversation(id, convId)
       if (activeId === convId) {
-        handleNewChat()
+        setActiveId(null)
+        setMessages([])
+        setError(null)
+        setInput('')
+        setLastFailedMessage(null)
       }
       void loadConversations()
     } catch (err: unknown) {
-      console.error(err)
+      setError(err instanceof Error ? err.message : 'Could not delete this conversation')
     }
   }
 
@@ -156,7 +167,7 @@ export default function AssistantTab() {
       await assistantApi.renameConversation(id, convId, newTitle)
       void loadConversations()
     } catch (err: unknown) {
-      console.error(err)
+      setError(err instanceof Error ? err.message : 'Could not rename this conversation')
     }
   }
 
@@ -172,16 +183,19 @@ export default function AssistantTab() {
   return (
     <div className="flex h-[calc(100vh-14rem)] min-h-[550px] w-full overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-sm">
       {sidebarOpen && (
-        <ConversationSidebar
-          conversations={conversations}
-          activeId={activeId}
-          onSelect={(convId) => {
-            setActiveId(convId)
-          }}
-          onNewChat={handleNewChat}
-          onDelete={handleDeleteConversation}
-          onRename={handleRenameConversation}
-        />
+        <fieldset disabled={loading} className="min-w-0 border-0 p-0">
+          <ConversationSidebar
+            loading={fetchingConversations}
+            conversations={conversations}
+            activeId={activeId}
+            onSelect={(convId) => {
+              setActiveId(convId)
+            }}
+            onNewChat={handleNewChat}
+            onDelete={handleDeleteConversation}
+            onRename={handleRenameConversation}
+          />
+        </fieldset>
       )}
 
       <div className="flex flex-1 flex-col h-full overflow-hidden bg-surface-card relative">
@@ -200,15 +214,18 @@ export default function AssistantTab() {
                 <Sparkles size={14} aria-hidden />
               </span>
               <div>
-                <h3 className="text-sm font-bold text-text-primary">Ask PRISM</h3>
+                <h3 className="text-sm font-bold text-text-primary">
+                  {conversations.find((c) => c.id === activeId)?.title || 'Ask PRISM'}
+                </h3>
                 <p className="text-[11px] text-text-muted">{project.name} Knowledge Assistant</p>
               </div>
             </div>
           </div>
-          {activeId && (
+          {activeId && !sidebarOpen && (
             <button
               type="button"
               onClick={handleNewChat}
+              disabled={loading}
               className="text-xs font-semibold text-primary-indigo hover:underline cursor-pointer"
             >
               Start New Chat
@@ -225,7 +242,8 @@ export default function AssistantTab() {
                   const retryText = lastFailedMessage || input
                   if (retryText) {
                     void handleSend(retryText, true)
-                  }
+                  } else if (activeId) setHistoryAttempt((n) => n + 1)
+                  else void loadConversations()
                 }}
               />
             </div>
@@ -239,9 +257,7 @@ export default function AssistantTab() {
           )}
 
           {fetchingMessages && (
-            <div className="flex items-center justify-center py-20 text-sm text-text-muted">
-              Loading conversation history...
-            </div>
+            <LoadingState rows={2} label="Loading conversation history..." />
           )}
 
           {messages.map((m, idx) => (

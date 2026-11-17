@@ -4,7 +4,6 @@ import com.pkm.common.CurrentUser;
 import com.pkm.freshness.FreshnessDtos.AffectedKnowledgeDto;
 import com.pkm.freshness.FreshnessDtos.FreshnessOverviewDto;
 import com.pkm.freshness.FreshnessDtos.KnowledgeFreshnessDetailDto;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,38 +20,33 @@ public class FreshnessController {
 
     @GetMapping("/freshness")
     public FreshnessOverviewDto overview(
-            @PathVariable Long projectId,
-            @AuthenticationPrincipal CurrentUser user) {
-        return freshnessService.getOverview(projectId, user.id());
+            @PathVariable Long projectId) {
+        return freshnessService.getOverview(projectId, CurrentUser.id());
     }
 
     @GetMapping("/freshness/affected")
     public List<AffectedKnowledgeDto> affected(
-            @PathVariable Long projectId,
-            @AuthenticationPrincipal CurrentUser user) {
-        return freshnessService.getAffected(projectId, user.id());
+            @PathVariable Long projectId) {
+        return freshnessService.getAffected(projectId, CurrentUser.id());
     }
 
     @GetMapping("/knowledge/{knowledgeId}/freshness")
     public KnowledgeFreshnessDetailDto detail(
             @PathVariable Long projectId,
-            @PathVariable Long knowledgeId,
-            @AuthenticationPrincipal CurrentUser user) {
-        return freshnessService.getDetail(projectId, knowledgeId, user.id());
+            @PathVariable Long knowledgeId) {
+        return freshnessService.getDetail(projectId, knowledgeId, CurrentUser.id());
     }
 
     @PostMapping("/freshness/recheck")
     public FreshnessOverviewDto recheck(
-            @PathVariable Long projectId,
-            @AuthenticationPrincipal CurrentUser user) {
-        return freshnessService.recheckProject(projectId, user.id());
+            @PathVariable Long projectId) {
+        return freshnessService.recheckProject(projectId, CurrentUser.id());
     }
 
     @PostMapping("/knowledge/{knowledgeId}/revalidate")
     public KnowledgeFreshnessDetailDto revalidate(
             @PathVariable Long projectId,
-            @PathVariable Long knowledgeId,
-            @AuthenticationPrincipal CurrentUser user) {
-        return freshnessService.revalidateItem(projectId, knowledgeId, user.id());
+            @PathVariable Long knowledgeId) {
+        return freshnessService.revalidateItem(projectId, knowledgeId, CurrentUser.id());
     }
 }

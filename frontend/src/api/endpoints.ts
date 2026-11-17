@@ -81,11 +81,18 @@ export const notificationApi = {
 }
 
 export const githubApi = {
+  authorizeConnection: (code: string, state: string) => http.post<{
+    connectionId: string; installations: { id: string; account: string }[]; installUrl: string
+  }>('/api/integrations/github/connection/authorize', { code, state }, 90_000),
+  selectConnection: (connectionId: string, installationId: string) =>
+    http.post<{ orgId: number }>('/api/integrations/github/connection/select', { connectionId, installationId }, 90_000),
   status: (orgId: number) => http.get<GithubStatus>(`/api/integrations/github/status?orgId=${orgId}`),
   complete: (installationId: string, state: string, code?: string) =>
     http.post<{ orgId: number }>('/api/integrations/github/callback', { installationId, state, code }),
   repositories: (orgId: number) =>
     http.get<GithubRepoOption[]>(`/api/integrations/github/repositories?orgId=${orgId}`),
+  disconnect: (orgId: number) =>
+    http.delete<void>(`/api/integrations/github/disconnect?orgId=${orgId}`),
 }
 
 export const metaApi = {
@@ -103,6 +110,8 @@ export const freshnessApi = {
 export const assistantApi = {
   chat: (projectId: number, message: string, conversationId?: number) =>
     http.post<ChatResponse>(`/api/projects/${projectId}/assistant/chat`, { message, conversationId }),
+  createConversation: (projectId: number) =>
+    http.post<ChatConversation>(`/api/projects/${projectId}/assistant/conversations`, {}),
   conversations: (projectId: number) =>
     http.get<ChatConversation[]>(`/api/projects/${projectId}/assistant/conversations`),
   messages: (projectId: number, conversationId: number) =>

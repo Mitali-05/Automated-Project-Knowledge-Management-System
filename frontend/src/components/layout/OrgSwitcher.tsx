@@ -22,7 +22,7 @@ export function OrgSwitcher({ onNavigate }: { onNavigate?: () => void }) {
   const close = useCallback(() => setOpen(false), [])
   useClickOutside(ref, open, close)
 
-  if (loading && !activeOrg) return <div className="mx-4 mt-4 h-12 animate-pulse rounded-xl bg-surface-background" aria-hidden />
+  if (loading && !activeOrg) return <div className="mx-4 mt-4 h-12 animate-pulse rounded-xl bg-surface-background" role="status" aria-label="Loading workspaces" />
   if (!activeOrg) return null
 
   return (

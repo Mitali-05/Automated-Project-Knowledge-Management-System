@@ -28,7 +28,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from dotenv import load_dotenv
-load_dotenv(override=True)
+load_dotenv(override=False)
 
 STORE_FILE = Path(PROJECT_ROOT) / "projects_store.json"
 LOG_DIR = Path(PROJECT_ROOT) / "logs"
@@ -99,22 +99,9 @@ def run_extraction(project_id: str, provider: str, llm_key: str, github_token: s
     owner = proj["owner"]
     repo = proj["repo"]
 
-    # Auto-resolve github_token if not passed or empty
-    if not github_token:
-        github_token = os.getenv("GITHUB_TOKEN") or os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN") or ""
-        if not github_token:
-            app_id = os.getenv("GITHUB_APP_ID")
-            inst_id = os.getenv("GITHUB_INSTALLATION_ID")
-            pem_files = list(Path(PROJECT_ROOT).glob("*.pem"))
-            if app_id and inst_id and pem_files:
-                try:
-                    from app.github.auth import get_installation_access_token
-                    github_token = get_installation_access_token(app_id, str(pem_files[0]), inst_id)
-                    logger.info("Automatically generated GitHub App installation token for worker.")
-                except Exception as te:
-                    logger.warning(f"Could not auto-generate GitHub App token: {te}")
-
     try:
+        if not github_token or github_token == "__NONE__":
+            raise ValueError("An explicit GitHub authorization token is required")
         # ── Phase 1: Fetch repo tree ───────────────────────────
         _update_project(project_id, {
             "status": "ANALYZING",
@@ -246,6 +233,8 @@ def run_extraction(project_id: str, provider: str, llm_key: str, github_token: s
                 result, file_tree=tree, owner=owner, repo=repo,
                 project_id=project_id
             )
+            if v_report.verdict in ("AUDIT_FAILED", "REJECTED"):
+                raise RuntimeError("Verification did not pass: " + v_report.verdict)
             result.verification_report = v_report
             _update_project(project_id, {
                 "staging_buffer": result.model_dump()
@@ -278,10 +267,11 @@ def run_extraction(project_id: str, provider: str, llm_key: str, github_token: s
             )
 
         except Exception as ve:
-            logger.warning(f"Verification Agent notice: {ve}")
+            logger.error(f"Verification Agent failed: {ve}")
             log_agent_result(project_id, "VerificationAgent (LLM2)", {
                 "error": str(ve)
             }, status="FAILED", context="Verification agent encountered an error")
+            raise
 
         # ── Final Commit & Optional Cloud Push ───────────────────
         store = _read_store()
@@ -317,7 +307,7 @@ def run_extraction(project_id: str, provider: str, llm_key: str, github_token: s
                 pushed = True
                 logger.info(f"AWS push completed successfully with DB Project ID: {db_proj_id}")
             except Exception as de:
-                logger.warning(f"Failed to push to AWS: {de}")
+                raise RuntimeError("Requested database persistence failed") from de
 
         # When pushed to AWS, purge local payload to keep local disk clean
         _update_project(project_id, {

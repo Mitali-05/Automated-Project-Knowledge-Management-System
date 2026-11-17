@@ -31,7 +31,7 @@ public class ExtractionBridgeService {
     @Value("${app.extractor.poll-seconds:2}")
     private int pollSeconds;
 
-    @Value("${app.extractor.auto-start:true}")
+    @Value("${app.extractor.auto-start:false}")
     private boolean autoStart;
 
     @Value("${app.ingest.service-key:}")
@@ -63,7 +63,9 @@ public class ExtractionBridgeService {
     }
 
     public void triggerExtraction() {
-        ensureRunning();
+        if (autoStart) {
+            ensureRunning();
+        }
     }
 
     public void ensureRunning() {
@@ -166,7 +168,7 @@ public class ExtractionBridgeService {
     private File resolvePythonExecutable() {
         if (pythonPath != null && !pythonPath.isBlank()) {
             File custom = new File(pythonPath);
-            if (custom.exists()) {
+            if (custom.isFile()) {
                 return custom;
             }
         }
@@ -180,18 +182,18 @@ public class ExtractionBridgeService {
 
         for (String candidate : candidates) {
             File f = new File(candidate);
-            if (f.exists()) {
+            if (f.isFile()) {
                 return f;
             }
         }
 
-        return new File("python");
+        throw new IllegalStateException("EXTRACTOR_PYTHON_PATH is required for automatic bridge startup");
     }
 
     private File resolveWorkingDirectory() {
         if (workingDir != null && !workingDir.isBlank()) {
             File custom = new File(workingDir);
-            if (custom.exists()) {
+            if (custom.isDirectory()) {
                 return custom;
             }
         }
@@ -205,11 +207,11 @@ public class ExtractionBridgeService {
 
         for (String candidate : candidates) {
             File f = new File(candidate);
-            if (f.exists()) {
+            if (f.isDirectory()) {
                 return f;
             }
         }
 
-        return new File("extractor");
+        throw new IllegalStateException("EXTRACTOR_WORKING_DIR is required for automatic bridge startup");
     }
 }

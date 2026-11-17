@@ -3,6 +3,7 @@ import { Plus, MessageSquare, Trash2, Clock, Edit2, Check, X } from 'lucide-reac
 import type { ChatConversation } from '../../../api/types'
 import { formatDate } from '../../../lib/format'
 import { cn } from '../../../lib/cn'
+import { LoadingState } from '../../../components/ui/States'
 
 interface ConversationSidebarProps {
   conversations: ChatConversation[]
@@ -65,6 +66,7 @@ export function ConversationSidebar({
           Recent Conversations
         </div>
 
+        {loading && conversations.length === 0 && <LoadingState rows={1} label="Loading conversations..." />}
         {conversations.length === 0 && !loading && (
           <div className="p-4 text-center text-xs text-text-muted">
             No past conversations yet.

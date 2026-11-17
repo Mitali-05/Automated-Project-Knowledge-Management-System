@@ -213,10 +213,14 @@ export interface GithubRepoOption {
 
 /** The extraction service's full report (field names are the Python pipeline's, snake_case). */
 export interface ExtractionReport {
+  jira_context?: { issue_key: string; summary: string; status: string; description: string; acceptance_criteria: string; comments: string; source_url: string; source_updated_at: string }[]
   project_name?: string
   problem_statement?: string
   tech_stack?: string[]
   architecture_mermaid_chart?: string
+  architecture_explanation?: string
+  sequence_explanation?: string
+  technical_diagrams?: { title: string; kind: 'flowchart' | 'sequence'; mermaid: string; explanation: string; evidence_ids: string[] }[]
   milestone_timeline_mermaid_chart?: string
   analytics_metrics?: {
     estimated_complexity?: string
@@ -253,8 +257,10 @@ export interface ExtractionReport {
     unsupported_claims_count?: number
     audit_findings?: string[]
     verification_agent_notes?: string
-    ml_audit?: { ml_models_detected?: boolean; notes?: string }
+    ml_audit?: { ml_models_detected?: boolean; detected_frameworks?: string[]; notes?: string }
   } | null
+  knowledge_items?: { title: string; knowledge_type: string; summary: string; details: string; module?: string; business_impact?: string; confidence?: number; evidence_ids?: string[] }[]
+  inspected_files?: string[]
 }
 
 export interface RepositoryReport {

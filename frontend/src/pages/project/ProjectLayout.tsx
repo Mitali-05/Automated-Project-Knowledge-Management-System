@@ -19,7 +19,7 @@ const tabs: { label: string; path: string; icon: LucideIcon; soon?: boolean; hig
   { label: 'Knowledge', path: 'knowledge', icon: BookOpen },
   { label: 'Report', path: 'report', icon: FileBarChart },
   { label: 'History', path: 'history', icon: History },
-  { label: 'Jira', path: 'jira', icon: Ticket, soon: true },
+  { label: 'Jira', path: 'jira', icon: Ticket },
   { label: 'Prompts', path: 'prompts', icon: MessageSquare, soon: true },
   { label: 'Settings', path: 'settings', icon: Settings },
 ]
@@ -35,7 +35,22 @@ export default function ProjectLayout() {
   const { projectId } = useParams()
   const id = Number(projectId)
   const valid = Number.isInteger(id) && id > 0
-  const { data, loading, error, reload } = useAsync(() => (valid ? projectApi.get(id) : Promise.reject(new Error('Project not found'))), [id, valid])
+  const { data, loading, error, reload } = useAsync(
+    () => (valid ? projectApi.get(id) : Promise.reject(new Error('Project not found'))),
+    [id, valid],
+    { cacheKey: valid ? `prism:project:${id}:detail` : undefined }
+  )
+
+  useEffect(() => {
+    if (!data || loading) return
+    const isSyncing = data.project.syncStatus === 'Syncing' || data.project.syncStatus === 'Pending' ||
+      data.repositories.some((r) => r.syncStatus === 'Syncing' || r.syncStatus === 'Pending')
+    if (!isSyncing) return
+    const timer = setTimeout(() => {
+      reload()
+    }, 3000)
+    return () => clearTimeout(timer)
+  }, [data, loading, reload])
 
   useEffect(() => {
     if (!data) return
@@ -93,7 +108,7 @@ export default function ProjectLayout() {
       </motion.div>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, delay: 0.1 }} className="flex-1">
         <div className="mx-auto w-full max-w-7xl p-6 md:p-8">
-          <Outlet context={{ detail: data, reload } satisfies ProjectContext} />
+          <Outlet key={id} context={{ detail: data, reload } satisfies ProjectContext} />
         </div>
       </motion.div>
     </div>

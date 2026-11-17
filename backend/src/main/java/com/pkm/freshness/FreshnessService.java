@@ -73,7 +73,7 @@ public class FreshnessService {
             }
         }
         if (commitSha == null || commitSha.isBlank()) {
-            commitSha = "baseline-" + Instant.now().toEpochMilli();
+            throw ApiException.badRequest("Cannot record sync baseline without a real GitHub commit SHA");
         }
 
         Optional<RepositorySnapshot> prevOpt = snapshotRepository
@@ -340,8 +340,8 @@ public class FreshnessService {
         long current = freshnessRepository.countByProjectIdAndChangeStatus(projectId, "CURRENT");
         long stale = freshnessRepository.countByProjectIdAndChangeStatus(projectId, "POTENTIALLY_STALE");
         long outdated = freshnessRepository.countByProjectIdAndChangeStatus(projectId, "OUTDATED");
-        long unknown = freshnessRepository.countByProjectIdAndChangeStatus(projectId, "UNKNOWN");
         long total = knowledgeRepository.countByProjectId(projectId);
+        long unknown = Math.max(0L, total - current - stale - outdated);
 
         List<RepositorySnapshot> snaps = snapshotRepository.findByProjectIdOrderByCreatedAtDesc(projectId);
         Instant lastSync = snaps.isEmpty() ? null : snaps.get(0).getCreatedAt();

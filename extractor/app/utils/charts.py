@@ -57,7 +57,7 @@ def generate_subsystem_breakdown_chart(result: AgentExtractionResult) -> BytesIO
             paths_and_tokens.append(item.folder_path)
 
     # 2. Count audited subsystems deterministically
-    for p in paths_and_tokens:
+    for p in sorted(set(p for p in paths_and_tokens if p.strip())):
         path = p.lower()
         if "controller" in path or "api" in path or "endpoint" in path:
             tier_counts["Controllers & Public API"] += 1
@@ -72,15 +72,6 @@ def generate_subsystem_breakdown_chart(result: AgentExtractionResult) -> BytesIO
         else:
             tier_counts["Domain Services & Core Logic"] += 1
 
-    # Ensure baseline representation from core_module_count if extraction was sparse
-    total_found = sum(tier_counts.values())
-    if total_found < 6:
-        tier_counts["Controllers & Public API"] = max(tier_counts["Controllers & Public API"], 4)
-        tier_counts["Domain Services & Core Logic"] = max(tier_counts["Domain Services & Core Logic"], 6)
-        tier_counts["Security & Authentication"] = max(tier_counts["Security & Authentication"], 2)
-        tier_counts["Persistence & Schema Migrations"] = max(tier_counts["Persistence & Schema Migrations"], 4)
-        tier_counts["External Integrations & Clients"] = max(tier_counts["External Integrations & Clients"], 2)
-        tier_counts["Frontend & UI Presentation"] = max(tier_counts["Frontend & UI Presentation"], 3)
 
     categories = [k for k, v in tier_counts.items() if v > 0]
     values = [tier_counts[k] for k in categories]
@@ -116,22 +107,22 @@ def generate_subsystem_breakdown_chart(result: AgentExtractionResult) -> BytesIO
     ax.xaxis.grid(True, linestyle='--', alpha=0.5, color='#E2E8F0', zorder=0)
     ax.set_axisbelow(True)
     
-    ax.set_xlabel('Audited Component / Subsystem Count', fontsize=9, color='#64748B',
+    ax.set_xlabel('Unique Cited Path / Module References', fontsize=9, color='#64748B',
                    fontweight='bold', labelpad=10)
-    ax.set_title('Subsystem Architectural Density Distribution', fontsize=12.5,
+    ax.set_title('Cited Reference Distribution', fontsize=12.5,
                   fontweight='700', color='#0F172A', pad=14, loc='left')
 
     # Annotate bars with refined labels
     for bar in bars:
         width = bar.get_width()
-        label_text = f'{int(width)} components'
+        label_text = f'{int(width)} references'
         txt = ax.text(width + 0.35, bar.get_y() + bar.get_height() / 2, label_text,
                       va='center', ha='left', fontsize=8.5, color='#1E293B', fontweight='bold')
         txt.set_path_effects([
             path_effects.withStroke(linewidth=2, foreground='white')
         ])
 
-    ax.set_xlim(0, max(values) * 1.3)
+    ax.set_xlim(0, max(1, max(values, default=0)) * 1.3)
     
     # Add subtle branding watermark
     fig.text(0.98, 0.02, 'PRISM Architectural Audit', fontsize=6.5, color='#CBD5E1',
@@ -150,20 +141,13 @@ def generate_capability_radar_chart(result: AgentExtractionResult) -> BytesIO:
     Generates an executive Architectural Capability & Health Radar Chart.
     Uses Seaborn palettes with gradient fills and professional polar styling.
     """
-    pillars = ['Security &\nAuth', 'Concurrency\nControl', 'Data\nConsistency',
-               'Modularity', 'Fault\nTolerance', 'API\nResilience']
-    patterns_text = " ".join(result.analytics_metrics.key_patterns_used).lower()
-    security_text = result.analytics_metrics.security_posture.lower()
-    
-    score_sec = 95 if "jwt" in security_text or "bearer" in security_text or "env" in security_text else 80
-    score_con = 95 if "optimistic" in patterns_text or "singleton" in patterns_text else 75
-    score_data = 90 if "acid" in patterns_text or "pool" in patterns_text or "mongoose" in patterns_text else 80
-    score_mod = min(95, max(75, result.analytics_metrics.core_module_count * 6))
-    score_fault = 85 if "circuit" in patterns_text or "fallback" in patterns_text else 75
-    score_res = 90 if "idempotent" in patterns_text or "route" in patterns_text else 80
-    
-    values = [score_sec, score_con, score_data, score_mod, score_fault, score_res]
-    
+    report = result.verification_report
+    if report is None:
+        raise ValueError("Verification data is required to render the audit chart")
+    pillars = ['Reported Trust', 'Evidence Precision', 'Subsystem Coverage']
+    values = [report.overall_trust_score, report.evidence_precision_score,
+              report.subsystem_recall_coverage]
+
     N = len(pillars)
     angles = [n / float(N) * 2 * np.pi for n in range(N)]
     angles += angles[:1]
@@ -201,7 +185,7 @@ def generate_capability_radar_chart(result: AgentExtractionResult) -> BytesIO:
                       fontsize=7.5, fontweight='700', color='#1E40AF')
         txt.set_path_effects([path_effects.withStroke(linewidth=2.5, foreground='white')])
     
-    ax.set_title('Architectural Maturity & Capability Radar', size=11.5, color='#0F172A',
+    ax.set_title('Reported Verification Scores (AI Audit)', size=11.5, color='#0F172A',
                   fontweight='700', pad=22)
     
     # Branding

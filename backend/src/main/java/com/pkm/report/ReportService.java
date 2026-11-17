@@ -106,7 +106,7 @@ public class ReportService {
             try {
                 node = mapper.readTree(row.getReport());
             } catch (JsonProcessingException e) {
-                continue;   // a corrupt report must not break the whole list
+                throw new IllegalStateException("Stored report JSON is invalid for repository " + row.getRepositoryId(), e);
             }
             List<String> have = kinds.getOrDefault(row.getRepositoryId(), List.of()).stream().sorted().toList();
             out.add(new RepositoryReportDto(link.getId(), link.getRepoOwner(), link.getRepoName(), link.getUrl(),

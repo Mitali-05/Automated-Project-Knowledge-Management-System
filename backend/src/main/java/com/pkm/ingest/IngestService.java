@@ -78,7 +78,10 @@ public class IngestService {
         ProjectRepositoryLink repo = loadRepo(repositoryId);
         String installationId = repo.getProject().getOrganization().getGithubInstallationId();
         if (installationId == null || installationId.isBlank()) {
-            throw ApiException.notFound("This organization has not connected the GitHub App (public repositories need no token)");
+            throw ApiException.notFound("Connect the GitHub App for this organization before syncing repositories");
+        }
+        if (!repo.getProject().getOrganization().isGithubInstallationVerified()) {
+            throw ApiException.forbidden("Reconnect GitHub: installation ownership has not been verified");
         }
         return new TokenResponse(github.installationToken(installationId));
     }

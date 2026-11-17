@@ -89,6 +89,8 @@ class AssistantServiceTest {
             return c;
         });
         when(knowledgeRepository.findAllWithEvidence(projectId)).thenReturn(List.of());
+        when(geminiClient.generateResponse(any(), any(), any()))
+                .thenReturn("I couldn't find sufficient evidence in the repository knowledge base to answer your question.");
 
         ChatResponse response = service.chat(projectId, userId, new ChatRequest("Explain architecture", null));
 

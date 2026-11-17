@@ -8,6 +8,7 @@ import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card'
 import { Alert } from '../../components/ui/States'
+import { Skeleton } from '../../components/ui/Skeleton'
 import { SyncProgressSection } from '../../components/sync/SyncProgressSection'
 import { SyncHistoryTable } from '../../components/sync/SyncHistoryTable'
 import { useAsync } from '../../hooks/useAsync'
@@ -19,21 +20,35 @@ import { cn } from '../../lib/cn'
 export default function OverviewTab() {
   const { detail, reload } = useProject()
   const { project, repositories } = detail
-  const recent = useAsync(() => activityApi.list(project.id, 0, 5), [project.id])
-  const freshness = useAsync(() => freshnessApi.overview(project.id), [project.id])
+  const recent = useAsync(
+    () => activityApi.list(project.id, 0, 5),
+    [project.id],
+    { cacheKey: `prism:project:${project.id}:recent_activity` }
+  )
+  const freshness = useAsync(
+    () => freshnessApi.overview(project.id),
+    [project.id],
+    { cacheKey: `prism:project:${project.id}:freshness` }
+  )
+  const reloadRecent = recent.reload
+  const reloadFreshness = freshness.reload
   const [busy, setBusy] = useState<'sync' | 'recheck' | null>(null)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [syncStatus, setSyncStatus] = useState<ExtractionSyncStatus | null>(null)
   const [syncHistory, setSyncHistory] = useState<SyncHistoryItem[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
+  const [historyError, setHistoryError] = useState<string | null>(null)
   const pollTimerRef = useRef<number | null>(null)
+  const pollGenerationRef = useRef(0)
 
   const loadSyncHistory = useCallback(async () => {
     try {
       setLoadingHistory(true)
+      setHistoryError(null)
       const list = await projectApi.syncHistory(project.id)
       setSyncHistory(list)
-    } catch {
+    } catch (err) {
+      setHistoryError(`Could not load synchronization history: ${errorMessage(err)}`)
     } finally {
       setLoadingHistory(false)
     }
@@ -44,42 +59,52 @@ export default function OverviewTab() {
       const s = await projectApi.syncStatus(project.id)
       setSyncStatus(s)
       return s
-    } catch {
+    } catch (err) {
+      setMsg({ ok: false, text: `Could not load synchronization status: ${errorMessage(err)}` })
       return null
     }
   }, [project.id])
 
   const stopPolling = useCallback(() => {
+    pollGenerationRef.current += 1
     if (pollTimerRef.current !== null) {
-      clearInterval(pollTimerRef.current)
+      clearTimeout(pollTimerRef.current)
       pollTimerRef.current = null
     }
   }, [])
 
   const startPolling = useCallback(() => {
     stopPolling()
-    pollTimerRef.current = window.setInterval(async () => {
+    const generation = pollGenerationRef.current
+    const poll = async () => {
       const current = await fetchSyncStatus()
+      if (generation !== pollGenerationRef.current) return
       if (current && !current.active) {
         stopPolling()
-        recent.reload()
-        freshness.reload()
+        reloadRecent()
+        reloadFreshness()
         reload()
         void loadSyncHistory()
+        return
       }
-    }, 2000)
-  }, [fetchSyncStatus, stopPolling, recent, freshness, reload, loadSyncHistory])
+      pollTimerRef.current = window.setTimeout(() => void poll(), 2000)
+    }
+    pollTimerRef.current = window.setTimeout(() => void poll(), 2000)
+  }, [fetchSyncStatus, stopPolling, reloadRecent, reloadFreshness, reload, loadSyncHistory])
 
   useEffect(() => {
+    let cancelled = false
+    void loadSyncHistory()
     void (async () => {
       const initial = await fetchSyncStatus()
+      if (cancelled) return
       if (initial?.active) {
         startPolling()
       }
-      void loadSyncHistory()
     })()
 
     return () => {
+      cancelled = true
       stopPolling()
     }
   }, [project.id, fetchSyncStatus, startPolling, stopPolling, loadSyncHistory])
@@ -92,8 +117,8 @@ export default function OverviewTab() {
       setMsg({ ok: true, text: `Sync requested for ${r.queued} ${r.queued === 1 ? 'repository' : 'repositories'}.` })
       await fetchSyncStatus()
       startPolling()
-      recent.reload()
-      freshness.reload()
+      reloadRecent()
+      reloadFreshness()
       reload()
     } catch (err) {
       setMsg({ ok: false, text: errorMessage(err) })
@@ -106,9 +131,10 @@ export default function OverviewTab() {
     setBusy('recheck')
     setMsg(null)
     try {
-      await freshnessApi.recheck(project.id)
+      const fresh = await freshnessApi.recheck(project.id)
       setMsg({ ok: true, text: 'Repository drift rechecked against latest commit tree.' })
-      freshness.reload()
+      freshness.updateData(fresh)
+      reloadFreshness()
       reload()
     } catch (err) {
       setMsg({ ok: false, text: errorMessage(err) })
@@ -178,25 +204,47 @@ export default function OverviewTab() {
             <CardTitle className="text-base flex items-center gap-2">
               <ShieldCheck size={18} className="text-primary-indigo" />
               <span>Drift-Aware Knowledge Freshness</span>
+              {freshness.loading && (
+                <span className="inline-flex items-center gap-1.5 text-xs font-normal text-text-muted">
+                  <RotateCw size={12} className="animate-spin text-primary-indigo" />
+                  <span>Checking freshness...</span>
+                </span>
+              )}
             </CardTitle>
             <p className="text-xs text-text-muted mt-0.5">
               Dual-dimension monitoring: tracks temporal age and repository commit drift for supporting files.
             </p>
           </div>
-          {fData?.lastSnapshotCommit && (
+          {fData?.lastSnapshotCommit ? (
             <span className="font-mono text-xs rounded-md bg-surface-border/60 px-2 py-1 text-text-secondary">
               Baseline: {fData.lastSnapshotCommit.substring(0, 7)}
             </span>
-          )}
+          ) : freshness.loading ? (
+            <Skeleton className="h-6 w-24 rounded-md" />
+          ) : null}
         </CardHeader>
         <CardContent className="pt-4">
+          {freshness.error && !fData && (
+            <div className="mb-3 space-y-2">
+              <Alert tone="error">Could not load freshness: {freshness.error}</Alert>
+              <Button size="sm" variant="outline" onClick={reloadFreshness}>Retry freshness</Button>
+            </div>
+          )}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3.5 text-center">
               <div className="flex items-center justify-center gap-1.5 text-emerald-700 mb-1">
                 <ShieldCheck size={16} />
                 <span className="text-xs font-bold uppercase tracking-wider">Current</span>
               </div>
-              <p className="text-2xl font-black text-emerald-800">{fData?.currentCount ?? 0}</p>
+              {freshness.loading && !fData ? (
+                <div className="flex items-center justify-center h-8">
+                  <Skeleton className="h-7 w-16 rounded-md bg-emerald-200/60" />
+                </div>
+              ) : (
+                <p className="text-2xl font-black text-emerald-800">
+                  {fData ? fData.currentCount : (freshness.error ? 'Unavailable' : '—')}
+                </p>
+              )}
               <p className="text-[11px] text-emerald-600 mt-0.5">Sources up to date</p>
             </div>
 
@@ -205,7 +253,15 @@ export default function OverviewTab() {
                 <AlertTriangle size={16} />
                 <span className="text-xs font-bold uppercase tracking-wider">Potentially Stale</span>
               </div>
-              <p className="text-2xl font-black text-amber-800">{fData?.potentiallyStaleCount ?? 0}</p>
+              {freshness.loading && !fData ? (
+                <div className="flex items-center justify-center h-8">
+                  <Skeleton className="h-7 w-16 rounded-md bg-amber-200/60" />
+                </div>
+              ) : (
+                <p className="text-2xl font-black text-amber-800">
+                  {fData ? fData.potentiallyStaleCount : (freshness.error ? 'Unavailable' : '—')}
+                </p>
+              )}
               <p className="text-[11px] text-amber-700 mt-0.5">Files modified</p>
             </div>
 
@@ -214,7 +270,15 @@ export default function OverviewTab() {
                 <AlertCircle size={16} />
                 <span className="text-xs font-bold uppercase tracking-wider">Outdated</span>
               </div>
-              <p className="text-2xl font-black text-red-800">{fData?.outdatedCount ?? 0}</p>
+              {freshness.loading && !fData ? (
+                <div className="flex items-center justify-center h-8">
+                  <Skeleton className="h-7 w-16 rounded-md bg-red-200/60" />
+                </div>
+              ) : (
+                <p className="text-2xl font-black text-red-800">
+                  {fData ? fData.outdatedCount : (freshness.error ? 'Unavailable' : '—')}
+                </p>
+              )}
               <p className="text-[11px] text-red-700 mt-0.5">Files deleted / major drift</p>
             </div>
 
@@ -223,7 +287,15 @@ export default function OverviewTab() {
                 <HelpCircle size={16} />
                 <span className="text-xs font-bold uppercase tracking-wider">Unknown</span>
               </div>
-              <p className="text-2xl font-black text-slate-800">{fData?.unknownCount ?? 0}</p>
+              {freshness.loading && !fData ? (
+                <div className="flex items-center justify-center h-8">
+                  <Skeleton className="h-7 w-16 rounded-md bg-slate-200/70" />
+                </div>
+              ) : (
+                <p className="text-2xl font-black text-slate-800">
+                  {fData ? fData.unknownCount : (freshness.error ? 'Unavailable' : '—')}
+                </p>
+              )}
               <p className="text-[11px] text-slate-600 mt-0.5">No file baseline</p>
             </div>
           </div>
@@ -236,9 +308,10 @@ export default function OverviewTab() {
           <ul className="divide-y divide-surface-border">
             {repositories.map((r) => {
               const url = safeUrl(r.url)
-              const isSyncing = r.syncStatus === 'Syncing'
-              const isFailed = r.syncStatus === 'Failed'
-              const isPending = r.syncStatus === 'Pending'
+              const repositoryStatus = r.syncStatus.toUpperCase()
+              const isSyncing = repositoryStatus === 'SYNCING'
+              const isFailed = repositoryStatus === 'FAILED'
+              const isPending = repositoryStatus === 'PENDING'
               return (
                 <li key={r.id} className="py-3.5 text-sm space-y-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -309,7 +382,13 @@ export default function OverviewTab() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <SyncHistoryTable history={syncHistory} loading={loadingHistory} />
+          {historyError && (
+            <div className="space-y-2">
+              <Alert tone="error">{historyError}</Alert>
+              <Button size="sm" variant="outline" onClick={() => void loadSyncHistory()}>Retry history</Button>
+            </div>
+          )}
+          {(!historyError || syncHistory.length > 0) && <SyncHistoryTable history={syncHistory} loading={loadingHistory} />}
         </CardContent>
       </Card>
 

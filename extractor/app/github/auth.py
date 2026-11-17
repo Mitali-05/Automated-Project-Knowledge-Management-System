@@ -39,16 +39,10 @@ def fetch_installation_repos(installation_token: str):
         "X-GitHub-Api-Version": "2022-11-28",
     }
     params = {"per_page": 100}
-    try:
-        r = requests.get(url, headers=headers, params=params)
-        if r.status_code == 200:
-            return r.json().get("repositories", [])
-        else:
-            print(f"Failed to fetch installation repos: {r.status_code} - {r.text}")
-            return []
-    except Exception as e:
-        print(f"Exception fetching repos: {e}")
-        return []
+    response = requests.get(url, headers=headers, params=params, timeout=30)
+    response.raise_for_status()
+    return response.json()["repositories"]
+
 
 def parse_repo_url(url: str):
     m = re.search(r"github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?/?$", url.strip())
@@ -57,27 +51,28 @@ def parse_repo_url(url: str):
     return m.group(1), m.group(2)
 
 def fetch_repo_tree(token: str, owner: str, repo: str) -> list:
-    """Fetches the repository file tree structure."""
-    url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/main?recursive=1"
-    headers = {
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
-    if token and token.strip() and token.strip() != "__NONE__":
-        headers["Authorization"] = f"Bearer {token.strip()}"
+    """Resolve the real default branch; propagate HTTP and parsing failures."""
+    headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    base = f"https://api.github.com/repos/{owner}/{repo}"
+    metadata = requests.get(base, headers=headers, timeout=30)
+    metadata.raise_for_status()
+    details = metadata.json()
+    if not token and details.get("private") is not False:
+        raise RuntimeError("Repository is not confirmed public. Connect GitHub for private access.")
+    branch = details["default_branch"]
+    from urllib.parse import quote
+    response = requests.get(f"{base}/git/trees/{quote(branch, safe='')}?recursive=1", headers=headers, timeout=30)
+    response.raise_for_status()
+    data = response.json()
+    if data.get("truncated"):
+        raise RuntimeError("Repository tree is truncated; complete extraction cannot be verified")
+    tree = data["tree"]
+    if not tree:
+        raise RuntimeError("Repository tree is empty")
+    return tree
 
-    try:
-        r = requests.get(url, headers=headers)
-        if r.status_code == 200:
-            return r.json().get("tree", [])
-        # Fallback to master if main doesn't exist
-        url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/master?recursive=1"
-        r = requests.get(url, headers=headers)
-        if r.status_code == 200:
-            return r.json().get("tree", [])
-        return []
-    except Exception:
-        return []
 
 def check_repo_access(token: str, owner: str, repo: str) -> tuple[bool, str]:
     """Checks whether the target repository is accessible, public, or private."""
