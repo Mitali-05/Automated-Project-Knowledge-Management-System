@@ -5,7 +5,8 @@ Environment settings for ReportAgent (LLM1) and VerificationAgent (LLM2 / AWS Be
 import os
 from dotenv import load_dotenv
 
-load_dotenv(override=True)
+from pathlib import Path
+load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=False)
 
 GITHUB_API = "https://api.github.com"
 
@@ -17,24 +18,6 @@ LLM_PROVIDERS = {
         "context_window_tokens": 1_000_000,
         "notes": "Google Gemini via OpenAI-compatible endpoint.",
     },
-    "gemini-3.5-flash-lite": {
-        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
-        "model": "gemini-3.5-flash-lite",
-        "context_window_tokens": 1_000_000,
-        "notes": "Standard Model: Gemini 3.5 Flash Lite.",
-    },
-    "gemini-2.5-flash": {
-        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
-        "model": "gemini-2.5-flash",
-        "context_window_tokens": 1_000_000,
-        "notes": "Fast Agent (Stable): Rapid synthesis.",
-    },
-    "gemini-3.1-flash-lite": {
-        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
-        "model": "gemini-3.1-flash-lite",
-        "context_window_tokens": 1_000_000,
-        "notes": "Backup Model: Gemini 3.1 Flash Lite.",
-    },
     "bedrock": {
         "base_url": "aws_bedrock",
         "model": os.getenv("LLM2_MODEL", "anthropic.claude-3-5-sonnet-20240620-v1:0"),
@@ -44,13 +27,13 @@ LLM_PROVIDERS = {
 }
 
 # LLM 1 (Report / Synthesis Agent)
-LLM1_PROVIDER = os.getenv("LLM1_PROVIDER", "gemini")
-LLM1_MODEL = os.getenv("LLM1_MODEL", "gemini-3.5-flash-lite")
-LLM1_API_KEY = os.getenv("LLM1_API_KEY") or os.getenv("LLM_API_KEY", "")
+LLM1_PROVIDER = os.getenv("LLM1_PROVIDER", "")
+LLM1_MODEL = os.getenv("LLM1_MODEL", "")
+LLM1_API_KEY = os.getenv("LLM1_API_KEY", "")
 
 # LLM 2 (Verification Agent: Grounding, Evidence Checking & Metrics)
-LLM2_PROVIDER = os.getenv("LLM2_PROVIDER", "bedrock")
-LLM2_MODEL = os.getenv("LLM2_MODEL", "anthropic.claude-3-5-sonnet-20240620-v1:0")
+LLM2_PROVIDER = os.getenv("LLM2_PROVIDER", "")
+LLM2_MODEL = os.getenv("LLM2_MODEL", "")
 LLM2_API_KEY = os.getenv("LLM2_API_KEY", "")
 
 # AWS Bedrock Settings

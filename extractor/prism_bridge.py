@@ -1,7 +1,7 @@
 """
 PRISM bridge - connects the extraction pipeline (app/...) to the PRISM web backend.
 
-It changes nothing in the existing pipeline. It only:
+Required stages (failures are reported as FAILED):
   1. polls the backend for repositories waiting for extraction (marked PENDING),
   2. runs the existing pipeline: MCP agent (LLM1) -> Verification agent (LLM2) -> PDF / PPTX generators,
   3. sends the results back through the backend's ingest API (knowledge items, full report, PDF, PPTX),
@@ -16,8 +16,7 @@ Settings (environment or .env):
     PRISM_API_URL        backend base URL                       (default http://localhost:8081)
     INGEST_SERVICE_KEY   must equal the backend's INGEST_SERVICE_KEY  (required)
     PRISM_POLL_SECONDS   how often to look for work             (default 10)
-    GITHUB_TOKEN         optional personal token; if unset, the GitHub App key (*.pem) + GITHUB_APP_ID + GITHUB_INSTALLATION_ID
-                         already used by the extraction project are used, exactly like its own worker
+    GitHub credentials come exclusively from the backend workspace installation.
 """
 from __future__ import annotations
 
@@ -34,9 +33,9 @@ from typing import Any, Optional
 import requests
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent / ".env", override=False)
 
-API_URL = os.getenv("PRISM_API_URL", "http://localhost:8081").rstrip("/")
+API_URL = os.getenv("PRISM_API_URL", "http://localhost:8080").rstrip("/")
 SERVICE_KEY = os.getenv("INGEST_SERVICE_KEY", "").strip()
 POLL_SECONDS = int(os.getenv("PRISM_POLL_SECONDS", "10"))
 HTTP_TIMEOUT = 60
@@ -54,6 +53,10 @@ TYPE_LABELS = {
 log = logging.getLogger("prism.bridge")
 
 
+class IngestResourceGone(RuntimeError):
+    """The queued job's target is no longer available in the backend."""
+
+
 class PrismApi:
     """Thin client for the backend's /api/ingest endpoints."""
 
@@ -64,7 +67,10 @@ class PrismApi:
 
     def _check(self, r: requests.Response) -> requests.Response:
         if r.status_code >= 400:
-            raise RuntimeError(f"{r.request.method} {r.request.path_url} -> HTTP {r.status_code}: {r.text[:300]}")
+            message = f"{r.request.method} {r.request.path_url} -> HTTP {r.status_code}: {r.text[:300]}"
+            if r.status_code == 404 and r.request.path_url.startswith(('/api/ingest/projects/', '/api/ingest/repositories/')):
+                raise IngestResourceGone(message)
+            raise RuntimeError(message)
         return r
 
     def repositories(self, status: str) -> list[dict]:
@@ -77,12 +83,14 @@ class PrismApi:
             body["message"] = message[:490]
         self._check(self.http.post(f"{self.base}/api/ingest/repositories/{repo_id}/status", json=body, timeout=HTTP_TIMEOUT))
 
-    def github_token(self, repo_id: int) -> Optional[str]:
-        """Short-lived GitHub App token, or None when the organization has not connected the App."""
+    def github_token(self, repo_id: int) -> str:
+        """Require the backend workspace installation token; never use global credentials."""
         r = self.http.post(f"{self.base}/api/ingest/repositories/{repo_id}/github-token", timeout=HTTP_TIMEOUT)
-        if r.status_code == 404:
-            return None
-        return self._check(r).json().get("token")
+        data = self._check(r).json()
+        token = data.get("token")
+        if not isinstance(token, str) or not token.strip():
+            raise RuntimeError("Backend returned no GitHub installation token. Connect GitHub for this workspace.")
+        return token
 
     def knowledge(self, project_id: int, repo_id: int, items: list[dict]) -> None:
         for i in range(0, len(items), 200):
@@ -152,6 +160,11 @@ def run_pipeline(repo: dict, token: str):
     llm = LLMClient(LLM1_PROVIDER, LLM1_API_KEY)
 
     async def go():
+        if token is None:
+            from app.mcp.public_session import PublicRepositorySession
+            session = PublicRepositorySession(owner, name)
+            await asyncio.to_thread(session.verify_public)
+            return await run_autonomous_extraction(owner, name, llm, session, file_tree=tree, project_id=log_id)
         service = GitHubMCPClientService(access_token=token)
         async with service.connect() as session:
             return await run_autonomous_extraction(owner, name, llm, session, file_tree=tree, project_id=log_id)
@@ -161,32 +174,12 @@ def run_pipeline(repo: dict, token: str):
         raise RuntimeError("No architectural knowledge could be synthesized from this repository.")
     log.info("Agent finished (%d tool calls, %d knowledge items)", len(tools), len(result.knowledge_items))
 
-    try:
-        from app.core.verification_agent import VerificationAgent
-        result.verification_report = VerificationAgent().audit_extraction(
-            result, file_tree=tree, owner=owner, repo=name, project_id=log_id)
-    except Exception as e:  # verification is valuable but must not lose the extraction
-        log.warning("Verification agent failed, continuing without it: %s", e)
+    from app.core.verification_agent import VerificationAgent
+    result.verification_report = VerificationAgent().audit_extraction(
+        result, file_tree=tree, owner=owner, repo=name, project_id=log_id)
+    if result.verification_report.verdict in ("AUDIT_FAILED", "REJECTED"):
+        raise RuntimeError("Verification did not pass: " + result.verification_report.verdict)
     return result, tree
-
-
-def extractor_github_token() -> Optional[str]:
-    """Same fallback the extraction project's own worker uses: a personal token, else a GitHub App installation
-    token minted from GITHUB_APP_ID + GITHUB_INSTALLATION_ID + the *.pem key in the extractor folder.
-    Installation tokens can read any public repository, so public links work without per-organization setup."""
-    token = os.getenv("GITHUB_TOKEN") or os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN")
-    if token:
-        return token
-    app_id, inst_id = os.getenv("GITHUB_APP_ID"), os.getenv("GITHUB_INSTALLATION_ID")
-    pems = sorted(Path(__file__).resolve().parent.glob("*.pem"))
-    if not (app_id and inst_id and pems):
-        return None
-    try:
-        from app.github.auth import get_installation_access_token
-        return get_installation_access_token(app_id, str(pems[0]), inst_id)
-    except Exception as exc:  # noqa: BLE001 - reported to the user via the sync failure message
-        log.warning("Could not create a GitHub App token: %s", exc)
-        return None
 
 
 def process(api: PrismApi, repo: dict) -> None:
@@ -194,32 +187,39 @@ def process(api: PrismApi, repo: dict) -> None:
     owner, name = repo["owner"], repo["name"]
     label = f"{owner}/{name}"
     log.info("Claiming %s (repository %s, project %s)", label, repo_id, project_id)
-    api.set_status(repo_id, "SYNCING")
     try:
-        # Same behaviour as the extraction project: a token is optional. Without one ("__NONE__") public
-        # repositories are read anonymously, exactly as its own worker does.
-        token = api.github_token(repo_id) or extractor_github_token() or "__NONE__"
+        api.set_status(repo_id, "SYNCING")
+        # Access mode is selected before authentication, never after an auth failure.
+        if repo.get("githubInstallationId"):
+            token = api.github_token(repo_id)
+            log.info("Using authorized workspace installation for %s", label)
+        else:
+            from app.mcp.public_session import PublicRepositorySession
+            PublicRepositorySession(owner, name).verify_public()
+            token = None
+            log.info("Using confirmed public access for %s", label)
 
         result, _tree = run_pipeline(repo, token)
+        context = api.http.get(f"{api.base}/api/ingest/jira/context/{project_id}", timeout=HTTP_TIMEOUT)
+        result.jira_context = api._check(context).json()
 
         api.knowledge(project_id, repo_id, to_ingest_items(result, owner, name))
         api.report(repo_id, result.model_dump(mode="json"))
         log.info("Saved knowledge and report for %s", label)
 
-        # Downloads. Failures here (e.g. diagram renderer offline) must not fail the extraction.
-        try:
-            from app.utils.exporter import generate_pdf_report
-            api.report_file(repo_id, "pdf", generate_pdf_report(result, owner, name))
-        except Exception as e:
-            log.warning("PDF generation failed for %s: %s", label, e)
-        try:
-            from app.utils.pptx_exporter import generate_pptx_deck
-            api.report_file(repo_id, "pptx", generate_pptx_deck(result, owner, name))
-        except Exception as e:
-            log.warning("PPTX generation failed for %s: %s", label, e)
+        # All required deliverables must succeed before reporting SYNCED.
+        from app.utils.exporter import generate_pdf_report
+        from app.utils.pptx_exporter import generate_pptx_deck
+        # Validate both serialized documents before uploading either replacement.
+        pdf = generate_pdf_report(result, owner, name)
+        deck = generate_pptx_deck(result, owner, name)
+        api.report_file(repo_id, "pdf", pdf)
+        api.report_file(repo_id, "pptx", deck)
 
         api.set_status(repo_id, "SYNCED")
         log.info("Done: %s", label)
+    except IngestResourceGone as e:
+        log.warning('Cancelled obsolete extraction target (repository %s, project %s): %s', repo_id, project_id, e)
     except Exception as e:
         log.error("Extraction failed for %s: %s", label, e)
         log.debug(traceback.format_exc())
@@ -229,12 +229,44 @@ def process(api: PrismApi, repo: dict) -> None:
             log.error("Could not report the failure: %s", e2)
 
 
+def refresh_jira_reports(api):
+    import json
+    import base64
+    from app.core.models import AgentExtractionResult
+    from app.utils.exporter import generate_pdf_report
+    from app.utils.pptx_exporter import generate_pptx_deck
+    response = api.http.post(f"{api.base}/api/ingest/jira/reports/claim", timeout=HTTP_TIMEOUT)
+    for job in api._check(response).json():
+        try:
+            result = AgentExtractionResult.model_validate_json(job['report'])
+            result.jira_context = job['issues']
+            pdf = generate_pdf_report(result, job['repo_owner'], job['repo_name'])
+            deck = generate_pptx_deck(result, job['repo_owner'], job['repo_name'])
+            body = dict(id=job['id'], generatedAt=job['base_version'], report=result.model_dump(mode='json'),
+                        pdf=base64.b64encode(pdf).decode(), pptx=base64.b64encode(deck).decode())
+        except Exception as exc:
+            log.error('Jira report refresh failed: %s', exc)
+            body = dict(id=job['id'], generatedAt=job['base_version'], error=str(exc))
+        saved = api.http.post(f"{api.base}/api/ingest/jira/reports/complete", json=body, timeout=300)
+        api._check(saved)
+
+
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
     if not SERVICE_KEY:
         print("INGEST_SERVICE_KEY is not set. Use the same value as the backend's .env.", file=sys.stderr)
         return 1
     api = PrismApi(API_URL, SERVICE_KEY)
+    root = Path(__file__).resolve().parent
+    revision = hashlib.sha256()
+    for relative in ['prism_bridge.py', 'app/mcp/agent.py', 'app/mcp/report_output.py',
+                       'app/prompts/agent_prompts.py', 'app/core/models.py',
+                       'app/core/verification_agent.py', 'app/core/llm_client.py', 'app/mcp/render_contract.py',
+                       'app/prompts/report_authoring.md', 'app/utils/exporter.py',
+                       'app/utils/pptx_exporter.py', 'app/utils/publication_contract.py']:
+        revision.update((root / relative).read_bytes())
+    log.info('Worker code: %s | revision %s | Python %s',
+             Path(__file__).resolve(), revision.hexdigest()[:12], sys.executable)
     log.info("PRISM bridge started. Backend: %s, polling every %ss", API_URL, POLL_SECONDS)
 
     # A previous run that was killed mid-extraction leaves repositories stuck in SYNCING.
@@ -246,6 +278,7 @@ def main() -> int:
 
     while True:
         try:
+            refresh_jira_reports(api)
             for repo in api.repositories("PENDING"):
                 process(api, repo)
         except requests.RequestException as e:

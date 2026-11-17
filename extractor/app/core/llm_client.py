@@ -16,13 +16,39 @@ from app.core.config import (
 class LLMError(Exception):
     pass
 
+
+class LLMOutputError(LLMError):
+    """Invalid model output, distinct from a transport/provider failure.
+
+    Keep the response for a bounded correction request; do not put its content
+    into the exception message sent to the browser.
+    """
+    def __init__(self, message: str, raw_response: str):
+        super().__init__(message)
+        self.raw_response = raw_response
+
+
+def parse_json_object(raw, provider: str) -> dict:
+    if not isinstance(raw, str) or not raw.strip():
+        raise LLMOutputError(f'{provider} returned empty JSON output', '')
+    try:
+        def reject_constant(value):
+            raise ValueError(f'Non-JSON numeric constant: {value}')
+        data = json.loads(raw, parse_constant=reject_constant)
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise LLMOutputError(f'{provider} did not return valid JSON: {exc}', raw) from exc
+    if not isinstance(data, dict):
+        raise LLMOutputError(f'{provider} returned JSON that is not an object', raw)
+    return data
+
+
 class LLMClient:
     def __init__(self, provider: str = None, api_key: str = None, model: str = None):
-        self.provider = (provider or LLM1_PROVIDER or "gemini").lower()
+        self.provider = (LLM1_PROVIDER if provider is None else provider).lower()
         
         # Bedrock Provider branch
-        if "bedrock" in self.provider:
-            self.model = model or LLM2_MODEL or "anthropic.claude-3-5-sonnet-20240620-v1:0"
+        if self.provider == "bedrock":
+            self.model = model or LLM2_MODEL
             self.region = AWS_REGION
             self.client = None
             try:
@@ -33,8 +59,7 @@ class LLMClient:
                     kwargs["aws_secret_access_key"] = AWS_SECRET_ACCESS_KEY
                 self.bedrock_client = boto3.client("bedrock-runtime", **kwargs)
             except Exception as e:
-                self.bedrock_client = None
-                print(f"Warning: AWS Bedrock client initialization notice: {e}")
+                raise LLMError("AWS Bedrock initialization failed") from e
             return
 
         # OpenAI-compatible branch (Gemini / OpenAI)
@@ -42,18 +67,17 @@ class LLMClient:
             cfg = LLM_PROVIDERS[self.provider]
             base_url = cfg["base_url"]
             default_model = cfg["model"]
-        elif "gemini" in self.provider:
-            base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
-            default_model = LLM1_MODEL or "gemini-3.5-flash-lite"
         else:
-            base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
-            default_model = LLM1_MODEL or "gemini-3.5-flash-lite"
+            raise ValueError(f"Unsupported LLM provider: {self.provider!r}")
 
-        self.api_key = api_key or LLM1_API_KEY
+        self.api_key = LLM1_API_KEY if api_key is None else api_key
+
         if not self.api_key:
-            raise ValueError(f"An API key is required for provider '{self.provider}'. Set LLM1_API_KEY or LLM_API_KEY in .env.")
+            raise ValueError(f"An API key is required for provider '{self.provider}'. Set the selected agent API key in .env.")
 
-        raw_model = model or LLM1_MODEL or default_model
+        raw_model = LLM1_MODEL if model is None else model
+        if not raw_model:
+            raise ValueError("An explicit model is required for the selected agent")
         self.model = raw_model.replace("models/", "") if raw_model.startswith("models/") else raw_model
         self.client = OpenAI(api_key=self.api_key, base_url=base_url)
 
@@ -75,9 +99,9 @@ class LLMClient:
                 # Clean possible code fence tags
                 cleaned = re.sub(r"^```(?:json)?\s*", "", output_msg, flags=re.MULTILINE)
                 cleaned = re.sub(r"\s*```$", "", cleaned, flags=re.MULTILINE).strip()
-                return json.loads(cleaned)
             except Exception as e:
                 raise LLMError(f"AWS Bedrock ({self.model}) call failed: {e}") from e
+            return parse_json_object(cleaned, self.provider)
 
         # Standard OpenAI / Gemini branch
         try:
@@ -94,15 +118,14 @@ class LLMClient:
             raise LLMError(f"{self.provider} call failed: {e}") from e
 
         raw = response.choices[0].message.content
-        try:
-            return json.loads(raw)
-        except json.JSONDecodeError as e:
-            raise LLMError(f"{self.provider} did not return valid JSON: {e}\nRaw: {raw[:300]}") from e
+        return parse_json_object(raw, self.provider)
 
     def embed_text(self, text: str) -> list:
         try:
             import requests
-            api_key = getattr(self, "api_key", None) or LLM1_API_KEY
+            api_key = getattr(self, "api_key", None)
+            if not api_key:
+                raise ValueError("Embedding requires an explicitly configured API key")
             url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent?key={api_key}"
             payload = {
                 "model": "models/gemini-embedding-2",
@@ -113,10 +136,6 @@ class LLMClient:
             if response.status_code == 200:
                 return response.json()["embedding"]["values"]
             
-            # Fallback to text-embedding-004
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key={api_key}"
-            payload["model"] = "models/text-embedding-004"
-            response = requests.post(url, headers={"Content-Type": "application/json"}, json=payload, timeout=15)
             response.raise_for_status()
             return response.json()["embedding"]["values"]
         except Exception as e:
@@ -131,7 +150,7 @@ def get_verification_agent_client() -> LLMClient:
     """Returns LLMClient configured for VerificationAgent (LLM2 / Bedrock)."""
     if LLM2_PROVIDER == "bedrock":
         return LLMClient(provider="bedrock", model=LLM2_MODEL)
-    return LLMClient(provider=LLM2_PROVIDER, api_key=LLM2_API_KEY or LLM1_API_KEY, model=LLM2_MODEL)
+    return LLMClient(provider=LLM2_PROVIDER, api_key=LLM2_API_KEY, model=LLM2_MODEL)
 
 def default_provider() -> str:
     return LLM1_PROVIDER
