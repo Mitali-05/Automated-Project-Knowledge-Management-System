@@ -24,3 +24,7 @@ frontend/.env.*
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Local QA evidence and generated artifacts - never push
+/.local-audit/
+/generated_diagrams/
