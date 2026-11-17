@@ -13,11 +13,14 @@ import WelcomePage from './pages/WelcomePage'
 import CreateProjectPage from './pages/app/CreateProjectPage'
 import DashboardPage from './pages/app/DashboardPage'
 import GithubCallbackPage from './pages/app/GithubCallbackPage'
+import JiraCallbackPage from './pages/app/JiraCallbackPage'
+import JiraTab from './pages/project/JiraTab'
 import HelpPage from './pages/app/HelpPage'
 import OrganizationDetailPage from './pages/app/OrganizationDetailPage'
 import OrganizationsPage from './pages/app/OrganizationsPage'
 import ProjectsPage from './pages/app/ProjectsPage'
 import SettingsPage from './pages/app/SettingsPage'
+import AssistantTab from './pages/project/assistant/AssistantTab'
 import ComingSoonTab from './pages/project/ComingSoonTab'
 import HistoryTab from './pages/project/HistoryTab'
 import KnowledgeTab from './pages/project/KnowledgeTab'
@@ -48,12 +51,13 @@ export default function App() {
             <Route path="knowledge" element={<KnowledgeTab />} />
             <Route path="report" element={<ReportTab />} />
             <Route path="history" element={<HistoryTab />} />
-            <Route path="jira" element={<ComingSoonTab title="Jira" description="Linked Jira issues will appear here once the Jira integration is added." />} />
+            <Route path="assistant" element={<AssistantTab />} />
+            <Route path="jira" element={<JiraTab />} />
             <Route path="prompts" element={<ComingSoonTab title="Prompts" description="Ingested AI-tool usage history and summaries are planned for a later phase." />} />
-            <Route path="documentation" element={<ComingSoonTab title="Documentation" description="Generated, always-current documentation per module is planned for a later phase." />} />
             <Route path="settings" element={<SettingsTab />} />
           </Route>
           <Route path="github/callback" element={<GithubCallbackPage />} />
+          <Route path="jira/callback" element={<JiraCallbackPage />} />
           <Route path="organizations" element={<OrganizationsPage />} />
           <Route path="organizations/:orgId" element={<OrganizationDetailPage />} />
           <Route path="organization" element={<Navigate to="/app/organizations" replace />} />
