@@ -96,7 +96,7 @@ public class AssistantService {
     }
 
     private record PreparedChatContext(
-            Long conversationId,
+            ChatConversation conversation,
             List<Map<String, String>> history,
             List<CitationCandidate> candidates,
             String systemPrompt,
@@ -210,7 +210,7 @@ public class AssistantService {
             }
 
             String systemPrompt = buildSystemPrompt(project.getName(), candidates, allItems.isEmpty());
-            return new PreparedChatContext(conversation.getId(), history, candidates, systemPrompt, allItems.isEmpty());
+            return new PreparedChatContext(conversation, history, candidates, systemPrompt, allItems.isEmpty());
         });
 
         String assistantAnswer = null;
@@ -231,8 +231,8 @@ public class AssistantService {
         final String finalAnswer = assistantAnswer;
 
         return executeInTransaction(status -> {
-            ChatConversation conversation = conversationRepository.findById(ctx.conversationId())
-                    .orElseThrow(() -> ApiException.notFound("Conversation not found"));
+            ChatConversation conversation = conversationRepository.findById(ctx.conversation().getId())
+                    .orElse(ctx.conversation());
 
             List<CitationDto> citedList = resolveCitedReferences(finalAnswer, ctx.candidates());
 
