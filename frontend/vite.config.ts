@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => {
       // Same origin => no CORS problems, whichever port or host name Vite ends up on.
       proxy: {
         '/api': {
-          target: env.DEV_API_TARGET || 'http://127.0.0.1:8080',
+          target: env.DEV_API_TARGET || 'http://127.0.0.1:8081',
           changeOrigin: true,
           // Drop the browser's Origin header so Spring treats these as plain same-origin calls
           // and never applies its CORS check (which answers 403 "Invalid CORS request").
