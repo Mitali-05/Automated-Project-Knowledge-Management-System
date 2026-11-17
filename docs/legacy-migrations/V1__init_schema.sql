@@ -1,3 +1,4 @@
+-- ARCHIVED: superseded by V1__baseline.sql; not an active Flyway migration.
 -- Phase 0 schema: identity, orgs, projects, membership.
 -- Later phases add: project_repositories, sync_jobs, contributors, knowledge_items,
 -- knowledge_evidence, modules, documentation, knowledge_gaps, embeddings, ai_prompt_sessions.

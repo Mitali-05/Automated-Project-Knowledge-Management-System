@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { Download, FileText, Presentation, ShieldCheck } from 'lucide-react'
+import { Cpu, Download, FileCode, FileText, Presentation, ShieldCheck } from 'lucide-react'
 import { reportApi } from '../../api/endpoints'
 import type { ExtractionReport, RepositoryReport } from '../../api/types'
 import { MermaidDiagram } from '../../components/report/MermaidDiagram'
@@ -49,12 +49,12 @@ function Overview({ r }: { r: ExtractionReport }) {
         {!!r.tech_stack?.length && <div className="flex flex-wrap gap-2">{r.tech_stack.map((t) => <Badge key={t} variant="primary">{t}</Badge>)}</div>}
       </CardContent></Card>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Metric label="Complexity" value={m?.estimated_complexity} />
         <Metric label="Core modules" value={m?.core_module_count} />
         <Metric label="Data-flow complexity" value={m?.data_flow_complexity} />
-        <Metric label="Security posture" value={m?.security_posture} />
       </div>
+      {m?.security_posture && <Card><CardHeader><CardTitle>Security observations</CardTitle></CardHeader><CardContent><Prose text={m.security_posture} /></CardContent></Card>}
       {!!m?.key_patterns_used?.length && (
         <div><h3 className="mb-2 text-sm font-semibold">Patterns used</h3><div className="flex flex-wrap gap-2">{m.key_patterns_used.map((p) => <Badge key={p} variant="outline">{p}</Badge>)}</div></div>
       )}
@@ -74,7 +74,13 @@ function Architecture({ r }: { r: ExtractionReport }) {
     <div className="space-y-6">
       <Card><CardHeader><CardTitle>System architecture</CardTitle></CardHeader><CardContent>
         {r.architecture_mermaid_chart ? <MermaidDiagram code={r.architecture_mermaid_chart} title="System architecture diagram" /> : <Prose />}
+        {r.architecture_explanation && <Prose text={r.architecture_explanation} />}
       </CardContent></Card>
+      {r.technical_diagrams?.map((view) => <Card key={view.title}><CardHeader><CardTitle>{view.title}</CardTitle></CardHeader><CardContent className="space-y-4">
+        <MermaidDiagram code={view.mermaid} title={view.title} />
+        <Prose text={view.explanation} />
+        <p className="break-words text-xs text-text-muted">Sources: {view.evidence_ids.join(', ')}</p>
+      </CardContent></Card>)}
       {r.milestone_timeline_mermaid_chart && (
         <Card><CardHeader><CardTitle>Evolution timeline</CardTitle></CardHeader><CardContent>
           <MermaidDiagram code={r.milestone_timeline_mermaid_chart} title="Evolution timeline" />
@@ -120,6 +126,7 @@ function Handover({ r }: { r: ExtractionReport }) {
             </div>
           ))}
           {g.execution_sequence_chart && <MermaidDiagram code={g.execution_sequence_chart} title="Execution sequence diagram" />}
+          {r.sequence_explanation && <Prose text={r.sequence_explanation} />}
         </CardContent></Card>
       )}
 
@@ -143,32 +150,38 @@ function Handover({ r }: { r: ExtractionReport }) {
 
 function Verification({ r }: { r: ExtractionReport }) {
   const v = r.verification_report
-  if (!v) return <Alert tone="info">The verification agent did not run for this extraction, so there is no audit to show.</Alert>
-  const pct = (n?: number) => (n === undefined ? '-' : `${Math.round(n * 10) / 10}%`)
+  const inspected = [...new Set(r.inspected_files ?? [])]
+  const cited = [...new Set(r.knowledge_items?.flatMap(k => k.evidence_ids) ?? [])]
+  const verdict = v?.verdict === 'REJECTED' ? 'AI review rejected'
+    : v?.verdict === 'AUDIT_FAILED' ? 'AI review failed'
+    : v ? 'AI review with limitations' : 'No AI review attached'
   return (
     <div className="space-y-6">
-      <Card className="flex flex-wrap items-center gap-6 p-6">
-        <div className="flex h-24 w-24 shrink-0 flex-col items-center justify-center rounded-full border-4 border-primary-indigo/30 bg-primary-light-indigo">
-          <span className="text-2xl font-bold text-primary-indigo">{v.overall_trust_score !== undefined ? Math.round(v.overall_trust_score) : '-'}</span>
-          <span className="text-[10px] text-text-muted">trust score</span>
+      <Card><CardHeader><CardTitle>Review scope and limitations</CardTitle></CardHeader><CardContent className="space-y-4">
+        <Badge variant={v?.verdict === 'REJECTED' || v?.verdict === 'AUDIT_FAILED' ? 'danger' : 'warning'}>{verdict}</Badge>
+        <div className="rounded-lg border border-blue-200 bg-[#eff6ff] p-4 text-sm leading-relaxed text-[#1e3a8a]">
+          <p className="font-semibold">Source references and an AI review are not runtime tests</p>
+          <p className="mt-2">The reviewer receives extracted report text and file-path checks. It does not independently inspect full source bodies, execute the application or perform an AST audit. Path existence does not prove a behavioural claim.</p>
         </div>
-        <div className="min-w-0 flex-1">
-          <Badge variant={v.verdict === 'REJECTED' ? 'danger' : v.verdict === 'VERIFIED_WITH_WARNINGS' ? 'warning' : 'success'}>{(v.verdict ?? 'UNKNOWN').replace(/_/g, ' ')}</Badge>
-          <p className="mt-2 text-sm text-text-secondary">An independent second AI agent checked every claim against the real repository tree. {v.verification_agent_notes}</p>
-        </div>
-      </Card>
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Metric label="Evidence precision" value={pct(v.evidence_precision_score)} />
-        <Metric label="Subsystem coverage" value={pct(v.subsystem_recall_coverage)} />
-        <Metric label="Hallucination rate" value={pct(v.hallucination_rate)} />
-        <Metric label="Verified / unsupported" value={`${v.verified_claims_count ?? 0} / ${v.unsupported_claims_count ?? 0}`} />
+        {v?.verification_agent_notes && <Prose text={v.verification_agent_notes} />}
+        <p className="text-sm text-text-secondary">Production readiness, retrieval quality, security and performance require separate execution evidence. Model-generated trust, coverage and hallucination percentages are not displayed as measured results.</p>
+      </CardContent></Card>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Metric label="Files recorded as read by the extraction runner" value={inspected.length} />
+        <Metric label="Distinct paths cited by knowledge items" value={cited.length} />
       </div>
-      {!!v.audit_findings?.length && (
-        <Card><CardHeader><CardTitle>Audit findings</CardTitle></CardHeader><CardContent>
-          <ul className="list-disc space-y-1.5 pl-5 text-sm text-text-secondary">{v.audit_findings.map((f, i) => <li key={i}>{f}</li>)}</ul>
-        </CardContent></Card>
-      )}
-      {v.ml_audit?.notes && <p className="text-xs text-text-muted">ML audit: {v.ml_audit.notes}</p>}
+      {!!v?.audit_findings?.length && <Card><CardHeader><CardTitle>AI review findings</CardTitle></CardHeader><CardContent>
+        <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-text-secondary">{v.audit_findings.map((finding, i) => <li key={i}>{finding}</li>)}</ul>
+      </CardContent></Card>}
+      {v?.ml_audit && <Card><CardHeader><CardTitle className="flex flex-wrap items-center gap-2"><Cpu className="h-4 w-4" aria-hidden />Model and evaluation notes</CardTitle></CardHeader><CardContent className="space-y-3">
+        {!!v.ml_audit.detected_frameworks?.length && <div className="flex flex-wrap gap-2">{v.ml_audit.detected_frameworks.map(fw => <Badge key={fw} variant="outline">{fw}</Badge>)}</div>}
+        {v.ml_audit.notes && <p className="rounded-lg border border-slate-200 bg-[#f8fafc] p-4 text-sm leading-relaxed text-[#334155]">{v.ml_audit.notes}</p>}
+        <p className="text-sm text-text-secondary">Evaluation must match the task. Embedding retrieval needs a labeled query set and ranking metrics; classifier accuracy or ROC-AUC should not be inferred from embedding code.</p>
+      </CardContent></Card>}
+      {(inspected.length > 0 || cited.length > 0) && <Card><CardHeader><CardTitle className="flex items-center gap-2"><FileCode className="h-4 w-4" aria-hidden />Source inventory</CardTitle></CardHeader><CardContent>
+        <p className="mb-3 text-sm text-text-secondary">{inspected.length ? 'Recorded successful file reads. This inventory is not a full-source or AST audit.' : 'Cited paths only. This older report has no recorded file-read inventory.'}</p>
+        <ul className="space-y-2">{(inspected.length ? inspected : cited).map(path => <li key={path} className="break-all rounded-lg border border-slate-200 bg-[#f8fafc] px-3 py-2 font-mono text-xs text-[#334155]">{path}</li>)}</ul>
+      </CardContent></Card>}
     </div>
   )
 }
@@ -218,9 +231,10 @@ export default function ReportTab() {
               {data.map((d) => <option key={d.repositoryId} value={d.repositoryId}>{d.owner}/{d.name}</option>)}
             </select>
           ) : <h2 className="text-lg font-bold">{current.owner}/{current.name}</h2>}
-          <p className="mt-1 flex items-center gap-1.5 text-xs text-text-muted"><ShieldCheck size={14} aria-hidden /> Generated {formatDate(current.generatedAt)} from the repository's code</p>
+          <p className="mt-1 flex items-center gap-1.5 text-xs text-text-muted"><ShieldCheck size={14} aria-hidden /> Generated {formatDate(current.generatedAt)} from the saved source analysis</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={reload} isLoading={loading}>Reload saved report</Button>
           <Button variant="outline" onClick={() => void download('pdf')} isLoading={busy === 'pdf'} disabled={!current.files.includes('pdf')}><Download size={16} aria-hidden /> PDF report</Button>
           <Button variant="outline" onClick={() => void download('pptx')} isLoading={busy === 'pptx'} disabled={!current.files.includes('pptx')}><Presentation size={16} aria-hidden /> PowerPoint deck</Button>
         </div>
@@ -240,6 +254,19 @@ export default function ReportTab() {
       {section === 'architecture' && <Architecture r={r} />}
       {section === 'handover' && <Handover r={r} />}
       {section === 'verification' && <Verification r={r} />}
+      {section === 'overview' && !!r.jira_context?.length && <Card><CardHeader><CardTitle>Jira requirements and discussions</CardTitle></CardHeader><CardContent className="space-y-4">
+        <p className="text-sm text-text-secondary">Project-wide Jira snapshot included in this report. Ticket status does not verify implementation or test success.</p>
+        {r.jira_context.map(issue => <details key={issue.issue_key} className="border-b border-surface-border pb-3">
+          <summary className="cursor-pointer text-sm font-medium">{issue.issue_key}  /  {issue.summary}  /  {issue.status}</summary>
+          <div className="mt-3 space-y-3 text-sm">
+            {issue.source_url && <a className="text-primary-indigo underline" href={issue.source_url} target="_blank" rel="noreferrer">Open source issue</a>}
+            {issue.description?.trim() && <div><h4 className="mb-1 font-semibold">Description</h4><Prose text={issue.description} /></div>}
+            {issue.acceptance_criteria?.trim() && <div><h4 className="mb-1 font-semibold">Acceptance criteria</h4><Prose text={issue.acceptance_criteria} /></div>}
+            {issue.comments?.trim() && <div><h4 className="mb-1 font-semibold">Discussion</h4><Prose text={issue.comments} /></div>}
+            {!issue.description?.trim() && !issue.acceptance_criteria?.trim() && !issue.comments?.trim() && <p className="text-text-secondary">Only the issue summary and board status were supplied in this snapshot.</p>}
+          </div>
+        </details>)}
+      </CardContent></Card>}
     </div>
   )
 }

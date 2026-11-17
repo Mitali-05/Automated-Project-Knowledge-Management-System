@@ -65,6 +65,16 @@ public class ProjectController {
         return Map.of("queued", service.requestSync(projectId, CurrentUser.id()));
     }
 
+    @GetMapping("/{projectId}/sync/status")
+    public SyncStatusDto syncStatus(@PathVariable Long projectId) {
+        return service.getSyncStatus(projectId, CurrentUser.id());
+    }
+
+    @GetMapping("/{projectId}/sync/history")
+    public List<SyncHistoryDto> syncHistory(@PathVariable Long projectId) {
+        return service.getSyncHistory(projectId, CurrentUser.id());
+    }
+
     // ---- members
     @PostMapping("/{projectId}/members")
     @ResponseStatus(HttpStatus.CREATED)

@@ -33,6 +33,15 @@ public class GitHubAppService {
     public record InstallationRepo(long id, String fullName, String url, boolean isPrivate, String description) {
     }
 
+    public record CommitInfo(String sha, String message, String author, Instant date) {
+    }
+
+    public record FileChange(String filename, String status, String previousFilename) {
+    }
+
+    public record CompareResult(String baseSha, String headSha, String status, List<FileChange> files) {
+    }
+
     @Value("${app.github.app-id:}")
     private String appId;
     @Value("${app.github.app-slug:}")
@@ -43,6 +52,10 @@ public class GitHubAppService {
     private String clientId;
     @Value("${app.github.client-secret:}")
     private String clientSecret;
+    @Value("${app.github.redirect-uri}")
+    private String redirectUri;
+    @Value("${app.github.token:${GITHUB_TOKEN:}}")
+    private String githubToken;
 
     private final RestClient github = RestClient.builder()
             .baseUrl(API)
@@ -51,7 +64,7 @@ public class GitHubAppService {
             .build();
 
     public boolean isConfigured() {
-        return notBlank(appId) && notBlank(appSlug) && notBlank(privateKeyBase64);
+        return notBlank(appId) && notBlank(appSlug) && notBlank(privateKeyBase64) && canVerifyOwnership();
     }
 
     public boolean canVerifyOwnership() {
@@ -60,6 +73,48 @@ public class GitHubAppService {
 
     public String installUrl(String state) {
         return "https://github.com/apps/" + appSlug + "/installations/new?state=" + state;
+    }
+
+    public String authorizationUrl(String state) {
+        requireConfigured();
+        return org.springframework.web.util.UriComponentsBuilder.fromHttpUrl("https://github.com/login/oauth/authorize")
+                .queryParam("client_id",clientId).queryParam("redirect_uri",redirectUri).queryParam("state",state)
+                .build().encode().toUriString();
+    }
+
+    public record UserInstallation(String id,String account) {}
+
+    public List<UserInstallation> authorizedInstallations(String code) {
+        requireConfigured();
+        try {
+            JsonNode response=RestClient.create().post().uri("https://github.com/login/oauth/access_token")
+                .accept(MediaType.APPLICATION_JSON).contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("client_id",clientId,"client_secret",clientSecret,"code",code,"redirect_uri",redirectUri))
+                .retrieve().body(JsonNode.class);
+            if(response==null || !response.path("access_token").isTextual()) throw upstream("GitHub authorization failed. Start Connect GitHub again.");
+            String token=response.path("access_token").asText();
+            JsonNode user=github.get().uri("/user").headers(h->h.setBearerAuth(token)).retrieve().body(JsonNode.class);
+            if(user==null || !user.path("login").isTextual()) throw upstream("GitHub did not confirm your account");
+            List<UserInstallation> options=new ArrayList<>();
+            for(int page=1;page<=20;page++) {
+                JsonNode data=github.get().uri("/user/installations?per_page=100&page={page}",page)
+                    .headers(h->h.setBearerAuth(token)).retrieve().body(JsonNode.class);
+                if(data==null || !data.path("installations").isArray()) throw upstream("GitHub returned invalid installation data");
+                for(var item:data.path("installations")) {
+                    if(!appId.equals(item.path("app_id").asText()) || !item.path("suspended_at").isNull()) continue;
+                    String account=item.path("account").path("login").asText();
+                    boolean owner=account.equalsIgnoreCase(user.path("login").asText());
+                    if(!owner && item.path("account").path("type").asText().equals("Organization")) {
+                        JsonNode membership=github.get().uri("/user/memberships/orgs/{org}",account)
+                            .headers(h->h.setBearerAuth(token)).retrieve().body(JsonNode.class);
+                        owner=membership!=null && membership.path("state").asText().equals("active") && membership.path("role").asText().equals("admin");
+                    }
+                    if(owner) options.add(new UserInstallation(item.path("id").asText(),account));
+                }
+                if(data.path("installations").size()<100) return options;
+            }
+            throw upstream("Too many installations; connection was not completed");
+        } catch(RestClientException e) { throw upstream("Could not verify GitHub account access. Reauthorize; organization connections require permission to read membership."); }
     }
 
     /** Short-lived (about 1 hour) token that can read only the repositories the customer granted to the app. */
@@ -106,6 +161,64 @@ public class GitHubAppService {
             throw upstream("Could not load repositories from GitHub.");
         }
         return result;
+    }
+
+    public CommitInfo getHeadCommit(String owner, String repo, String installationId) {
+        String token = (installationId != null && notBlank(installationId) && isConfigured())
+                ? installationToken(installationId) : (notBlank(githubToken) ? githubToken : null);
+        try {
+            var req = github.get().uri("/repos/{owner}/{repo}/commits/HEAD", owner, repo);
+            if (token != null) {
+                req.headers(h -> h.setBearerAuth(token));
+            }
+            JsonNode body = req.retrieve().body(JsonNode.class);
+            if (body == null || !body.hasNonNull("sha")) {
+                return null;
+            }
+            String sha = body.get("sha").asText();
+            String message = body.path("commit").path("message").asText("");
+            String author = body.path("commit").path("author").path("name").asText("Unknown");
+            String dateStr = body.path("commit").path("author").path("date").asText(null);
+            Instant date = dateStr != null ? Instant.parse(dateStr) : Instant.now();
+            return new CommitInfo(sha, message, author, date);
+        } catch (Exception e) {
+            log.warn("Failed to get head commit for {}/{}: {}", owner, repo, e.getMessage());
+            return null;
+        }
+    }
+
+    public CompareResult compareCommits(String owner, String repo, String baseSha, String headSha, String installationId) {
+        if (baseSha == null || headSha == null || baseSha.isBlank() || headSha.isBlank() || baseSha.equals(headSha)) {
+            return new CompareResult(baseSha, headSha, "identical", List.of());
+        }
+        String token = (installationId != null && notBlank(installationId) && isConfigured())
+                ? installationToken(installationId) : (notBlank(githubToken) ? githubToken : null);
+        try {
+            var req = github.get().uri("/repos/{owner}/{repo}/compare/{base}...{head}", owner, repo, baseSha, headSha);
+            if (token != null) {
+                req.headers(h -> h.setBearerAuth(token));
+            }
+            JsonNode body = req.retrieve().body(JsonNode.class);
+            if (body == null) {
+                return new CompareResult(baseSha, headSha, "unknown", List.of());
+            }
+            String status = body.path("status").asText("unknown");
+            List<FileChange> changes = new ArrayList<>();
+            JsonNode files = body.path("files");
+            if (files.isArray()) {
+                for (JsonNode f : files) {
+                    changes.add(new FileChange(
+                            f.path("filename").asText(""),
+                            f.path("status").asText("modified"),
+                            f.path("previous_filename").isNull() ? null : f.path("previous_filename").asText(null)
+                    ));
+                }
+            }
+            return new CompareResult(baseSha, headSha, status, changes);
+        } catch (Exception e) {
+            log.warn("Failed to compare commits {}...{} for {}/{}: {}", baseSha, headSha, owner, repo, e.getMessage());
+            return new CompareResult(baseSha, headSha, "error", List.of());
+        }
     }
 
     /**

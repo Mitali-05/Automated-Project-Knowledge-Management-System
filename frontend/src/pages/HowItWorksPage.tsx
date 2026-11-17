@@ -4,7 +4,7 @@ import { PublicPage } from '../components/layout/PublicPage'
 
 const steps = [
   { icon: FolderPlus, title: 'Create a project', text: 'Name it, add one or more GitHub repository links and choose the teammates who should have access.' },
-  { icon: GitBranch, title: 'Connect your repositories', text: 'Public repositories work with just a link. For private ones, connect the PRISM GitHub App for your organization.' },
+  { icon: GitBranch, title: 'Connect your repositories', text: 'Add public repository links directly. For private repositories, connect the PRISM GitHub App and authorize selected repositories.' },
   { icon: RefreshCw, title: 'PRISM extracts knowledge', text: 'The extraction service reads commits and pull requests, then reports structured knowledge and activity back to the project.' },
   { icon: BookOpen, title: 'Explore with evidence', text: 'Browse knowledge by type, check freshness, and open the exact commit or pull request behind every item.' },
 ]

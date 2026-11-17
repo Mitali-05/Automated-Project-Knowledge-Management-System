@@ -3,14 +3,15 @@ Verification Agent (LLM 2):
 Audits the architectural report and evidence synthesized by ReportAgent (LLM 1).
 Validates code citations, detects repository ML models, and computes grounding metrics.
 """
-import os
 import json
 import logging
+import time
+from pydantic import ValidationError
 from typing import List, Dict, Any, Optional
 from app.core.models import AgentExtractionResult, VerificationReport, MLCodebaseAudit
-from app.core.llm_client import get_verification_agent_client, LLMClient, LLMError
+from app.core.llm_client import get_verification_agent_client, LLMClient, LLMError, LLMOutputError
 from app.core.comm_logger import (
-    log_llm2_request, log_llm2_response, log_llm2_fallback
+    log_llm2_request, log_llm2_response
 )
 
 logger = logging.getLogger(__name__)
@@ -24,33 +25,80 @@ You must inspect:
 3. Hallucination Risk: Did LLM1 invent any non-existent libraries or claim speculative capabilities?
 4. Codebase ML Audit: Check if the target repository contains Machine Learning/Data Science models (scikit-learn, PyTorch, TensorFlow, ONNX, training scripts, ROC-AUC evaluation logs). If ML models exist, extract their evaluation metrics. If it is a deterministic backend/API service, clearly state that classical ML classification metrics (ROC-AUC) do not apply.
 
-Return ONLY a valid JSON object strictly matching this schema:
-{
-  "overall_trust_score": float (0-100),
-  "verdict": "VERIFIED_PRODUCTION_GRADE" | "VERIFIED_WITH_WARNINGS" | "REJECTED" | "AUDIT_FAILED",
-  "evidence_precision_score": float (0-100, proportion of cited code pointers verified),
-  "subsystem_recall_coverage": float (0-100, proportion of top-level architectural subsystems audited),
-  "hallucination_rate": float (0-100, % of ungrounded or speculative claims),
-  "ml_audit": {
-    "ml_models_detected": boolean,
-    "detected_frameworks": [string],
-    "roc_auc_score": float or null,
-    "accuracy_score": float or null,
-    "precision_score": float or null,
-    "recall_score": float or null,
-    "evaluation_dataset": string or null,
-    "notes": string
-  },
-  "verified_claims_count": int,
-  "unsupported_claims_count": int,
-  "audit_findings": [string],
-  "verification_agent_notes": string
-}
-"""
+Evidence limits are mandatory: a matching path proves file existence only, not
+the behaviour of that file. This payload does not include complete source bodies
+or executed tests. Do not certify production readiness or claim independently
+verified behavioural accuracy. Use VERIFIED_WITH_WARNINGS when those checks are
+unavailable, and state the limitation in audit_findings. Unsupported ROI, latency,
+isolation, exact response codes and retry guarantees must be flagged. An embedding
+model is an ML component, but it does not imply a classifier or measured ROC-AUC.
+Never convert a count of existing file paths into a count of verified claims.
+
+Return ONLY one valid JSON object matching the authoritative JSON Schema below.
+Every property name must be double-quoted. No comments, _comment properties,
+markdown, NaN, Infinity, or trailing commas. Put explanations in ml_audit.notes,
+audit_findings or verification_agent_notes. Scores and counts are numbers, not
+strings. Preserve uncertainty and negative findings. Never replace a rejected
+audit with a passing verdict just to satisfy the schema.
+""" + '\n' + json.dumps(VerificationReport.model_json_schema())
+
+MAX_AUDIT_CORRECTIONS = 2
 
 class VerificationAgent:
     def __init__(self, llm_client: Optional[LLMClient] = None):
         self.client = llm_client or get_verification_agent_client()
+
+    def _validated_audit(self, user_content: str, project_id: str) -> VerificationReport:
+        request = user_content
+        protected_verdict = None
+        for attempt in range(MAX_AUDIT_CORRECTIONS + 1):
+            raw_response = None
+            if project_id:
+                log_llm2_request(project_id, VERIFICATION_SYSTEM_PROMPT, request,
+                                 self.client.model, self.client.provider, temperature=0.0)
+            try:
+                raw_response = self.client.extract_json(
+                    system_prompt=VERIFICATION_SYSTEM_PROMPT, user_content=request, temperature=0.0)
+                if protected_verdict is not None and raw_response.get('verdict') != protected_verdict:
+                    raise LLMError('Verification audit failed: formatting correction changed the previous audit verdict')
+                report = VerificationReport.model_validate(raw_response, strict=True)
+            except (LLMOutputError, ValidationError) as exc:
+                if isinstance(exc, LLMOutputError):
+                    invalid = exc.raw_response
+                    diagnostic = str(exc)
+                else:
+                    invalid = json.dumps(raw_response)
+                    diagnostic = json.dumps(exc.errors(include_input=False, include_url=False))
+                    if raw_response.get('verdict') in ('VERIFIED_WITH_WARNINGS', 'REJECTED', 'AUDIT_FAILED'):
+                        protected_verdict = raw_response['verdict']
+                if project_id:
+                    log_llm2_response(project_id, self.client.model, self.client.provider,
+                                      invalid, parsed_successfully=False, error=diagnostic)
+                if attempt == MAX_AUDIT_CORRECTIONS:
+                    raise LLMError(f'Verification audit failed after {attempt} correction attempts: {diagnostic}') from exc
+                logger.warning('Verification output invalid; requesting same-auditor correction %s/%s: %s',
+                               attempt + 1, MAX_AUDIT_CORRECTIONS, diagnostic)
+                request = (
+                    user_content + '\n\nYour previous audit response was invalid:\n' + invalid
+                    + '\n\nValidation errors: ' + diagnostic
+                    + '\nReturn the COMPLETE valid audit JSON using the same evidence and schema. '
+                    'Correct syntax and field types only. Preserve findings, limitations, metrics and verdict; '
+                    'do not invent measurements, erase findings, substitute empty/default values or change '
+                    'a rejected verdict into a pass. Move any comments into the supported notes/findings fields. '
+                    'Do not re-explore the repository. No markdown or comments. '
+                    'When a value cannot be supported, say so in the findings rather than claiming verification.'
+                )
+                time.sleep(15)
+                continue
+            # This is a substantive safety failure, not a formatting issue to retry away.
+            if report.verdict == 'VERIFIED_PRODUCTION_GRADE':
+                raise LLMError('Verification audit failed: a report-only audit cannot certify production readiness without source and runtime validation')
+            if project_id:
+                log_llm2_response(project_id, self.client.model, self.client.provider,
+                                  raw_response, parsed_successfully=True)
+            if attempt:
+                logger.info('Verification audit validated after %s correction attempt(s)', attempt)
+            return report
 
     def audit_extraction(
         self, 
@@ -105,7 +153,7 @@ class VerificationAgent:
         audit_payload = {
             "repository": f"{owner}/{repo}" if owner and repo else result.project_name,
             "project_name": result.project_name,
-            "problem_statement": result.problem_statement[:500],
+            "problem_statement": result.problem_statement,
             "tech_stack": result.tech_stack,
             "core_modules_count": result.analytics_metrics.core_module_count,
             "patterns_claimed": result.analytics_metrics.key_patterns_used,
@@ -114,14 +162,24 @@ class VerificationAgent:
                     "title": k.title,
                     "module": k.module,
                     "evidence_ids": k.evidence_ids,
-                    "confidence": k.confidence
+                    "confidence": k.confidence,
+                    "summary": k.summary, "details": k.details
                 }
                 for k in result.knowledge_items[:15]
             ],
             "file_tree_sample": sorted(list(all_tree_paths))[:150],
             "empirical_evidence_count": total_evidence_cited,
             "empirical_verified_count": verified_evidence_count,
-            "unverified_citations": unverified_evidence
+            "unverified_citations": unverified_evidence,
+            "inspected_files": result.inspected_files,
+            "architecture": result.architecture_mermaid_chart,
+            "architecture_explanation": getattr(result, 'architecture_explanation', ''),
+            "technical_diagrams": [d.model_dump() for d in getattr(result, 'technical_diagrams', [])],
+            "sequence": result.developer_handover_guide.execution_sequence_chart,
+            "business_value": result.presentation_deck.business_value,
+            "roi_summary": result.presentation_deck.roi_summary,
+            "workflows": [w.model_dump() for w in result.developer_handover_guide.critical_workflows],
+            "validation_boundary": "File-path existence checked; no independent source-body audit or runtime tests supplied"
         }
 
         user_content = (
@@ -130,40 +188,8 @@ class VerificationAgent:
             f"Provide an objective verification report evaluating fact grounding, evidence precision, and ML applicability."
         )
 
-        if project_id:
-            log_llm2_request(
-                project_id=project_id,
-                system_prompt=VERIFICATION_SYSTEM_PROMPT,
-                user_content=user_content,
-                model=self.client.model,
-                provider=self.client.provider,
-                temperature=0.0
-            )
-
         try:
-            raw_response = self.client.extract_json(
-                system_prompt=VERIFICATION_SYSTEM_PROMPT,
-                user_content=user_content,
-                temperature=0.0
-            )
-            
-            if project_id:
-                log_llm2_response(
-                    project_id=project_id,
-                    model=self.client.model,
-                    provider=self.client.provider,
-                    raw_response=raw_response,
-                    parsed_successfully=True
-                )
-            
-            report = VerificationReport.model_validate(raw_response)
-            
-            # Reconcile empirical evidence checks
-            if report.verified_claims_count == 0 and total_evidence_cited > 0:
-                report.verified_claims_count = verified_evidence_count
-                report.unsupported_claims_count = max(0, total_evidence_cited - verified_evidence_count)
-                
-            return report
+            return self._validated_audit(user_content, project_id)
 
         except Exception as e:
             logger.error(f"VerificationAgent LLM2 invocation failed: {e}. Refusing to emit unverified 100% scores.")
@@ -178,41 +204,8 @@ class VerificationAgent:
                     error=str(e)
                 )
 
-            # Fail-closed report: do not inflate scores if the auditor crashed
-            ml_audit = MLCodebaseAudit(
-                ml_models_detected=ml_detected,
-                detected_frameworks=detected_frameworks,
-                roc_auc_score=None,
-                accuracy_score=None,
-                precision_score=None,
-                recall_score=None,
-                notes="Auditor LLM unavailable. Empirical inspection only: " + (
-                    "ML indicators found." if ml_detected else "Deterministic application."
-                )
-            )
-
-            fallback_report = VerificationReport(
-                overall_trust_score=round(empirical_precision * 0.5, 1),
-                verdict="AUDIT_FAILED",
-                evidence_precision_score=round(empirical_precision, 1),
-                subsystem_recall_coverage=0.0,
-                hallucination_rate=round(100.0 - empirical_precision, 1),
-                ml_audit=ml_audit,
-                verified_claims_count=verified_evidence_count,
-                unsupported_claims_count=max(0, total_evidence_cited - verified_evidence_count),
-                audit_findings=[
-                    f"CRITICAL: Auditor (LLM2) failed with error: {str(e)}.",
-                    f"Empirical evidence grounding: {verified_evidence_count}/{total_evidence_cited} paths physically confirmed.",
-                    "Overall verdict marked as AUDIT_FAILED until auditor service credentials are restored."
-                ],
-                verification_agent_notes=f"Audit execution incomplete due to LLM2 failure: {str(e)}"
-            )
-
-            if project_id:
-                log_llm2_fallback(
-                    project_id=project_id,
-                    reason=str(e),
-                    fallback_report=fallback_report.model_dump()
-                )
-
-            return fallback_report
+            if isinstance(e, LLMError):
+                if str(e).startswith('Verification audit failed'):
+                    raise
+                raise LLMError('Verification audit failed: ' + str(e)) from e
+            raise LLMError(f'Verification audit failed: {type(e).__name__}; see worker logs for details') from e

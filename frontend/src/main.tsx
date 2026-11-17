@@ -4,13 +4,15 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './context/AuthContext'
 import './index.css'
+import { AppErrorBoundary } from './components/ui/AppErrorBoundary'
+import { ApiActivityIndicator } from './components/ui/ApiActivityIndicator'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <AuthProvider>
+      <AppErrorBoundary><ApiActivityIndicator /><AuthProvider>
         <App />
-      </AuthProvider>
+      </AuthProvider></AppErrorBoundary>
     </BrowserRouter>
   </StrictMode>,
 )

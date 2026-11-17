@@ -5,6 +5,8 @@ from typing import List, Tuple
 from app.core.models import KnowledgeItem, AgentExtractionResult
 from mcp.client.session import ClientSession
 from app.prompts.agent_prompts import AGENT_SYSTEM_PROMPT
+from app.mcp.inspection_contract import inspection_deficits, UninspectedEvidenceError, prioritized_tree_paths
+from app.mcp.report_output import validate_or_correct_report
 from app.core.comm_logger import (
     log_llm1_request, log_llm1_response,
     log_llm1_tool_execution, log_llm1_error
@@ -19,7 +21,8 @@ async def run_autonomous_extraction(
     mcp_session: ClientSession, 
     max_steps: int = 30,
     file_tree: list = None,
-    project_id: str = ""
+    project_id: str = "",
+    validate_rendering: bool = True
 ) -> Tuple[AgentExtractionResult | None, List[str]]:
     
     logger.info(f"Starting autonomous agent for {owner}/{repo}")
@@ -49,8 +52,8 @@ async def run_autonomous_extraction(
         
     tree_context = ""
     if file_tree:
-        paths = [item.get("path") for item in file_tree[:200] if item.get("path")]
-        tree_context = f"\n\nHere is the repository file tree:\n" + "\n".join(f"- {p}" for p in paths)
+        paths = prioritized_tree_paths(file_tree)
+        tree_context = f"\n\nPrioritized repository paths (navigation hints, not verified behaviour; {len(paths)} of {len(file_tree)} tree entries shown):\n" + "\n".join(f"- {p}" for p in paths)
         
     system_prompt = AGENT_SYSTEM_PROMPT.replace("{owner}", owner).replace("{repo}", repo)
     messages = [
@@ -59,6 +62,9 @@ async def run_autonomous_extraction(
     ]
     
     executed_tools = []
+    inspected_files = set()
+    inspected_sources = {}
+    evidence_followups = 0
     permission_error = None
     
     for step in range(max_steps):
@@ -140,8 +146,10 @@ async def run_autonomous_extraction(
                 try:
                     mcp_res = await mcp_session.call_tool(tool_name, arguments=tool_args)
                     result_text = "\\n".join([c.text for c in mcp_res.content if hasattr(c, 'text')])
+                    read_failed = bool(getattr(mcp_res, 'isError', False))
                 except Exception as e:
                     result_text = f"Error executing tool: {str(e)}"
+                    read_failed = True
                     logger.error(result_text)
                 
                 # ── Log tool execution ──
@@ -158,15 +166,40 @@ async def run_autonomous_extraction(
                 if "Resource not accessible by integration" in result_text or "Permission Denied" in result_text:
                     permission_error = result_text
                     logger.error(f"GitHub Permission Error encountered: {result_text}")
+                    read_failed = True
+
+                if len(result_text) > 80000:
+                    result_text = 'Tool result exceeds the inspection limit. Request one file or a smaller line range; this response was not inspected.'
+                    read_failed = True
+                if not read_failed and tool_name in {'get_file_contents', 'read_file'}:
+                    path = tool_args.get('path')
+                    if isinstance(path, str) and path:
+                        payload = None
+                        try:
+                            payload = json.loads(result_text)
+                            is_file = isinstance(payload, dict) and 'content' in payload and not payload.get('error')
+                        except json.JSONDecodeError:
+                            is_file = (bool(result_text.strip()) and not result_text.startswith('Error')
+                                       and not result_text.lstrip().startswith(('{', '[')))
+                        if is_file:
+                            inspected_files.add(path.lstrip('/'))
+                            source = payload.get('content') if isinstance(payload, dict) else result_text
+                            if isinstance(source, str):
+                                inspected_sources[path.lstrip('/')] = source
                     
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tc.id,
                     "name": tool_name,
-                    "content": result_text[:5000] # Prevent context overflow
+                    "content": result_text
                 })
         else:
             content = msg.content or ""
+            deficits = inspection_deficits(file_tree, inspected_files)
+            if deficits:
+                messages.append({'role': 'assistant', 'content': content})
+                messages.append({'role': 'user', 'content': 'Inspection is incomplete. ' + '\n'.join(deficits)})
+                continue
             logger.info("Agent finished exploration. Parsing JSON.")
             
             # ── Log final LLM1 response ──
@@ -181,17 +214,33 @@ async def run_autonomous_extraction(
                 )
             
             try:
-                clean_content = content
-                if "```json" in clean_content:
-                    clean_content = clean_content.split("```json")[1].split("```")[0]
-                elif "```" in clean_content:
-                    clean_content = clean_content.split("```")[1].split("```")[0]
-                    
-                data = json.loads(clean_content.strip())
-                result = AgentExtractionResult.model_validate(data)
+                result = await validate_or_correct_report(
+                    content, llm_client, messages, inspected_files, project_id, step + 1, validate_rendering=validate_rendering)
+                from app.mcp.source_metrics import measure_sources
+                result.source_metrics = measure_sources(inspected_sources)
                 return result, executed_tools
-            except Exception as e:
-                logger.error(f"Failed to parse final JSON: {e}")
+            except UninspectedEvidenceError as exc:
+                if evidence_followups >= 2:
+                    raise ValueError(f'Evidence remains unread after two inspection follow-ups: {", ".join(exc.paths)}') from exc
+                evidence_followups += 1
+                logger.warning('Resuming source inspection for unread citations (%s/2): %s',
+                               evidence_followups, ', '.join(exc.paths))
+                if project_id:
+                    log_llm1_error(project_id, step + 1, str(exc), context='Unread citations; resuming inspection')
+                messages.extend([
+                    {'role': 'assistant', 'content': exc.report_json},
+                    {'role': 'user', 'content': (
+                        'The report is not accepted yet. Use the source-reading tools to inspect these cited files: '
+                        + ', '.join(exc.paths) + '. Then reassess the associated claims against the returned source '
+                        'and return the complete report. Reading a filename is not proof of a claim. '
+                        'If a file cannot be read or the source contradicts a claim, explicitly revise the unsupported '
+                        'finding rather than pretending it was verified. Preserve supported findings and do not '
+                        'substitute citations to unrelated files merely to pass validation.'
+                    )},
+                ])
+                continue
+            except ValueError as e:
+                logger.error(f"Failed to validate final report: {e}")
                 logger.error(f"Raw model response was: {content[:500]}")
                 if project_id:
                     log_llm1_error(project_id, step + 1, str(e), context=f"JSON parse failure. Raw: {content[:300]}")
@@ -201,9 +250,12 @@ async def run_autonomous_extraction(
                         f"The GitHub App installation does not have permission to access repository '{owner}/{repo}'. "
                         f"Please ensure '{owner}/{repo}' is included in your GitHub App installation settings."
                     )
-                raise ValueError(f"Agent did not return valid JSON output: {e}. Output was: {content[:200]}")
+                raise ValueError(f"Report validation failed: {e}") from e
 
     logger.warning("Agent reached max steps. Forcing final JSON output.")
+    deficits = inspection_deficits(file_tree, inspected_files)
+    if deficits:
+        raise ValueError('Extraction stopped with incomplete source inspection: ' + '; '.join(deficits))
     messages.append({"role": "user", "content": "You have reached your step limit. Output the JSON object matching the schema based ONLY on what you have found so far."})
     
     # ── Log forced final request ──
@@ -235,17 +287,13 @@ async def run_autonomous_extraction(
         )
     
     try:
-        clean_content = content
-        if "```json" in clean_content:
-            clean_content = clean_content.split("```json")[1].split("```")[0]
-        elif "```" in clean_content:
-            clean_content = clean_content.split("```")[1].split("```")[0]
-            
-        data = json.loads(clean_content.strip())
-        result = AgentExtractionResult.model_validate(data)
+        result = await validate_or_correct_report(
+            content, llm_client, messages, inspected_files, project_id, max_steps + 1, validate_rendering=validate_rendering)
+        from app.mcp.source_metrics import measure_sources
+        result.source_metrics = measure_sources(inspected_sources)
         return result, executed_tools
-    except Exception as e:
-        logger.error(f"Failed to parse forced final JSON: {e}")
+    except ValueError as e:
+        logger.error(f"Failed to validate forced final report: {e}")
         logger.error(f"Raw model response was: {content[:500]}")
         if project_id:
             log_llm1_error(project_id, max_steps + 1, str(e), context="Forced final parse failure")
@@ -254,4 +302,4 @@ async def run_autonomous_extraction(
                 f"GitHub Permission Denied: '{permission_error}'. "
                 f"The GitHub App installation does not have permission to access repository '{owner}/{repo}'."
             )
-        raise ValueError(f"Agent did not return valid JSON output after max steps: {e}")
+        raise ValueError(f"Report validation failed after exploration: {e}") from e

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Building2, FolderGit2, GitBranch, KeyRound, Plus, User as UserIcon, Users } from 'lucide-react'
+import { ArrowRight, Building2, FolderGit2, GitBranch, KeyRound, Plus, User as UserIcon, Users } from 'lucide-react'
 import { ApiError } from '../../api/client'
 import { orgApi } from '../../api/endpoints'
 import { RoleBadge } from '../../components/OrgBadges'
@@ -76,7 +76,7 @@ export default function OrganizationsPage() {
           {orgs.map((o, i) => {
             const personal = o.type === 'PERSONAL'
             const card = (
-              <Card className={`group h-full p-6 transition-all duration-300 ${personal ? '' : 'hover:border-primary-indigo/40 hover:shadow-xl'}`}>
+              <Card className="group h-full p-6 transition-all duration-300 hover:border-primary-indigo/40 hover:shadow-xl">
                 <div className="mb-4 flex items-start justify-between">
                   <span className={`flex h-12 w-12 items-center justify-center rounded-xl text-lg font-bold shadow-md ${personal ? 'bg-primary-light-indigo text-primary-indigo' : 'bg-gradient-to-br from-primary-blue to-primary-violet text-white'}`}>
                     {personal ? <UserIcon size={22} aria-hidden /> : o.name.charAt(0).toUpperCase()}
@@ -92,11 +92,15 @@ export default function OrganizationsPage() {
                     <Badge variant={o.githubConnected ? 'success' : 'outline'}>{o.githubConnected ? 'GitHub connected' : 'No GitHub'}</Badge>
                   </span>
                 </div>
+                <p className="mt-4 flex items-center justify-between text-sm font-medium text-primary-indigo">
+                  {personal ? 'Workspace settings' : 'Organization settings'}<ArrowRight size={16} aria-hidden />
+                </p>
               </Card>
             )
             return (
               <motion.div key={o.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: i * 0.06 }}>
-                {personal ? card : <Link to={`/app/organizations/${o.id}`} className="block h-full">{card}</Link>}
+                <Link to={`/app/organizations/${o.id}`} aria-label={`Open settings for ${o.name}`}
+                  className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-indigo focus-visible:ring-offset-2">{card}</Link>
               </motion.div>
             )
           })}

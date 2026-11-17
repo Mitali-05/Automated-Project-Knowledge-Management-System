@@ -43,7 +43,7 @@ public class GithubIntegrationService {
         boolean connected = hasText(me.getOrganization().getGithubInstallationId());
         boolean canManage = me.getRole() != OrganizationMember.Role.member;
         String url = github.isConfigured() && canManage
-                ? github.installUrl(jwtUtil.generateGithubState(userId, orgId)) : null;
+                ? github.authorizationUrl(jwtUtil.generateGithubState(userId, orgId)) : null;
         return new Status(github.isConfigured(), connected, canManage, url);
     }
 
@@ -64,11 +64,18 @@ public class GithubIntegrationService {
         organizationRepository.findByGithubInstallationId(installationId)
                 .filter(other -> !other.getId().equals(org.getId()))
                 .ifPresent(other -> {
-                    throw ApiException.conflict("This GitHub installation is already connected to another organization");
+                    try {
+                        orgAccess.requireAdmin(other.getId(), userId);
+                        other.setGithubInstallationId(null);
+                        other.setGithubInstallationVerified(false);
+                        organizationRepository.saveAndFlush(other);
+                    } catch (ApiException e) {
+                        throw ApiException.conflict("This GitHub installation is already connected to another organization");
+                    }
                 });
 
         boolean verified = github.userOwnsInstallation(oauthCode, installationId);
-        if (github.canVerifyOwnership() && !verified) {
+        if (!verified) {
             throw ApiException.forbidden("GitHub could not confirm that you have access to this installation");
         }
         org.setGithubInstallationId(installationId);
@@ -86,6 +93,14 @@ public class GithubIntegrationService {
         return github.repositories(installationId).stream()
                 .map(r -> new RepoOption(r.id(), r.fullName(), r.url(), r.isPrivate(), r.description()))
                 .toList();
+    }
+
+    @Transactional
+    public void disconnect(Long userId, Long orgId) {
+        Organization org = orgAccess.requireAdmin(orgId, userId).getOrganization();
+        org.setGithubInstallationId(null);
+        org.setGithubInstallationVerified(false);
+        organizationRepository.saveAndFlush(org);
     }
 
     private static boolean hasText(String s) {

@@ -1,67 +1,191 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { BookOpen, ExternalLink, Search, X } from 'lucide-react'
+import { BookOpen, Search, ShieldCheck, AlertTriangle, HelpCircle, AlertCircle } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { knowledgeApi } from '../../api/endpoints'
-import type { KnowledgeItem } from '../../api/types'
+import type { ChangeFreshness, KnowledgeItem } from '../../api/types'
 import { Badge } from '../../components/ui/Badge'
 import { Card, CardContent } from '../../components/ui/Card'
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/States'
 import { useAsync } from '../../hooks/useAsync'
 import { useProject } from '../../hooks/useProject'
 import { cn } from '../../lib/cn'
-import { formatDate, safeUrl } from '../../lib/format'
+import { formatDate } from '../../lib/format'
 import { freshnessTone } from '../../lib/tones'
+import { KnowledgeDetailDrawer } from './KnowledgeDetailDrawer'
 
 export default function KnowledgeTab() {
   const { detail } = useProject()
   const { data, loading, error, reload } = useAsync(() => knowledgeApi.list(detail.project.id), [detail.project.id])
   const [type, setType] = useState('All')
+  const [changeFilter, setChangeFilter] = useState<string>('All')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<KnowledgeItem | null>(null)
 
   const types = useMemo(() => ['All', ...new Set((data ?? []).map((k) => k.type))], [data])
+  const changeFilters = ['All', 'Current', 'Potentially Stale', 'Outdated', 'Unknown']
+
   const items = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return (data ?? []).filter((k) => (type === 'All' || k.type === type) && (!q || `${k.title} ${k.summary} ${k.module ?? ''}`.toLowerCase().includes(q)))
-  }, [data, type, query])
+    return (data ?? []).filter((k) => {
+      const matchType = type === 'All' || k.type === type
+      const statusKey = (k.changeFreshness || 'UNKNOWN').replace('_', ' ').toLowerCase()
+      const matchChange = changeFilter === 'All' || statusKey === changeFilter.toLowerCase()
+      const matchQuery = !q || `${k.title} ${k.summary} ${k.module ?? ''}`.toLowerCase().includes(q)
+      return matchType && matchChange && matchQuery
+    })
+  }, [data, type, changeFilter, query])
 
   if (loading && !data) return <LoadingState />
   if (error) return <ErrorState message={error} onRetry={reload} />
 
+  const renderChangeBadge = (status?: ChangeFreshness) => {
+    const s = status || 'UNKNOWN'
+    switch (s) {
+      case 'CURRENT':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+            <ShieldCheck size={12} />
+            <span>Current</span>
+          </span>
+        )
+      case 'POTENTIALLY_STALE':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+            <AlertTriangle size={12} />
+            <span>Potentially Stale</span>
+          </span>
+        )
+      case 'OUTDATED':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-red-50 border border-red-200 px-2 py-0.5 text-[11px] font-semibold text-red-700">
+            <AlertCircle size={12} />
+            <span>Outdated</span>
+          </span>
+        )
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+            <HelpCircle size={12} />
+            <span>Unknown</span>
+          </span>
+        )
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Knowledge</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-bold">Knowledge Base</h2>
+          <p className="text-xs text-text-muted mt-0.5">
+            Structured architectural knowledge with independent age & repository drift tracking.
+          </p>
+        </div>
+      </div>
+
       {(data ?? []).length === 0 ? (
-        <EmptyState icon={<BookOpen size={32} />} title="No knowledge yet" description="Once the repositories are synced, extracted decisions, workflows and module summaries appear here with their sources." />
+        <EmptyState
+          icon={<BookOpen size={32} />}
+          title="No knowledge yet"
+          description="Once repositories are synced, decisions, module summaries and workflows appear here with provenance citations."
+        />
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" aria-hidden />
-              <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search knowledge" aria-label="Search knowledge"
-                className="h-9 w-64 rounded-md border border-surface-border bg-surface-card pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-indigo" />
+          <div className="flex flex-col gap-3 rounded-2xl border border-surface-border bg-surface-card p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative flex-1 min-w-[240px]">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" aria-hidden />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search knowledge by title, module, or summary..."
+                  aria-label="Search knowledge"
+                  className="h-10 w-full rounded-xl border border-surface-border bg-surface-background pl-9 pr-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-primary-indigo"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by change freshness">
+                <span className="text-xs font-semibold text-text-muted mr-1">Drift:</span>
+                {changeFilters.map((cf) => (
+                  <button
+                    key={cf}
+                    onClick={() => setChangeFilter(cf)}
+                    aria-pressed={changeFilter === cf}
+                    className={cn(
+                      'rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer',
+                      changeFilter === cf
+                        ? 'border-primary-indigo bg-primary-indigo text-white shadow-xs'
+                        : 'border-surface-border bg-surface-background text-text-secondary hover:bg-surface-border/50'
+                    )}
+                  >
+                    {cf}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by type">
+
+            <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-surface-border/60" role="group" aria-label="Filter by type">
+              <span className="text-xs font-semibold text-text-muted mr-1">Type:</span>
               {types.map((t) => (
-                <button key={t} onClick={() => setType(t)} aria-pressed={type === t}
-                  className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors', type === t ? 'border-primary-indigo bg-primary-indigo text-white' : 'border-surface-border bg-surface-card text-text-secondary hover:bg-primary-light-indigo')}>{t}</button>
+                <button
+                  key={t}
+                  onClick={() => setType(t)}
+                  aria-pressed={type === t}
+                  className={cn(
+                    'rounded-full border px-3 py-0.5 text-xs font-medium transition-colors cursor-pointer',
+                    type === t
+                      ? 'border-primary-indigo bg-primary-light-indigo text-primary-indigo font-semibold'
+                      : 'border-surface-border bg-surface-background text-text-secondary hover:bg-surface-border/40'
+                  )}
+                >
+                  {t}
+                </button>
               ))}
             </div>
           </div>
-          {items.length === 0 && <p className="text-sm text-text-muted">No items match your filters.</p>}
-          <div className="grid gap-6 md:grid-cols-2">
+
+          {items.length === 0 && (
+            <p className="py-8 text-center text-sm text-text-muted">
+              No knowledge items match your current filters.
+            </p>
+          )}
+
+          <div className="grid gap-4 md:grid-cols-2">
             {items.map((k, i) => (
-              <motion.div key={k.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: Math.min(i, 8) * 0.05 }}>
-                <Card role="button" tabIndex={0} onClick={() => setSelected(k)} onKeyDown={(e) => e.key === 'Enter' && setSelected(k)}
-                  className="group h-full cursor-pointer transition-all duration-300 hover:border-primary-indigo/40 hover:shadow-xl">
-                  <CardContent className="p-6">
-                    <div className="mb-3 flex flex-wrap items-center gap-2">
-                      <Badge variant="primary">{k.type}</Badge><Badge variant={freshnessTone(k.freshness)}>{k.freshness}</Badge>{k.module && <Badge variant="outline">{k.module}</Badge>}
+              <motion.div
+                key={k.id}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: Math.min(i, 8) * 0.04 }}
+              >
+                <Card
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelected(k)}
+                  onKeyDown={(e) => e.key === 'Enter' && setSelected(k)}
+                  className="group h-full cursor-pointer transition-all duration-200 hover:border-primary-indigo/50 hover:shadow-md"
+                >
+                  <CardContent className="p-5 flex flex-col justify-between h-full">
+                    <div>
+                      <div className="mb-2.5 flex flex-wrap items-center gap-2">
+                        <Badge variant="primary">{k.type}</Badge>
+                        {renderChangeBadge(k.changeFreshness)}
+                        <Badge variant={freshnessTone(k.freshness)}>Age: {k.freshness}</Badge>
+                        {k.module && <Badge variant="outline">{k.module}</Badge>}
+                      </div>
+                      <h3 className="font-bold text-base text-text-primary group-hover:text-primary-indigo transition-colors line-clamp-2">
+                        {k.title}
+                      </h3>
+                      <p className="mt-1.5 line-clamp-3 text-xs text-text-secondary leading-relaxed">
+                        {k.summary}
+                      </p>
                     </div>
-                    <h3 className="font-semibold transition-colors group-hover:text-primary-indigo">{k.title}</h3>
-                    <p className="mt-1 line-clamp-3 text-sm text-text-secondary">{k.summary}</p>
-                    <p className="mt-4 text-xs text-text-muted">{k.sources.length} source{k.sources.length === 1 ? '' : 's'} · updated {formatDate(k.updatedAt)}</p>
+                    <div className="mt-4 pt-3 border-t border-surface-border/60 flex items-center justify-between text-[11px] text-text-muted">
+                      <span>{k.sources.length} cited source{k.sources.length === 1 ? '' : 's'}</span>
+                      <span>Updated {formatDate(k.updatedAt)}</span>
+                    </div>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -71,42 +195,20 @@ export default function KnowledgeTab() {
       )}
 
       {createPortal(
-      <AnimatePresence>
-        {selected && (
-          <motion.div key="overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm" onClick={() => setSelected(null)}>
-            <motion.aside role="dialog" aria-modal="true" aria-label={selected.title} initial={{ x: 40 }} animate={{ x: 0 }} exit={{ x: 40 }} transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-              className="h-full w-full max-w-lg overflow-y-auto bg-surface-card p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <h3 className="text-lg font-bold">{selected.title}</h3>
-                <button onClick={() => setSelected(null)} aria-label="Close" className="rounded p-1 hover:bg-surface-background"><X size={20} aria-hidden /></button>
-              </div>
-              <div className="mb-4 flex flex-wrap gap-2">
-                <Badge variant="primary">{selected.type}</Badge><Badge variant={freshnessTone(selected.freshness)}>{selected.freshness}</Badge>
-                {selected.confidence != null && <Badge>Confidence {Math.round(selected.confidence * 100)}%</Badge>}
-              </div>
-              <p className="mb-3 text-sm">{selected.summary}</p>
-              {selected.details && <p className="mb-6 whitespace-pre-line text-sm text-text-secondary">{selected.details}</p>}
-              <h4 className="mb-2 text-sm font-semibold">Evidence</h4>
-              {selected.sources.length === 0 && <p className="text-sm text-text-muted">No sources recorded.</p>}
-              <ul className="space-y-3">
-                {selected.sources.map((s) => {
-                  const url = safeUrl(s.url)
-                  return (
-                    <li key={s.id} className="rounded-lg border border-surface-border p-3 text-sm">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium">{s.type} {s.reference}</span>
-                        {url && <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary-indigo hover:text-primary-violet">Open <ExternalLink size={12} aria-hidden /></a>}
-                      </div>
-                      {s.excerpt && <p className="mt-1 text-xs text-text-secondary">{s.excerpt}</p>}
-                    </li>
-                  )
-                })}
-              </ul>
-            </motion.aside>
-          </motion.div>
-        )}
-      </AnimatePresence>,
-      document.body)}
+        <AnimatePresence>
+          {selected && (
+            <KnowledgeDetailDrawer
+              item={selected}
+              projectId={detail.project.id}
+              onClose={() => setSelected(null)}
+              onRevalidated={() => {
+                void reload()
+              }}
+            />
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   )
 }

@@ -1,5 +1,5 @@
-from typing import Optional, List
-from pydantic import BaseModel, Field
+from typing import Optional, List, Literal
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class KnowledgeItem(BaseModel):
@@ -52,38 +52,58 @@ class DeveloperHandoverGuide(BaseModel):
     execution_sequence_chart: Optional[str] = ""
     testing_instructions: Optional[str] = ""
     cicd_instructions: Optional[str] = ""
-    technical_debt_and_fragility: list[str] = []
+    technical_debt_and_fragility: list[str] = Field(
+        default_factory=list,
+        description='Array of plain strings. Each string contains priority, finding, exact source path and proposed remediation. Never objects.',
+    )
 
 class MLCodebaseAudit(BaseModel):
-    ml_models_detected: bool = False
+    model_config = ConfigDict(extra='forbid')
+    ml_models_detected: bool
     detected_frameworks: list[str] = []
     roc_auc_score: Optional[float] = None
     accuracy_score: Optional[float] = None
     precision_score: Optional[float] = None
     recall_score: Optional[float] = None
     evaluation_dataset: Optional[str] = None
-    notes: str = "No predictive ML model found in target repository; classical ROC-AUC curve is not applicable to deterministic service architectures."
+    notes: str
 
 class VerificationReport(BaseModel):
-    overall_trust_score: float = 95.0
-    verdict: str = "VERIFIED_PRODUCTION_GRADE"  # VERIFIED_PRODUCTION_GRADE | VERIFIED_WITH_WARNINGS | REJECTED
-    evidence_precision_score: float = 96.5      # % of cited code pointers verified in tree
-    subsystem_recall_coverage: float = 94.0     # % of top-level code subsystems audited
-    hallucination_rate: float = 2.0             # % ungrounded claims
-    ml_audit: MLCodebaseAudit = MLCodebaseAudit()
-    verified_claims_count: int = 0
-    unsupported_claims_count: int = 0
+    model_config = ConfigDict(extra='forbid')
+    overall_trust_score: float = Field(ge=0, le=100)
+    verdict: Literal['VERIFIED_PRODUCTION_GRADE', 'VERIFIED_WITH_WARNINGS', 'REJECTED', 'AUDIT_FAILED']
+    evidence_precision_score: float = Field(ge=0, le=100)      # % of cited code pointers verified in tree
+    subsystem_recall_coverage: float = Field(ge=0, le=100)     # % of top-level code subsystems audited
+    hallucination_rate: float = Field(ge=0, le=100)             # % ungrounded claims
+    ml_audit: MLCodebaseAudit
+    verified_claims_count: int = Field(ge=0)
+    unsupported_claims_count: int = Field(ge=0)
     audit_findings: list[str] = []
     verification_agent_notes: str = ""
 
+class TechnicalDiagram(BaseModel):
+    title: str
+    kind: Literal['flowchart', 'sequence']
+    mermaid: str
+    explanation: str
+    evidence_ids: list[str] = Field(min_length=1)
+
+
 class AgentExtractionResult(BaseModel):
+    source_metrics: Optional[dict] = None
     project_name: str
     problem_statement: str
     tech_stack: list[str] = []
     architecture_mermaid_chart: str
+    jira_context: list[dict] = Field(default_factory=list)
+    architecture_explanation: str = ''
+    sequence_explanation: str = ''
+    technical_diagrams: list[TechnicalDiagram] = Field(default_factory=list, max_length=3)
     milestone_timeline_mermaid_chart: str
     analytics_metrics: AnalyticsMetrics
     presentation_deck: PresentationDeck
     developer_handover_guide: DeveloperHandoverGuide
     knowledge_items: list[KnowledgeItem] = []
     verification_report: Optional[VerificationReport] = None
+    # Populated by the extraction runner, not by the model's self-reported coverage.
+    inspected_files: list[str] = Field(default_factory=list)

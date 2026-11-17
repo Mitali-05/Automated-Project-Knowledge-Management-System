@@ -1,12 +1,13 @@
-import { AlertCircle, Inbox } from 'lucide-react'
+import { AlertCircle, Inbox, LoaderCircle } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Button } from './Button'
 import { Skeleton } from './Skeleton'
 
-export function LoadingState({ rows = 3 }: { rows?: number }) {
+export function LoadingState({ rows = 3, label = 'Loading data...' }: { rows?: number; label?: string }) {
   return (
-    <div className="grid gap-4 py-4" role="status" aria-label="Loading">
-      {Array.from({ length: rows }, (_, i) => <Skeleton key={i} className="h-24 w-full rounded-2xl" />)}
+    <div className="grid gap-4 py-4" role="status" aria-live="polite" aria-busy="true">
+      <div className="flex items-center gap-2 text-sm text-text-secondary"><LoaderCircle className="h-5 w-5 animate-spin motion-reduce:animate-none text-primary-indigo" aria-hidden />{label}</div>
+      <div aria-hidden="true" className="grid gap-4">{Array.from({ length: rows }, (_, i) => <Skeleton key={i} className="h-24 w-full rounded-2xl" />)}</div>
     </div>
   )
 }

@@ -4,6 +4,14 @@ const TOKEN_KEY = 'prism.token'
 
 /** Fired when the API rejects our token so the app can drop the session and show the login page. */
 export const UNAUTHORIZED_EVENT = 'prism:unauthorized'
+export const API_ACTIVITY_EVENT = 'prism:api-activity'
+export const SESSION_CLEARED_EVENT = 'prism:session-cleared'
+let activeRequests = 0
+export const pendingApiRequests = () => activeRequests
+function activity(delta: number) {
+  activeRequests = Math.max(0, activeRequests + delta)
+  window.dispatchEvent(new Event(API_ACTIVITY_EVENT))
+}
 
 export class ApiError extends Error {
   readonly status: number
@@ -26,6 +34,7 @@ export const tokenStore = {
     }
   },
   set(token: string): void {
+    window.dispatchEvent(new Event(SESSION_CLEARED_EVENT))
     try {
       localStorage.setItem(TOKEN_KEY, token)
     } catch {
@@ -33,6 +42,7 @@ export const tokenStore = {
     }
   },
   clear(): void {
+    window.dispatchEvent(new Event(SESSION_CLEARED_EVENT))
     try {
       localStorage.removeItem(TOKEN_KEY)
     } catch {
@@ -43,53 +53,65 @@ export const tokenStore = {
 
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
-async function request<T>(method: Method, path: string, body?: unknown): Promise<T> {
+async function request<T>(method: Method, path: string, body?: unknown, timeoutMs = 30_000): Promise<T> {
+  activity(1)
   const headers: Record<string, string> = { Accept: 'application/json' }
   const token = tokenStore.get()
   if (token) headers.Authorization = `Bearer ${token}`
   if (body !== undefined) headers['Content-Type'] = 'application/json'
 
   let response: Response
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs)
   try {
     response = await fetch(`${BASE_URL}${path}`, {
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal,
     })
-  } catch {
-    throw new ApiError(0, 'Cannot reach the server. Make sure the backend is running on port 8081 and try again.')
-  }
 
-  if (response.status === 204) return undefined as T
+    if (response.status === 204) return undefined as T
 
-  const text = await response.text()
-  let data: unknown = null
-  if (text) {
-    try {
-      data = JSON.parse(text)
-    } catch {
-      data = null
+    const text = await response.text()
+    let data: unknown = null
+    if (text) {
+      try {
+        data = JSON.parse(text)
+      } catch {
+        if (response.ok) throw new ApiError(502, 'The server returned an invalid JSON response.')
+      }
     }
-  }
 
-  if (!response.ok) {
-    const err = (data ?? {}) as { message?: string; fieldErrors?: Record<string, string> }
-    if (response.status === 401 && token) {
-      tokenStore.clear()
-      window.dispatchEvent(new Event(UNAUTHORIZED_EVENT))
+    if (!response.ok) {
+      const err = (data ?? {}) as { message?: string; fieldErrors?: Record<string, string> }
+      if (response.status === 401 && token) {
+        tokenStore.clear()
+        window.dispatchEvent(new Event(UNAUTHORIZED_EVENT))
+      }
+      throw new ApiError(
+        response.status,
+        err.message ?? `Request failed (${response.status})`,
+        err.fieldErrors ?? {},
+      )
     }
-    throw new ApiError(
-      response.status,
-      err.message ?? `Request failed (${response.status})`,
-      err.fieldErrors ?? {},
-    )
+    if (!text) throw new ApiError(502, 'The server returned an empty response.')
+    return data as T
+  } catch (err) {
+    if (err instanceof ApiError) throw err
+    if (controller.signal.aborted) {
+      throw new ApiError(0, `The server did not respond within ${timeoutMs / 1000} seconds. Check the current status before retrying an action.`)
+    }
+    throw new ApiError(0, 'Cannot reach the server. Make sure the backend is running on port 8080 and try again.')
+  } finally {
+    window.clearTimeout(timeout)
+    activity(-1)
   }
-  return data as T
 }
 
 export const http = {
-  get: <T>(path: string) => request<T>('GET', path),
-  post: <T>(path: string, body?: unknown) => request<T>('POST', path, body ?? {}),
+  get: <T>(path: string, timeoutMs?: number) => request<T>('GET', path, undefined, timeoutMs),
+  post: <T>(path: string, body?: unknown, timeoutMs?: number) => request<T>('POST', path, body ?? {}, timeoutMs),
   put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body ?? {}),
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body ?? {}),
   delete: <T = void>(path: string) => request<T>('DELETE', path),
@@ -102,7 +124,7 @@ export async function downloadFile(path: string, filename: string): Promise<void
   try {
     response = await fetch(`${BASE_URL}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
   } catch {
-    throw new ApiError(0, 'Cannot reach the server. Make sure the backend is running on port 8081 and try again.')
+    throw new ApiError(0, 'Cannot reach the server. Make sure the backend is running on port 8080 and try again.')
   }
   if (!response.ok) {
     let message = `Download failed (${response.status})`

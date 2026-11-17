@@ -7,7 +7,7 @@ import { PageContainer, PageHeader } from '../../components/layout/PageContainer
 import { Button } from '../../components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card'
 import { Input, Textarea } from '../../components/ui/Input'
-import { Alert } from '../../components/ui/States'
+import { Alert, ErrorState } from '../../components/ui/States'
 import { useAuth } from '../../context/AuthContext'
 import { useOrgs } from '../../context/OrgContext'
 import { useAsync } from '../../hooks/useAsync'
@@ -37,7 +37,7 @@ export default function CreateProjectPage() {
   const github = useAsync(async () => {
     if (!orgId) return null
     const status = await githubApi.status(orgId)
-    const repos = status.connected ? await githubApi.repositories(orgId).catch(() => []) : []
+    const repos = status.connected ? await githubApi.repositories(orgId) : []
     return { status, repos }
   }, [orgId])
 
@@ -90,6 +90,7 @@ export default function CreateProjectPage() {
         <Card>
           <CardHeader><CardTitle>GitHub repositories</CardTitle></CardHeader>
           <CardContent className="space-y-4">
+              {github.error && <ErrorState message={github.error} onRetry={github.reload} />}
             {urls.map((url, i) => (
               <div key={i} className="flex items-end gap-2">
                 <Input label={`Repository link ${i + 1}`} placeholder="https://github.com/owner/repo" value={url} onChange={(e) => setUrls(urls.map((u, j) => (j === i ? e.target.value : u)))} />
@@ -100,7 +101,7 @@ export default function CreateProjectPage() {
             <Button variant="outline" onClick={() => setUrls([...urls, ''])} disabled={urls.length >= 20}><Plus size={16} aria-hidden /> Add another repository</Button>
 
             {github.data?.status.configured && !github.data.status.connected && github.data.status.installUrl && (
-              <Alert tone="info">Need private repositories? <a className="font-semibold underline" href={github.data.status.installUrl}>Connect the PRISM GitHub App</a> for {org?.name ?? 'this organization'}.</Alert>
+              <Alert tone="info">Public repositories can be read directly. For private repositories, <a className="font-semibold underline" href={github.data.status.installUrl}>Connect the PRISM GitHub App</a> for {org?.name ?? 'this organization'}.</Alert>
             )}
             {github.data?.status.configured && !github.data.status.connected && !github.data.status.canManage && (
               <p className="text-xs text-text-muted">Private repositories need GitHub connected for this organization. Ask an owner or admin to connect it.</p>

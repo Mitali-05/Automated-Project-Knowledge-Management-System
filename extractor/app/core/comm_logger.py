@@ -202,23 +202,6 @@ def log_llm2_response(
     _append_jsonl(filepath, record)
 
 
-def log_llm2_fallback(project_id: str, reason: str, fallback_report: dict):
-    """Log when VerificationAgent falls back to deterministic audit."""
-    log_dir = _get_project_log_dir(project_id)
-    filepath = log_dir / "llm2_verification_agent.jsonl"
-
-    record = {
-        "timestamp": _timestamp(),
-        "direction": "AGENT",
-        "event": "DETERMINISTIC_FALLBACK",
-        "reason": reason,
-        "fallback_report": fallback_report
-    }
-    _append_jsonl(filepath, record)
-
-
-# ── Agent-to-Agent Communication Logging ───────────────────────────
-
 def log_agent_handoff(
     project_id: str,
     from_agent: str,

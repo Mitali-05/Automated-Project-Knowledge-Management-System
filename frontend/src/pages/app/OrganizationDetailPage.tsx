@@ -140,6 +140,16 @@ export default function OrganizationDetailPage() {
             : gh && !gh.connected && gh.canManage && gh.installUrl ? <a href={gh.installUrl}><Button><ExternalLink size={16} aria-hidden /> Connect GitHub</Button></a>
             : gh && !gh.connected ? <p className="text-text-muted">Ask an owner or admin to connect GitHub for this organization.</p>
             : null}
+          {gh && gh.connected && isAdmin && (
+            <div className="pt-2 flex items-center justify-between border-t border-surface-border">
+              <span className="text-xs text-text-muted">GitHub installation active.</span>
+              <Button variant="outline" onClick={() => {
+                if (window.confirm(`Disconnect GitHub from ${org.name}?`)) {
+                  void act('disconnectGh', () => githubApi.disconnect(id), 'GitHub disconnected')
+                }
+              }} isLoading={busy === 'disconnectGh'}>Disconnect GitHub</Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
