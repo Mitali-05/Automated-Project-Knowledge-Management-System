@@ -9,6 +9,8 @@ services:
       EXTRACTOR_AUTO_START: "false"
       SERVER_FORWARD_HEADERS_STRATEGY: framework
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70"
+    ports:
+      - "8080:8080"
     expose: ["8080"]
     volumes:
       - ./deploy/rds-ca.pem:/app/certs/rds-ca.pem:ro

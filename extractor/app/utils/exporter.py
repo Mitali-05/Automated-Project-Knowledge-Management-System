@@ -28,6 +28,13 @@ TEXT_W = PAGE_W - MARGIN * 2
 
 
 def _register_fonts():
+    import glob
+    for font_file in glob.glob('/usr/local/share/fonts/**/*.ttf', recursive=True) + \
+                     glob.glob('/usr/local/share/fonts/**/*.TTF', recursive=True):
+        try:
+            font_manager.fontManager.addfont(font_file)
+        except Exception:
+            pass
     for name, weight in [(FONT_REG, 'normal'), (FONT_BOLD, 'bold')]:
         if name not in pdfmetrics.getRegisteredFontNames():
             path = font_manager.findfont(font_manager.FontProperties(family='Arial', weight=weight),
