@@ -1,0 +1,57 @@
+# RDS deployment: run explicitly with -f; no local database container.
+name: prism
+services:
+  backend:
+    build: ./backend
+    env_file: ./deploy/backend.env
+    environment:
+      PORT: "8080"
+      EXTRACTOR_AUTO_START: "false"
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70"
+    expose: ["8080"]
+    volumes:
+      - ./deploy/rds-ca.pem:/app/certs/rds-ca.pem:ro
+    restart: unless-stopped
+    init: true
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/actuator/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+    logging: &logging
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+  frontend:
+    build: ./frontend
+    ports: ["${PRISM_BIND_ADDRESS:-127.0.0.1}:${PRISM_HTTP_PORT:-8088}:80"]
+    depends_on:
+      backend: {condition: service_healthy}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging: *logging
+
+  extractor:
+    build: ./extractor
+    env_file: ./deploy/extractor.env
+    environment:
+      PRISM_API_URL: http://backend:8080
+    depends_on:
+      backend: {condition: service_healthy}
+    restart: unless-stopped
+    init: true
+    shm_size: 1gb
+    volumes:
+      - ./deploy/fonts:/usr/local/share/fonts/prism:ro
+      - extractor-diagrams:/app/generated_diagrams
+      - extractor-logs:/app/logs
+    logging: *logging
+volumes:
+  extractor-diagrams:
+  extractor-logs:
