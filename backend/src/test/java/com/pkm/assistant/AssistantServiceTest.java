@@ -19,6 +19,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -49,12 +51,17 @@ class AssistantServiceTest {
     private UserRepository userRepository;
     @Mock
     private ProjectAccess access;
+    @Mock
+    private PlatformTransactionManager transactionManager;
+    @Mock
+    private TransactionStatus transactionStatus;
 
     private AssistantService service;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
     void setUp() {
+        lenient().when(transactionManager.getTransaction(any())).thenReturn(transactionStatus);
         service = new AssistantService(
                 geminiClient,
                 conversationRepository,
@@ -65,7 +72,8 @@ class AssistantServiceTest {
                 projectRepository,
                 userRepository,
                 access,
-                objectMapper
+                objectMapper,
+                transactionManager
         );
     }
 

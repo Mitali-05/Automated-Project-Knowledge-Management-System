@@ -1,0 +1,11 @@
+**/.env*
+**/*.pem
+**/*.key
+.venv/
+__pycache__/
+**/__pycache__/
+logs/
+generated_diagrams/
+*.jsonl
+.git/
+projects_store.json
