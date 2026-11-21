@@ -12,16 +12,18 @@ import {
   Minus,
   CheckCircle2,
   Clock,
-  MessageSquare,
-  FileText,
-  Sparkles,
-  ShieldCheck,
-  CheckCheck,
 } from 'lucide-react'
 import type { JiraIssueSnapshot } from '../../api/jira'
-import { formatDate, timeAgo, safeUrl } from '../../lib/format'
+import { safeUrl } from '../../lib/format'
 
-export type JiraIssue = JiraIssueSnapshot['issues'][0]
+export type JiraIssue = JiraIssueSnapshot['issues'][0] & {
+  epic_key?: string
+  epic_name?: string
+  reporter?: string
+  assignee?: string
+  project_name?: string
+  project_key?: string
+}
 
 interface JiraIssueDrawerProps {
   issue: JiraIssue
@@ -107,11 +109,10 @@ export function JiraIssueDrawer({ issue, onClose }: JiraIssueDrawerProps) {
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: 50, opacity: 0 }}
         transition={{ type: 'spring', stiffness: 340, damping: 32 }}
-        className="h-full w-full max-w-2xl overflow-y-auto bg-surface-card p-6 md:p-8 shadow-2xl space-y-6"
+        className="h-full w-full max-w-full sm:max-w-xl md:max-w-2xl overflow-y-auto bg-surface-card p-4 sm:p-6 md:p-8 shadow-2xl space-y-6"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top bar */}
-        <div className="flex items-start justify-between gap-4 border-b border-surface-border pb-4">
+        <div className="flex items-start justify-between gap-3 border-b border-surface-border pb-4">
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50/80 border border-blue-200/80 px-2.5 py-1 text-xs font-bold text-blue-800">
               {renderTypeIcon(issue.issue_type)}
@@ -120,7 +121,7 @@ export function JiraIssueDrawer({ issue, onClose }: JiraIssueDrawerProps) {
             {renderStatusLozenge(issue.status)}
             {renderPriorityBadge(issue.priority)}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {url && (
               <a
                 href={url}
@@ -135,102 +136,62 @@ export function JiraIssueDrawer({ issue, onClose }: JiraIssueDrawerProps) {
             <button
               onClick={onClose}
               aria-label="Close"
-              className="rounded-lg p-1.5 text-text-muted hover:bg-surface-background hover:text-text-primary transition-colors cursor-pointer"
+              className="flex h-9 w-9 items-center justify-center rounded-lg p-1.5 text-text-muted hover:bg-surface-background hover:text-text-primary transition-colors cursor-pointer"
             >
               <X size={20} aria-hidden />
             </button>
           </div>
         </div>
 
-        {/* Title */}
         <div>
-          <h2 className="text-xl md:text-2xl font-bold text-text-primary leading-snug">
+          <h3 className="text-lg sm:text-xl font-bold text-text-primary leading-snug break-words">
             {issue.summary}
-          </h2>
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-text-muted">
-            <span className="flex items-center gap-1">
-              <Clock size={12} />
-              <span>Updated {timeAgo(issue.source_updated_at)} ({formatDate(issue.source_updated_at)})</span>
-            </span>
-            <span className="text-surface-border">•</span>
-            <span className="capitalize">{issue.issue_type}</span>
-          </div>
-        </div>
-
-        {/* PRISM Knowledge & Engineering Traceability Card */}
-        <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/40 via-surface-card to-purple-50/30 p-4 space-y-2">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary-indigo">
-            <Sparkles size={14} />
-            <span>PRISM Architectural Traceability</span>
-          </div>
-          <p className="text-xs text-text-secondary leading-relaxed">
-            This Jira requirement is linked to the repository's verified architecture. PRISM uses imported acceptance criteria and issue specifications to validate technical implementation while keeping business requirements cleanly distinguished from inspected runtime code.
-          </p>
-          <div className="flex items-center gap-2 pt-1 text-[11px] text-text-muted">
-            <ShieldCheck size={13} className="text-emerald-600" />
-            <span>Requirements provenance tracked under Atlassian OAuth integration</span>
-          </div>
-        </div>
-
-        {/* Acceptance Criteria */}
-        {issue.acceptance_criteria ? (
-          <div className="rounded-2xl border border-emerald-100 bg-emerald-50/30 p-5 space-y-3">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-800">
-              <CheckCheck size={16} className="text-emerald-600" />
-              <span>Acceptance Criteria</span>
+          </h3>
+          {issue.epic_key && (
+            <div className="mt-2 flex items-center gap-2 text-xs text-text-secondary">
+              <span className="font-semibold text-text-muted uppercase tracking-wider text-[10px]">Epic:</span>
+              <span className="inline-flex items-center gap-1 rounded bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 font-mono font-semibold">
+                {issue.epic_key}
+              </span>
+              {issue.epic_name && <span className="text-text-muted">({issue.epic_name})</span>}
             </div>
-            <div className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap rounded-xl bg-surface-card/90 p-4 border border-emerald-200/50">
+          )}
+        </div>
+
+        {issue.description && (
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-2">Description</h4>
+            <div className="text-sm text-text-secondary leading-relaxed whitespace-pre-line bg-surface-background/60 p-4 rounded-xl border border-surface-border break-words">
+              {issue.description}
+            </div>
+          </div>
+        )}
+
+        {issue.acceptance_criteria && (
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-2 flex items-center gap-1.5">
+              <CheckCircle2 size={13} className="text-emerald-600" />
+              <span>Acceptance Criteria</span>
+            </h4>
+            <div className="text-xs sm:text-sm text-text-secondary leading-relaxed whitespace-pre-line bg-emerald-50/40 p-4 rounded-xl border border-emerald-200/80 break-words font-mono">
               {issue.acceptance_criteria}
             </div>
           </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-surface-border p-3 text-xs text-text-muted flex items-center gap-2">
-            <CheckSquare size={14} className="text-text-muted" />
-            <span>No explicit acceptance criteria recorded for this issue.</span>
-          </div>
         )}
 
-        {/* Description */}
-        <div className="space-y-2">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5">
-            <FileText size={14} />
-            <span>Description</span>
-          </h3>
-          {issue.description ? (
-            <div className="rounded-2xl border border-surface-border bg-surface-background/40 p-4 text-sm text-text-secondary leading-relaxed whitespace-pre-wrap break-words">
-              {issue.description}
-            </div>
-          ) : (
-            <p className="text-sm italic text-text-muted py-2">No description provided in Jira.</p>
-          )}
-        </div>
-
-        {/* Discussions & Comments */}
-        {issue.comments && (
-          <div className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5">
-              <MessageSquare size={14} />
-              <span>Imported Discussions & Comments</span>
-            </h3>
-            <div className="rounded-2xl border border-surface-border bg-surface-card p-4 space-y-3 text-xs text-text-secondary whitespace-pre-wrap break-words leading-relaxed">
-              {issue.comments}
-            </div>
+        <div className="rounded-xl border border-surface-border p-4 bg-surface-background/40 space-y-2.5 text-xs text-text-secondary">
+          <div className="flex justify-between items-center py-1 border-b border-surface-border/50">
+            <span className="text-text-muted">Reporter</span>
+            <span className="font-medium text-text-primary">{issue.reporter || 'Unassigned'}</span>
           </div>
-        )}
-
-        {/* Footer info */}
-        <div className="border-t border-surface-border/60 pt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-text-muted">
-          <span>Key: <strong className="text-text-primary font-mono">{issue.issue_key}</strong></span>
-          {url && (
-            <a
-              href={url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 text-primary-indigo hover:underline"
-            >
-              View original issue on Atlassian <ExternalLink size={12} />
-            </a>
-          )}
+          <div className="flex justify-between items-center py-1 border-b border-surface-border/50">
+            <span className="text-text-muted">Assignee</span>
+            <span className="font-medium text-text-primary">{issue.assignee || 'Unassigned'}</span>
+          </div>
+          <div className="flex justify-between items-center py-1">
+            <span className="text-text-muted">Source Jira Project</span>
+            <span className="font-medium text-text-primary">{issue.project_name || issue.project_key}</span>
+          </div>
         </div>
       </motion.aside>
     </motion.div>

@@ -59,23 +59,23 @@ export default function SettingsPage() {
       <PageHeader title="Settings" subtitle="Manage your account." />
       <Card>
         <CardHeader><CardTitle>Profile</CardTitle></CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6">
           <form onSubmit={saveProfile} className="space-y-4">
             {profileMsg && <Alert tone={profileMsg.ok ? 'success' : 'error'}>{profileMsg.text}</Alert>}
             <Input label="Name" required value={name} onChange={(e) => setName(e.target.value)} />
             <Input label="Email" value={user?.email ?? ''} disabled readOnly />
-            <Button type="submit" isLoading={savingProfile} disabled={!name.trim() || name.trim() === user?.name}>Save changes</Button>
+            <Button type="submit" isLoading={savingProfile} disabled={!name.trim() || name.trim() === user?.name} className="w-full sm:w-auto">Save changes</Button>
           </form>
         </CardContent>
       </Card>
       <Card>
         <CardHeader><CardTitle>Change password</CardTitle></CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6">
           <form onSubmit={savePassword} className="space-y-4">
             {pwMsg && <Alert tone={pwMsg.ok ? 'success' : 'error'}>{pwMsg.text}</Alert>}
             <Input label="Current password" type="password" autoComplete="current-password" required value={current} onChange={(e) => setCurrent(e.target.value)} error={pwErrors.currentPassword} />
             <Input label="New password" type="password" autoComplete="new-password" required value={next} onChange={(e) => setNext(e.target.value)} error={pwErrors.newPassword} hint="8+ characters with a letter and a number." />
-            <Button type="submit" isLoading={savingPw} disabled={!current || !next}>Change password</Button>
+            <Button type="submit" isLoading={savingPw} disabled={!current || !next} className="w-full sm:w-auto">Change password</Button>
           </form>
         </CardContent>
       </Card>

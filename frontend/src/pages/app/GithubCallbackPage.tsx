@@ -7,7 +7,6 @@ import { Button } from '../../components/ui/Button'
 import { useOrgs } from '../../context/OrgContext'
 import { errorMessage } from '../../lib/format'
 
-/** Landing page after GitHub redirects back from the app installation. */
 export default function GithubCallbackPage() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
@@ -51,12 +50,12 @@ export default function GithubCallbackPage() {
           <Link to="/app/organizations" className="text-sm font-medium text-primary-indigo hover:underline">Back to organizations</Link>
         </div>
       ) : options ? <div className="space-y-4">
-        <h1 className="text-2xl font-bold">Choose your GitHub installation</h1>
-        <p className="text-sm text-text-secondary">Connect an installation you manage to this PRISM workspace. Its selected repositories will be available for workspace projects.</p>
+        <h1 className="text-xl sm:text-2xl font-bold">Choose your GitHub installation</h1>
+        <p className="text-xs sm:text-sm text-text-secondary">Connect an installation you manage to this PRISM workspace. Its selected repositories will be available for workspace projects.</p>
         {options.installations.length > 0 ? <>
           <label className="block text-sm font-medium">GitHub account or organization
             <select value={selected} onChange={(e) => setSelected(e.target.value)} disabled={busy}
-              className="mt-2 block w-full rounded-md border border-surface-border bg-white p-3">
+              className="mt-2 block w-full rounded-xl border border-surface-border bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-indigo">
               <option value="">Select an installation</option>
               {options.installations.map(i => <option key={i.id} value={i.id}>{i.account}</option>)}
             </select>
@@ -69,9 +68,9 @@ export default function GithubCallbackPage() {
           }}>Connect selected installation</Button>
         </> : <>
           <Alert tone="info">No active PRISM installation that you manage was found. Install the app, then return to your workspace and authorize GitHub again.</Alert>
-          <a className="text-primary-indigo underline" href={options.installUrl}>Install PRISM GitHub App</a>
+          <a className="text-primary-indigo underline text-sm" href={options.installUrl}>Install PRISM GitHub App</a>
         </>}
-        <Link to="/app/organizations" className="block text-primary-indigo underline">Back to workspaces</Link>
+        <Link to="/app/organizations" className="block text-primary-indigo underline text-sm">Back to workspaces</Link>
       </div> : <LoadingState rows={1} />}
     </PageContainer>
   )

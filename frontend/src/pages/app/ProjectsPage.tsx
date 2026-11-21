@@ -28,7 +28,7 @@ const sorters: Record<Sort, (a: ProjectSummary, b: ProjectSummary) => number> = 
   synced: (a, b) => (b.lastSyncedAt ?? '').localeCompare(a.lastSyncedAt ?? ''),
 }
 
-const select = 'h-9 rounded-lg border border-surface-border bg-surface-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-indigo'
+const select = 'h-10 sm:h-9 rounded-xl border border-surface-border bg-surface-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-indigo'
 
 function readView(): View {
   try {
@@ -44,7 +44,7 @@ function Group({ title, count, projects, view }: { title: string; count?: number
     <section aria-label={title}>
       <h2 className="mb-4 flex items-center gap-2 text-lg font-bold">{title}<span className="text-sm font-normal text-text-muted">{count ?? projects.length}</span></h2>
       {view === 'grid' ? (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((p, i) => (
             <motion.div key={p.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: Math.min(i, 8) * 0.05 }}><ProjectCard project={p} /></motion.div>
           ))}
@@ -78,11 +78,9 @@ export default function ProjectsPage() {
     try {
       localStorage.setItem(VIEW_KEY, v)
     } catch {
-      /* storage unavailable: choice lasts until reload */
     }
   }
 
-  // Projects are scoped to the organization chosen in the sidebar switcher.
   const all = useMemo(() => (data ?? []).filter((p) => !activeOrg || p.orgId === activeOrg.id), [data, activeOrg])
   const overview = useMemo(() => ({
     total: all.length,
@@ -115,10 +113,10 @@ export default function ProjectsPage() {
   return (
     <PageContainer>
       <PageHeader title="Projects" subtitle={activeOrg ? `Projects in ${activeOrg.type === 'PERSONAL' ? 'your personal workspace' : activeOrg.name}. Switch organizations from the sidebar.` : 'Every project you own or contribute to.'}
-        action={<Link to="/app/projects/new"><Button className="gap-2 shadow-lg shadow-primary-indigo/20"><Plus size={18} aria-hidden /> New Project</Button></Link>} />
+        action={<Link to="/app/projects/new"><Button className="w-full sm:w-auto gap-2 shadow-lg shadow-primary-indigo/20"><Plus size={18} aria-hidden /> New Project</Button></Link>} />
 
       {loading && !data ? (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-[200px] w-full rounded-2xl" />)}</div>
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-[200px] w-full rounded-2xl" />)}</div>
       ) : error ? (
         <ErrorState message={error} onRetry={reload} />
       ) : all.length === 0 ? (
@@ -127,18 +125,18 @@ export default function ProjectsPage() {
           action={<Link to="/app/projects/new"><Button className="px-8">Create First Project</Button></Link>} />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {tiles.map((t) => (
-              <Card key={t.label} className="p-4"><p className={cn('text-2xl font-bold leading-none', t.tone)}>{t.value}</p><p className="mt-1 text-xs text-text-muted">{t.label}</p></Card>
+              <Card key={t.label} className="p-3.5 sm:p-4"><p className={cn('text-xl sm:text-2xl font-bold leading-none', t.tone)}>{t.value}</p><p className="mt-1 text-xs text-text-muted">{t.label}</p></Card>
             ))}
           </div>
 
           {!filtering && (
             <section aria-label="Recent">
               <h2 className="mb-3 text-lg font-bold">Recent</h2>
-              <div className="flex gap-3 overflow-x-auto pb-1">
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none -mx-2 px-2 sm:mx-0 sm:px-0">
                 {recent.map((p) => (
-                  <Link key={p.id} to={`/app/projects/${p.id}`} className="flex w-60 shrink-0 items-center gap-3 rounded-xl border border-surface-border bg-surface-card p-3 transition-all hover:border-primary-indigo/40 hover:shadow-md">
+                  <Link key={p.id} to={`/app/projects/${p.id}`} className="flex w-56 sm:w-60 shrink-0 items-center gap-3 rounded-xl border border-surface-border bg-surface-card p-3 transition-all hover:border-primary-indigo/40 hover:shadow-md">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary-indigo to-primary-violet text-sm font-bold text-white">{p.name.charAt(0).toUpperCase()}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold">{p.name}</span>
@@ -151,34 +149,36 @@ export default function ProjectsPage() {
             </section>
           )}
 
-          <div className="flex flex-wrap items-center gap-3" role="search">
-            <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5 sm:gap-3" role="search">
+            <div className="relative min-w-0 flex-1 sm:max-w-xs">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" aria-hidden />
               <input aria-label="Search projects" placeholder="Search projects..." value={q} onChange={(e) => setParam('q', e.target.value)}
                 className={cn(select, 'w-full pl-9')} />
             </div>
-            <select aria-label="Sync status" className={select} value={statusFilter} onChange={(e) => setParam('status', e.target.value)}>
-              <option value="">Any status</option>
-              {['Synced', 'Syncing', 'Pending', 'Failed'].map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-            <select aria-label="Your role" className={select} value={roleFilter} onChange={(e) => setParam('role', e.target.value)}>
-              <option value="">Any role</option>
-              <option value="owner">Owner</option>
-              <option value="contributor">Contributor</option>
-            </select>
-            <select aria-label="Sort by" className={cn(select, 'sm:ml-auto')} value={sort} onChange={(e) => setParam('sort', e.target.value === 'updated' ? '' : e.target.value)}>
-              <option value="updated">Recently updated</option>
-              <option value="name">Name A-Z</option>
-              <option value="knowledge">Most knowledge</option>
-              <option value="synced">Last synced</option>
-            </select>
-            <div className="flex overflow-hidden rounded-lg border border-surface-border" role="group" aria-label="View">
-              {([['grid', LayoutGrid, 'Grid view'], ['list', List, 'List view']] as const).map(([v, Icon, label]) => (
-                <button key={v} onClick={() => setView(v)} aria-label={label} aria-pressed={view === v}
-                  className={cn('flex h-9 w-9 items-center justify-center transition-colors', view === v ? 'bg-primary-light-indigo text-primary-indigo' : 'bg-surface-card text-text-muted hover:text-text-primary')}>
-                  <Icon size={16} aria-hidden />
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center gap-2">
+              <select aria-label="Sync status" className={select} value={statusFilter} onChange={(e) => setParam('status', e.target.value)}>
+                <option value="">Any status</option>
+                {['Synced', 'Syncing', 'Pending', 'Failed'].map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <select aria-label="Your role" className={select} value={roleFilter} onChange={(e) => setParam('role', e.target.value)}>
+                <option value="">Any role</option>
+                <option value="owner">Owner</option>
+                <option value="contributor">Contributor</option>
+              </select>
+              <select aria-label="Sort by" className={cn(select, 'sm:ml-auto')} value={sort} onChange={(e) => setParam('sort', e.target.value === 'updated' ? '' : e.target.value)}>
+                <option value="updated">Recently updated</option>
+                <option value="name">Name A-Z</option>
+                <option value="knowledge">Most knowledge</option>
+                <option value="synced">Last synced</option>
+              </select>
+              <div className="flex overflow-hidden rounded-xl border border-surface-border shrink-0" role="group" aria-label="View">
+                {([['grid', LayoutGrid, 'Grid view'], ['list', List, 'List view']] as const).map(([v, Icon, label]) => (
+                  <button key={v} onClick={() => setView(v)} aria-label={label} aria-pressed={view === v}
+                    className={cn('flex h-10 sm:h-9 w-10 sm:w-9 items-center justify-center transition-colors cursor-pointer', view === v ? 'bg-primary-light-indigo text-primary-indigo' : 'bg-surface-card text-text-muted hover:text-text-primary')}>
+                    <Icon size={16} aria-hidden />
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 

@@ -24,27 +24,27 @@ export function SourceCitationCard({ citation, defaultExpanded = false }: Source
 
   return (
     <div className={cn(
-      'rounded-xl border transition-all duration-200 bg-surface-card',
+      'rounded-xl border transition-all duration-200 bg-surface-card min-w-0 max-w-full overflow-hidden',
       isStale ? 'border-amber-200 bg-amber-50/30' : 'border-surface-border hover:border-primary-indigo/40'
     )}>
       <div
         onClick={() => setExpanded(!expanded)}
-        className="flex cursor-pointer items-start justify-between gap-3 p-3 text-left"
+        className="flex cursor-pointer items-start justify-between gap-2.5 p-3 text-left"
       >
-        <div className="flex items-start gap-2.5 min-w-0">
+        <div className="flex items-start gap-2.5 min-w-0 flex-1">
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary-indigo/10 text-xs font-bold text-primary-indigo">
             {citation.index}
           </span>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1.5">
-              <h4 className="text-sm font-semibold text-text-primary truncate max-w-xs">{citation.title}</h4>
+              <h4 className="text-sm font-semibold text-text-primary truncate max-w-[170px] sm:max-w-xs">{citation.title}</h4>
               {citation.module && (
-                <span className="rounded bg-surface-border/60 px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
+                <span className="rounded bg-surface-border/60 px-1.5 py-0.5 text-[10px] font-medium text-text-muted shrink-0">
                   {citation.module}
                 </span>
               )}
               {isStale && (
-                <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
+                <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 shrink-0">
                   <AlertTriangle size={10} aria-hidden />
                   {citation.changeStatus === 'OUTDATED' ? 'Outdated' : 'Potentially Stale'}
                 </span>
@@ -58,7 +58,7 @@ export function SourceCitationCard({ citation, defaultExpanded = false }: Source
             )}
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1">
           {citation.url && (
             <a
               href={citation.url}
@@ -84,22 +84,22 @@ export function SourceCitationCard({ citation, defaultExpanded = false }: Source
       {expanded && (
         <div className="border-t border-surface-border/60 px-3 pb-3 pt-2 text-xs space-y-2">
           {citation.commitSha && (
-            <div className="flex items-center gap-1.5 text-text-muted">
-              <GitCommit size={12} aria-hidden />
-              <span>Affected at commit: <code className="font-mono text-text-primary">{citation.commitSha.substring(0, 7)}</code></span>
+            <div className="flex items-center gap-1.5 text-text-muted truncate">
+              <GitCommit size={12} className="shrink-0" aria-hidden />
+              <span className="truncate">Affected at commit: <code className="font-mono text-text-primary">{citation.commitSha.substring(0, 7)}</code></span>
             </div>
           )}
           {citation.excerpt && (
-            <div className="relative rounded-lg bg-surface-background p-2.5 font-mono text-[11px] text-text-secondary border border-surface-border/50">
+            <div className="relative rounded-lg bg-surface-background p-2.5 font-mono text-[11px] text-text-secondary border border-surface-border/50 max-w-full overflow-hidden">
               <button
                 type="button"
                 onClick={copyExcerpt}
-                className="absolute right-2 top-2 rounded bg-surface-card p-1 text-text-muted hover:text-text-primary shadow-xs border border-surface-border/50"
+                className="absolute right-2 top-2 rounded bg-surface-card p-1 text-text-muted hover:text-text-primary shadow-xs border border-surface-border/50 cursor-pointer"
                 title="Copy excerpt"
               >
                 {copied ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
               </button>
-              <pre className="whitespace-pre-wrap break-words pr-6">{citation.excerpt}</pre>
+              <pre className="whitespace-pre-wrap break-words pr-6 max-w-full overflow-x-auto">{citation.excerpt}</pre>
             </div>
           )}
         </div>

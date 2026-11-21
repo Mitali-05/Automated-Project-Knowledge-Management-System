@@ -74,10 +74,10 @@ export function SyncProgressSection({ status, onRetry, isRetrying = false }: Syn
 
   return (
     <CardContainer>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-surface-border/70 pb-4">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-surface-border/70 pb-4">
+        <div className="flex items-center gap-3 min-w-0">
           <div className={cn(
-            'flex h-10 w-10 items-center justify-center rounded-xl shadow-xs transition-colors',
+            'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-xs transition-colors',
             isActive ? 'bg-primary-light-indigo text-primary-indigo animate-pulse' :
             isCompleted ? 'bg-emerald-50 text-emerald-600' :
             isFailed ? 'bg-red-50 text-red-600' : 'bg-surface-border/50 text-text-muted'
@@ -92,9 +92,9 @@ export function SyncProgressSection({ status, onRetry, isRetrying = false }: Syn
               <Layers size={20} />
             )}
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-bold text-text-primary">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm sm:text-base font-bold text-text-primary">
                 {isActive ? 'Repository Knowledge Extraction in Progress' :
                  isCompleted ? 'Knowledge Synchronization Completed' :
                  isFailed ? 'Repository Extraction Failed' : 'Knowledge Synchronization'}
@@ -107,13 +107,13 @@ export function SyncProgressSection({ status, onRetry, isRetrying = false }: Syn
                 {status?.status || 'IDLE'}
               </Badge>
             </div>
-            <p className="text-xs text-text-muted mt-0.5">
+            <p className="text-xs text-text-muted mt-0.5 truncate">
               {status?.statusMessage || (isActive ? 'Autonomous agents analyzing repository...' : 'Pipeline idle')}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 text-xs text-text-secondary">
+        <div className="flex flex-wrap items-center gap-3 text-xs text-text-secondary self-start sm:self-center">
           <div className="flex items-center gap-1.5 font-mono">
             <Clock size={14} className="text-text-muted" />
             <span>{elapsed}s elapsed</span>
@@ -166,7 +166,7 @@ export function SyncProgressSection({ status, onRetry, isRetrying = false }: Syn
             <div
               key={s.key}
               className={cn(
-                'flex flex-col justify-between rounded-xl p-3 border transition-all text-left',
+                'flex flex-col justify-between rounded-xl p-2.5 sm:p-3 border transition-all text-left min-w-0',
                 isCurrent ? 'border-primary-indigo bg-indigo-50/50 shadow-xs ring-1 ring-primary-indigo/30' :
                 isPassed ? 'border-emerald-200 bg-emerald-50/30' :
                 isStageFailed ? 'border-red-300 bg-red-50/50' :
@@ -175,7 +175,7 @@ export function SyncProgressSection({ status, onRetry, isRetrying = false }: Syn
             >
               <div className="flex items-center justify-between mb-2">
                 <span className={cn(
-                  'flex h-6 w-6 items-center justify-center rounded-lg text-xs font-bold',
+                  'flex h-6 w-6 items-center justify-center rounded-lg text-xs font-bold shrink-0',
                   isCurrent ? 'bg-primary-indigo text-white animate-spin' :
                   isPassed ? 'bg-emerald-600 text-white' :
                   isStageFailed ? 'bg-red-600 text-white' :
@@ -192,12 +192,13 @@ export function SyncProgressSection({ status, onRetry, isRetrying = false }: Syn
                   )}
                 </span>
                 <Icon size={14} className={cn(
+                  'shrink-0',
                   isCurrent ? 'text-primary-indigo' :
                   isPassed ? 'text-emerald-600' :
                   isStageFailed ? 'text-red-600' : 'text-text-muted'
                 )} />
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className={cn(
                   'text-xs font-bold truncate',
                   isCurrent ? 'text-primary-indigo' :
@@ -219,9 +220,9 @@ export function SyncProgressSection({ status, onRetry, isRetrying = false }: Syn
         <div className="rounded-xl border border-red-200 bg-red-50/70 p-3.5 text-xs text-red-900 mb-2">
           <div className="flex items-start gap-2">
             <AlertCircle size={16} className="text-red-600 shrink-0 mt-0.5" />
-            <div>
+            <div className="min-w-0">
               <span className="font-bold">Extraction Error Details:</span>
-              <p className="mt-0.5 font-mono text-[11px] text-red-800 whitespace-pre-wrap">{status.errorMessage}</p>
+              <p className="mt-0.5 font-mono text-[11px] text-red-800 whitespace-pre-wrap break-words">{status.errorMessage}</p>
             </div>
           </div>
         </div>
@@ -252,7 +253,7 @@ export function SyncProgressSection({ status, onRetry, isRetrying = false }: Syn
                 exit={{ opacity: 0, height: 0 }}
                 className="mt-3 overflow-hidden rounded-xl border border-slate-800 bg-slate-950 p-3.5 text-slate-100 shadow-inner"
               >
-                <pre className="max-h-56 overflow-y-auto font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-slate-300">
+                <pre className="max-h-56 overflow-y-auto overflow-x-auto font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-slate-300">
                   {status.logs}
                 </pre>
               </motion.div>
@@ -266,7 +267,7 @@ export function SyncProgressSection({ status, onRetry, isRetrying = false }: Syn
 
 function CardContainer({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-surface-card via-surface-card to-indigo-50/40 p-5 shadow-sm space-y-2">
+    <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-surface-card via-surface-card to-indigo-50/40 p-4 sm:p-5 shadow-sm space-y-2">
       {children}
     </div>
   )

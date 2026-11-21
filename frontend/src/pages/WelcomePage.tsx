@@ -15,7 +15,6 @@ import { errorMessage } from '../lib/format'
 
 type Mode = 'choose' | 'create' | 'join'
 
-/** Shown once after signup: create an organization, join one with an invite code, or just start. */
 export default function WelcomePage() {
   const { user } = useAuth()
   const { refresh, setActiveOrgId } = useOrgs()
@@ -54,39 +53,39 @@ export default function WelcomePage() {
   ]
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center overflow-hidden bg-surface-background px-4 py-10">
+    <div className="relative flex min-h-screen flex-col items-center overflow-hidden bg-surface-background px-4 py-8 sm:py-10">
       <div className="pointer-events-none absolute left-[-10%] top-[-20%] h-1/2 w-1/2 rounded-full bg-primary-indigo/20 blur-[120px]" />
       <div className="pointer-events-none absolute bottom-[-20%] right-[-10%] h-1/2 w-1/2 rounded-full bg-primary-blue/20 blur-[120px]" />
       <div className="relative z-10 w-full max-w-3xl">
         <Logo to="/app" />
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }} className="mt-10">
-          <h1 className="text-3xl font-bold text-text-primary">Welcome{user ? `, ${user.name.split(' ')[0]}` : ''} 👋</h1>
-          <p className="mt-2 max-w-xl text-text-secondary">Where will your projects live? You already have a personal workspace, and you can create or join organizations at any time, just like on GitHub.</p>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }} className="mt-8 sm:mt-10">
+          <h1 className="text-2xl sm:text-3xl font-bold text-text-primary">Welcome{user ? `, ${user.name.split(' ')[0]}` : ''} 👋</h1>
+          <p className="mt-2 max-w-xl text-xs sm:text-sm text-text-secondary">Where will your projects live? You already have a personal workspace, and you can create or join organizations at any time, just like on GitHub.</p>
 
           {mode === 'choose' ? (
-            <div className="mt-8 grid gap-4 md:grid-cols-2">
+            <div className="mt-6 sm:mt-8 grid gap-4 md:grid-cols-2">
               {options.map((o) => (
-                <button key={o.key} onClick={() => setMode(o.key)} className="text-left">
-                  <Card className="h-full p-6 transition-all duration-300 hover:-translate-y-1 hover:border-primary-indigo/40 hover:shadow-xl">
+                <button key={o.key} onClick={() => setMode(o.key)} className="text-left cursor-pointer">
+                  <Card className="h-full p-5 sm:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-primary-indigo/40 hover:shadow-xl">
                     <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary-light-indigo text-primary-indigo"><o.icon size={22} aria-hidden /></span>
-                    <h2 className="text-lg font-bold text-text-primary">{o.title}</h2>
-                    <p className="mt-1 text-sm text-text-secondary">{o.text}</p>
+                    <h2 className="text-base sm:text-lg font-bold text-text-primary">{o.title}</h2>
+                    <p className="mt-1 text-xs sm:text-sm text-text-secondary leading-relaxed">{o.text}</p>
                   </Card>
                 </button>
               ))}
-              <button onClick={() => finish()} className="text-left md:col-span-2">
-                <Card className="flex items-center gap-4 p-5 transition-all duration-300 hover:border-primary-indigo/40 hover:shadow-lg">
+              <button onClick={() => finish()} className="text-left md:col-span-2 cursor-pointer">
+                <Card className="flex items-center gap-4 p-4 sm:p-5 transition-all duration-300 hover:border-primary-indigo/40 hover:shadow-lg">
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface-background text-text-secondary"><UserIcon size={22} aria-hidden /></span>
-                  <span className="flex-1">
-                    <span className="block font-bold text-text-primary">Skip for now</span>
-                    <span className="block text-sm text-text-secondary">Start in your personal workspace. You can add an organization later from the sidebar.</span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block font-bold text-text-primary text-sm sm:text-base">Skip for now</span>
+                    <span className="block text-xs sm:text-sm text-text-secondary">Start in your personal workspace. You can add an organization later from the sidebar.</span>
                   </span>
-                  <ArrowRight size={18} className="text-text-muted" aria-hidden />
+                  <ArrowRight size={18} className="text-text-muted shrink-0" aria-hidden />
                 </Card>
               </button>
             </div>
           ) : (
-            <Card className="mt-8 max-w-md p-6">
+            <Card className="mt-6 sm:mt-8 max-w-md p-4 sm:p-6">
               <form onSubmit={submit} className="space-y-4" noValidate>
                 {error && !fieldError && <Alert>{error}</Alert>}
                 <Input

@@ -12,15 +12,14 @@ interface AuthLayoutProps {
   children: ReactNode
 }
 
-/** Two-column auth screen: tilted illustration card on the left, glass form card on the right. */
 export function AuthLayout({ image, imageAlt, imageClass = 'w-full', heading, text, mirrored, children }: AuthLayoutProps) {
   return (
     <div className="relative flex min-h-screen flex-col overflow-hidden bg-surface-background selection:bg-primary-indigo selection:text-white">
       <div className={`pointer-events-none absolute top-[-20%] h-1/2 w-1/2 rounded-full bg-primary-indigo/20 blur-[120px] ${mirrored ? 'right-[-10%]' : 'left-[-10%]'}`} />
       <div className={`pointer-events-none absolute bottom-[-20%] h-1/2 w-1/2 rounded-full bg-primary-blue/20 blur-[120px] ${mirrored ? 'left-[-10%]' : 'right-[-10%]'}`} />
       <PublicNavbar />
-      <main className="relative z-10 flex flex-1 flex-col justify-center py-12 sm:px-6 lg:px-8">
-        <div className="relative mx-auto flex w-full max-w-6xl flex-col items-center justify-center gap-12 px-4 lg:flex-row lg:gap-24">
+      <main className="relative z-10 flex flex-1 flex-col justify-center py-8 sm:py-12 px-3 sm:px-6 lg:px-8">
+        <div className="relative mx-auto flex w-full max-w-6xl flex-col items-center justify-center gap-8 sm:gap-12 px-2 sm:px-4 lg:flex-row lg:gap-24">
           <div className="absolute left-1/2 top-1/2 hidden h-[80%] w-px -translate-x-1/2 -translate-y-1/2 bg-gradient-to-b from-transparent via-surface-border to-transparent lg:block" />
 
           <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8 }} className="relative hidden flex-1 flex-col items-center justify-center lg:flex">
@@ -37,7 +36,7 @@ export function AuthLayout({ image, imageAlt, imageClass = 'w-full', heading, te
           </motion.div>
 
           <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8 }} className="mx-auto w-full max-w-md flex-1">
-            <div className="rounded-3xl border border-surface-border bg-surface-card/70 px-8 py-10 shadow-2xl backdrop-blur-xl">{children}</div>
+            <div className="rounded-3xl border border-surface-border bg-surface-card/70 px-4 sm:px-8 py-6 sm:py-10 shadow-2xl backdrop-blur-xl">{children}</div>
           </motion.div>
         </div>
       </main>

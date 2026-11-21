@@ -153,24 +153,25 @@ export default function OverviewTab() {
   const fData = freshness.data
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-6 sm:space-y-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold">Project Overview</h2>
+          <h2 className="text-xl sm:text-2xl font-bold">Project Overview</h2>
           <p className="text-xs text-text-muted mt-0.5">High-level repository activity and knowledge base health.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full sm:w-auto">
           <Button
             variant="outline"
             isLoading={busy === 'recheck'}
             onClick={() => void runRecheck()}
+            className="flex-1 sm:flex-initial"
           >
             <RotateCw size={14} aria-hidden /> Recheck drift
           </Button>
           <Button
             isLoading={busy === 'sync'}
             onClick={() => void runSync()}
-            className="shadow-lg shadow-primary-indigo/20"
+            className="flex-1 sm:flex-initial shadow-lg shadow-primary-indigo/20"
           >
             <RefreshCw size={16} aria-hidden /> Sync now
           </Button>
@@ -187,21 +188,21 @@ export default function OverviewTab() {
         />
       )}
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {stats.map(({ label, value, icon: Icon }, i) => (
           <motion.div key={label} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: i * 0.08 }}>
-            <Card className="flex items-center gap-4 p-5">
-              <span className="rounded-xl bg-primary-light-indigo p-3 text-primary-indigo"><Icon size={20} aria-hidden /></span>
-              <div><p className="text-xl font-bold leading-none">{value}</p><p className="mt-1 text-xs text-text-muted">{label}</p></div>
+            <Card className="flex items-center gap-4 p-4 sm:p-5">
+              <span className="rounded-xl bg-primary-light-indigo p-3 text-primary-indigo shrink-0"><Icon size={20} aria-hidden /></span>
+              <div className="min-w-0"><p className="text-xl sm:text-2xl font-bold leading-none">{value}</p><p className="mt-1 text-xs text-text-muted truncate">{label}</p></div>
             </Card>
           </motion.div>
         ))}
       </div>
 
       <Card className="border-indigo-100 bg-gradient-to-br from-surface-card via-surface-card to-indigo-50/30">
-        <CardHeader className="flex flex-row items-center justify-between border-b border-surface-border/60 pb-3">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2.5 border-b border-surface-border/60 pb-3">
           <div>
-            <CardTitle className="text-base flex items-center gap-2">
+            <CardTitle className="text-base flex flex-wrap items-center gap-2">
               <ShieldCheck size={18} className="text-primary-indigo" />
               <span>Drift-Aware Knowledge Freshness</span>
               {freshness.loading && (
@@ -216,11 +217,11 @@ export default function OverviewTab() {
             </p>
           </div>
           {fData?.lastSnapshotCommit ? (
-            <span className="font-mono text-xs rounded-md bg-surface-border/60 px-2 py-1 text-text-secondary">
+            <span className="font-mono text-xs rounded-md bg-surface-border/60 px-2 py-1 text-text-secondary shrink-0 self-start">
               Baseline: {fData.lastSnapshotCommit.substring(0, 7)}
             </span>
           ) : freshness.loading ? (
-            <Skeleton className="h-6 w-24 rounded-md" />
+            <Skeleton className="h-6 w-24 rounded-md shrink-0" />
           ) : null}
         </CardHeader>
         <CardContent className="pt-4">
@@ -230,8 +231,8 @@ export default function OverviewTab() {
               <Button size="sm" variant="outline" onClick={reloadFreshness}>Retry freshness</Button>
             </div>
           )}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3.5 text-center">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 sm:p-3.5 text-center">
               <div className="flex items-center justify-center gap-1.5 text-emerald-700 mb-1">
                 <ShieldCheck size={16} />
                 <span className="text-xs font-bold uppercase tracking-wider">Current</span>
@@ -241,14 +242,14 @@ export default function OverviewTab() {
                   <Skeleton className="h-7 w-16 rounded-md bg-emerald-200/60" />
                 </div>
               ) : (
-                <p className="text-2xl font-black text-emerald-800">
+                <p className="text-xl sm:text-2xl font-black text-emerald-800">
                   {fData ? fData.currentCount : (freshness.error ? 'Unavailable' : '—')}
                 </p>
               )}
-              <p className="text-[11px] text-emerald-600 mt-0.5">Sources up to date</p>
+              <p className="text-[10px] sm:text-[11px] text-emerald-600 mt-0.5">Sources up to date</p>
             </div>
 
-            <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3.5 text-center">
+            <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3 sm:p-3.5 text-center">
               <div className="flex items-center justify-center gap-1.5 text-amber-700 mb-1">
                 <AlertTriangle size={16} />
                 <span className="text-xs font-bold uppercase tracking-wider">Potentially Stale</span>
@@ -258,14 +259,14 @@ export default function OverviewTab() {
                   <Skeleton className="h-7 w-16 rounded-md bg-amber-200/60" />
                 </div>
               ) : (
-                <p className="text-2xl font-black text-amber-800">
+                <p className="text-xl sm:text-2xl font-black text-amber-800">
                   {fData ? fData.potentiallyStaleCount : (freshness.error ? 'Unavailable' : '—')}
                 </p>
               )}
-              <p className="text-[11px] text-amber-700 mt-0.5">Files modified</p>
+              <p className="text-[10px] sm:text-[11px] text-amber-700 mt-0.5">Files modified</p>
             </div>
 
-            <div className="rounded-xl border border-red-200 bg-red-50/50 p-3.5 text-center">
+            <div className="rounded-xl border border-red-200 bg-red-50/50 p-3 sm:p-3.5 text-center">
               <div className="flex items-center justify-center gap-1.5 text-red-700 mb-1">
                 <AlertCircle size={16} />
                 <span className="text-xs font-bold uppercase tracking-wider">Outdated</span>
@@ -275,14 +276,14 @@ export default function OverviewTab() {
                   <Skeleton className="h-7 w-16 rounded-md bg-red-200/60" />
                 </div>
               ) : (
-                <p className="text-2xl font-black text-red-800">
+                <p className="text-xl sm:text-2xl font-black text-red-800">
                   {fData ? fData.outdatedCount : (freshness.error ? 'Unavailable' : '—')}
                 </p>
               )}
-              <p className="text-[11px] text-red-700 mt-0.5">Files deleted / major drift</p>
+              <p className="text-[10px] sm:text-[11px] text-red-700 mt-0.5">Major drift</p>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3.5 text-center">
+            <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 sm:p-3.5 text-center">
               <div className="flex items-center justify-center gap-1.5 text-slate-700 mb-1">
                 <HelpCircle size={16} />
                 <span className="text-xs font-bold uppercase tracking-wider">Unknown</span>
@@ -292,11 +293,11 @@ export default function OverviewTab() {
                   <Skeleton className="h-7 w-16 rounded-md bg-slate-200/70" />
                 </div>
               ) : (
-                <p className="text-2xl font-black text-slate-800">
+                <p className="text-xl sm:text-2xl font-black text-slate-800">
                   {fData ? fData.unknownCount : (freshness.error ? 'Unavailable' : '—')}
                 </p>
               )}
-              <p className="text-[11px] text-slate-600 mt-0.5">No file baseline</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-600 mt-0.5">No file baseline</p>
             </div>
           </div>
         </CardContent>
@@ -314,17 +315,17 @@ export default function OverviewTab() {
               const isPending = repositoryStatus === 'PENDING'
               return (
                 <li key={r.id} className="py-3.5 text-sm space-y-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div className="min-w-0">
                       {url ? (
-                        <a href={url} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary-indigo hover:text-primary-violet">
+                        <a href={url} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary-indigo hover:text-primary-violet break-all">
                           {r.owner}/{r.name}
                         </a>
                       ) : (
-                        <span className="font-semibold">{r.owner}/{r.name}</span>
+                        <span className="font-semibold break-all">{r.owner}/{r.name}</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-auto">
                       <span className="text-xs text-text-muted">{timeAgo(r.lastSyncedAt)}</span>
                       {isFailed && (
                         <Button
@@ -344,19 +345,19 @@ export default function OverviewTab() {
                     </div>
                   </div>
                   {isSyncing && (
-                    <div className="flex items-center gap-2 rounded-md bg-blue-50/70 px-3 py-1.5 text-xs text-blue-700 border border-blue-100">
+                    <div className="flex items-center gap-2 rounded-xl bg-blue-50/70 px-3 py-2 text-xs text-blue-700 border border-blue-100">
                       <RefreshCw size={12} className="animate-spin shrink-0" />
                       <span>{r.lastSyncMessage || 'Extracting architectural knowledge and synthesizing documentation...'}</span>
                     </div>
                   )}
                   {isPending && (
-                    <div className="flex items-center gap-2 rounded-md bg-amber-50/70 px-3 py-1.5 text-xs text-amber-700 border border-amber-100">
+                    <div className="flex items-center gap-2 rounded-xl bg-amber-50/70 px-3 py-2 text-xs text-amber-700 border border-amber-100">
                       <Clock size={12} className="shrink-0" />
                       <span>Queued for extraction worker...</span>
                     </div>
                   )}
                   {isFailed && r.lastSyncMessage && (
-                    <div className="flex items-start gap-2 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 border border-red-200">
+                    <div className="flex items-start gap-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700 border border-red-200">
                       <AlertCircle size={14} className="shrink-0 mt-0.5" />
                       <div>
                         <span className="font-semibold">Sync error: </span>

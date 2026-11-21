@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useOutletContext, useParams } from 'react-router-dom'
-import { Sparkles, PanelLeft } from 'lucide-react'
+import { Sparkles, PanelLeft, Plus } from 'lucide-react'
 import { assistantApi } from '../../../api/endpoints'
 import type { ChatConversation, ChatMessage } from '../../../api/types'
 import type { ProjectContext } from '../ProjectLayout'
@@ -27,9 +27,15 @@ export default function AssistantTab() {
   const [historyAttempt, setHistoryAttempt] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+      setSidebarOpen(true)
+    }
+  }, [])
 
   useEffect(() => {
     setActiveId(null)
@@ -144,6 +150,9 @@ export default function AssistantTab() {
     setError(null)
     setInput('')
     setLastFailedMessage(null)
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setSidebarOpen(false)
+    }
   }
 
   const handleDeleteConversation = async (convId: number) => {
@@ -181,9 +190,35 @@ export default function AssistantTab() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-14rem)] min-h-[550px] w-full overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-sm">
+    <div className="relative flex h-[calc(100dvh-13rem)] sm:h-[calc(100vh-14rem)] min-h-[460px] sm:min-h-[550px] w-full overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-sm">
       {sidebarOpen && (
-        <fieldset disabled={loading} className="min-w-0 border-0 p-0">
+        <div className="absolute inset-0 z-30 flex md:hidden">
+          <div className="relative z-10 h-full w-72 max-w-[85vw] shadow-2xl">
+            <ConversationSidebar
+              loading={fetchingConversations}
+              conversations={conversations}
+              activeId={activeId}
+              onSelect={(convId) => {
+                setActiveId(convId)
+                setSidebarOpen(false)
+              }}
+              onNewChat={handleNewChat}
+              onDelete={handleDeleteConversation}
+              onRename={handleRenameConversation}
+              onClose={() => setSidebarOpen(false)}
+            />
+          </div>
+          <button
+            type="button"
+            className="flex-1 bg-black/40 backdrop-blur-xs transition-opacity cursor-pointer"
+            aria-label="Close conversation list"
+            onClick={() => setSidebarOpen(false)}
+          />
+        </div>
+      )}
+
+      {sidebarOpen && (
+        <fieldset disabled={loading} className="hidden md:block min-w-0 border-0 p-0 h-full">
           <ConversationSidebar
             loading={fetchingConversations}
             conversations={conversations}
@@ -198,42 +233,44 @@ export default function AssistantTab() {
         </fieldset>
       )}
 
-      <div className="flex flex-1 flex-col h-full overflow-hidden bg-surface-card relative">
-        <div className="flex items-center justify-between border-b border-surface-border px-4 py-3 bg-surface-card z-10">
-          <div className="flex items-center gap-2.5">
+      <div className="flex flex-1 flex-col h-full min-w-0 overflow-hidden bg-surface-card relative">
+        <div className="flex items-center justify-between border-b border-surface-border px-3 sm:px-4 py-3 bg-surface-card z-10">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
             <button
               type="button"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="rounded-lg p-1.5 text-text-muted hover:bg-surface-border/50 hover:text-text-primary transition-colors cursor-pointer"
-              title="Toggle sidebar"
+              className="flex h-9 w-9 items-center justify-center rounded-xl p-1.5 text-text-muted hover:bg-surface-border/50 hover:text-text-primary transition-colors cursor-pointer shrink-0"
+              title="Toggle conversations"
+              aria-label="Toggle conversations"
             >
               <PanelLeft size={18} aria-hidden />
             </button>
-            <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 font-bold text-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 font-bold text-xs">
                 <Sparkles size={14} aria-hidden />
               </span>
-              <div>
-                <h3 className="text-sm font-bold text-text-primary">
+              <div className="min-w-0">
+                <h3 className="text-xs sm:text-sm font-bold text-text-primary truncate max-w-[130px] sm:max-w-xs md:max-w-md">
                   {conversations.find((c) => c.id === activeId)?.title || 'Ask PRISM'}
                 </h3>
-                <p className="text-[11px] text-text-muted">{project.name} Knowledge Assistant</p>
+                <p className="text-[10px] sm:text-[11px] text-text-muted truncate">{project.name} Knowledge Assistant</p>
               </div>
             </div>
           </div>
-          {activeId && !sidebarOpen && (
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={handleNewChat}
               disabled={loading}
-              className="text-xs font-semibold text-primary-indigo hover:underline cursor-pointer"
+              className="inline-flex items-center gap-1 rounded-lg border border-surface-border bg-surface-background px-2.5 py-1 text-xs font-semibold text-primary-indigo hover:bg-primary-light-indigo/50 transition-colors cursor-pointer"
             >
-              Start New Chat
+              <Plus size={13} aria-hidden />
+              <span className="hidden sm:inline">New Chat</span>
             </button>
-          )}
+          </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-4">
           {error && (
             <div className="mb-4">
               <ErrorState
@@ -274,7 +311,7 @@ export default function AssistantTab() {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="border-t border-surface-border bg-surface-card p-4">
+        <div className="border-t border-surface-border bg-surface-card p-2.5 sm:p-4">
           <div className="max-w-3xl mx-auto">
             <ChatInput
               value={input}

@@ -14,7 +14,6 @@ function OrgAvatar({ org, size = 'md' }: { org: OrgSummary; size?: 'sm' | 'md' }
   return <span className={cn('flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary-blue to-primary-violet font-bold text-white', box)} aria-hidden>{org.name.charAt(0).toUpperCase()}</span>
 }
 
-/** GitHub-style account switcher: pick the organization (or personal workspace) new work defaults to. */
 export function OrgSwitcher({ onNavigate }: { onNavigate?: () => void }) {
   const { orgs, activeOrg, setActiveOrgId, loading } = useOrgs()
   const [open, setOpen] = useState(false)
@@ -22,15 +21,15 @@ export function OrgSwitcher({ onNavigate }: { onNavigate?: () => void }) {
   const close = useCallback(() => setOpen(false), [])
   useClickOutside(ref, open, close)
 
-  if (loading && !activeOrg) return <div className="mx-4 mt-4 h-12 animate-pulse rounded-xl bg-surface-background" role="status" aria-label="Loading workspaces" />
+  if (loading && !activeOrg) return <div className="mx-3 sm:mx-4 mt-4 h-12 animate-pulse rounded-xl bg-surface-background" role="status" aria-label="Loading workspaces" />
   if (!activeOrg) return null
 
   return (
-    <div className="relative mx-4 mt-4" ref={ref}>
+    <div className="relative mx-3 sm:mx-4 mt-4" ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox" aria-expanded={open}
-        className="flex w-full items-center gap-3 rounded-xl border border-surface-border bg-surface-background/60 p-2 text-left transition-colors hover:border-primary-indigo/40 hover:bg-primary-light-indigo/30"
+        className="flex min-h-[44px] w-full items-center gap-3 rounded-xl border border-surface-border bg-surface-background/60 p-2 text-left transition-colors hover:border-primary-indigo/40 hover:bg-primary-light-indigo/30"
       >
         <OrgAvatar org={activeOrg} />
         <span className="min-w-0 flex-1">
@@ -48,7 +47,7 @@ export function OrgSwitcher({ onNavigate }: { onNavigate?: () => void }) {
               <li key={o.id} role="option" aria-selected={o.id === activeOrg.id}>
                 <button
                   onClick={() => { setActiveOrgId(o.id); close() }}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-primary-light-indigo/50"
+                  className="flex w-full min-h-[38px] items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-primary-light-indigo/50"
                 >
                   <OrgAvatar org={o} size="sm" />
                   <span className="min-w-0 flex-1 truncate text-sm text-text-primary">{o.name}</span>

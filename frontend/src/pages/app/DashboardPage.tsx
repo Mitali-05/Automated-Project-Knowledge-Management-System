@@ -40,28 +40,28 @@ export default function DashboardPage() {
       <PageHeader
         title={`Welcome back, ${user?.name.split(' ')[0] ?? ''}`}
         subtitle="What is happening across all your organizations."
-        action={<Link to="/app/projects/new"><Button className="gap-2 shadow-lg shadow-primary-indigo/20"><Plus size={18} aria-hidden /> New Project</Button></Link>}
+        action={<Link to="/app/projects/new"><Button className="w-full sm:w-auto gap-2 shadow-lg shadow-primary-indigo/20"><Plus size={18} aria-hidden /> New Project</Button></Link>}
       />
 
       {!setupDone && <GettingStarted steps={steps} />}
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {stats.map(({ label, value, icon: Icon }, i) => (
           <motion.div key={label} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: i * 0.08 }}>
-            <Card className="flex items-center gap-4 p-5">
+            <Card className="flex items-center gap-4 p-4 sm:p-5">
               <span className="rounded-xl bg-gradient-to-br from-primary-indigo to-primary-violet p-3 text-white shadow-md"><Icon size={20} aria-hidden /></span>
-              <div><p className="text-2xl font-bold leading-none">{value}</p><p className="mt-1 text-xs text-text-muted">{label}</p></div>
+              <div><p className="text-xl sm:text-2xl font-bold leading-none">{value}</p><p className="mt-1 text-xs text-text-muted">{label}</p></div>
             </Card>
           </motion.div>
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2"><AttentionPanel items={data.attention} /></div>
         <HealthChart health={data.health} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
         <TypeChart rows={data.knowledgeByType} />
         <Card className="h-full">
           <CardHeader><CardTitle>Recently extracted knowledge</CardTitle></CardHeader>
@@ -87,7 +87,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle>Recent activity</CardTitle></CardHeader>
           <CardContent>

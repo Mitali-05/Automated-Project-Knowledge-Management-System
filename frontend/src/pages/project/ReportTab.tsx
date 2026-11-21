@@ -23,7 +23,7 @@ const sections: { key: Section; label: string }[] = [
 
 function Prose({ text }: { text?: string }) {
   if (!text?.trim()) return <p className="text-sm text-text-muted">Not available.</p>
-  return <p className="whitespace-pre-line text-sm leading-relaxed text-text-secondary">{text.replace(/\\n/g, '\n')}</p>
+  return <p className="whitespace-pre-line text-sm leading-relaxed text-text-secondary break-words">{text.replace(/\\n/g, '\n')}</p>
 }
 
 function Metric({ label, value }: { label: string; value: string | number | undefined }) {
@@ -49,7 +49,7 @@ function Overview({ r }: { r: ExtractionReport }) {
         {!!r.tech_stack?.length && <div className="flex flex-wrap gap-2">{r.tech_stack.map((t) => <Badge key={t} variant="primary">{t}</Badge>)}</div>}
       </CardContent></Card>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Metric label="Complexity" value={m?.estimated_complexity} />
         <Metric label="Core modules" value={m?.core_module_count} />
         <Metric label="Data-flow complexity" value={m?.data_flow_complexity} />
@@ -121,7 +121,7 @@ function Handover({ r }: { r: ExtractionReport }) {
           {g.critical_workflows.map((w) => (
             <div key={w.workflow_name} className="rounded-lg border border-surface-border p-4">
               <p className="font-semibold">{w.workflow_name}</p>
-              <p className="mt-1 text-xs text-text-muted">Entry point: <code>{w.entry_point}</code></p>
+              <p className="mt-1 text-xs text-text-muted">Entry point: <code className="break-all">{w.entry_point}</code></p>
               <p className="mt-2 text-sm text-text-secondary">{w.execution_path}</p>
             </div>
           ))}
@@ -139,7 +139,7 @@ function Handover({ r }: { r: ExtractionReport }) {
         <Card><CardHeader><CardTitle>Technical debt and fragility</CardTitle></CardHeader><CardContent>
           <ul className="space-y-2">
             {g.technical_debt_and_fragility.map((t, i) => (
-              <li key={i} className={cn('rounded-lg border-l-4 bg-surface-background p-3 text-sm', /high/i.test(t) ? 'border-red-400' : /medium/i.test(t) ? 'border-amber-400' : 'border-surface-border')}>{t}</li>
+              <li key={i} className={cn('rounded-lg border-l-4 bg-surface-background p-3 text-sm break-words', /high/i.test(t) ? 'border-red-400' : /medium/i.test(t) ? 'border-amber-400' : 'border-surface-border')}>{t}</li>
             ))}
           </ul>
         </CardContent></Card>
@@ -166,7 +166,7 @@ function Verification({ r }: { r: ExtractionReport }) {
         {v?.verification_agent_notes && <Prose text={v.verification_agent_notes} />}
         <p className="text-sm text-text-secondary">Production readiness, retrieval quality, security and performance require separate execution evidence. Model-generated trust, coverage and hallucination percentages are not displayed as measured results.</p>
       </CardContent></Card>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         <Metric label="Files recorded as read by the extraction runner" value={inspected.length} />
         <Metric label="Distinct paths cited by knowledge items" value={cited.length} />
       </div>
@@ -223,28 +223,28 @@ export default function ReportTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           {data.length > 1 ? (
             <select aria-label="Repository" value={current.repositoryId} onChange={(e) => setPickedRepo(Number(e.target.value))}
               className="h-9 rounded-lg border border-surface-border bg-surface-card px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary-indigo">
               {data.map((d) => <option key={d.repositoryId} value={d.repositoryId}>{d.owner}/{d.name}</option>)}
             </select>
-          ) : <h2 className="text-lg font-bold">{current.owner}/{current.name}</h2>}
+          ) : <h2 className="text-base sm:text-lg font-bold">{current.owner}/{current.name}</h2>}
           <p className="mt-1 flex items-center gap-1.5 text-xs text-text-muted"><ShieldCheck size={14} aria-hidden /> Generated {formatDate(current.generatedAt)} from the saved source analysis</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={reload} isLoading={loading}>Reload saved report</Button>
-          <Button variant="outline" onClick={() => void download('pdf')} isLoading={busy === 'pdf'} disabled={!current.files.includes('pdf')}><Download size={16} aria-hidden /> PDF report</Button>
-          <Button variant="outline" onClick={() => void download('pptx')} isLoading={busy === 'pptx'} disabled={!current.files.includes('pptx')}><Presentation size={16} aria-hidden /> PowerPoint deck</Button>
+          <Button variant="outline" size="sm" onClick={reload} isLoading={loading}>Reload</Button>
+          <Button variant="outline" size="sm" onClick={() => void download('pdf')} isLoading={busy === 'pdf'} disabled={!current.files.includes('pdf')}><Download size={14} aria-hidden /> PDF</Button>
+          <Button variant="outline" size="sm" onClick={() => void download('pptx')} isLoading={busy === 'pptx'} disabled={!current.files.includes('pptx')}><Presentation size={14} aria-hidden /> PPTX</Button>
         </div>
       </div>
       {dlError && <Alert>{dlError}</Alert>}
 
-      <div className="flex gap-1 overflow-x-auto border-b border-surface-border" role="tablist" aria-label="Report sections">
+      <div className="flex gap-1 overflow-x-auto scrollbar-none border-b border-surface-border -mx-2 px-2 sm:mx-0 sm:px-0" role="tablist" aria-label="Report sections">
         {sections.map((s) => (
           <button key={s.key} role="tab" aria-selected={section === s.key} onClick={() => setSection(s.key)}
-            className={cn('whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition-colors', section === s.key ? 'border-primary-indigo text-primary-indigo' : 'border-transparent text-text-secondary hover:text-text-primary')}>
+            className={cn('whitespace-nowrap border-b-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors', section === s.key ? 'border-primary-indigo text-primary-indigo font-semibold' : 'border-transparent text-text-secondary hover:text-text-primary')}>
             {s.label}
           </button>
         ))}

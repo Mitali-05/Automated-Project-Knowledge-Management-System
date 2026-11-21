@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 import { PublicNavbar } from './PublicNavbar'
 
-/** Shared frame for the marketing pages: navbar, decorative gradient, footer. */
 export function PublicPage({ children, blobs = true }: { children: ReactNode; blobs?: boolean }) {
   return (
     <div className="relative flex min-h-screen flex-col overflow-hidden bg-surface-background text-text-primary selection:bg-primary-indigo selection:text-white">
@@ -13,7 +12,7 @@ export function PublicPage({ children, blobs = true }: { children: ReactNode; bl
       )}
       <PublicNavbar />
       <main className="relative z-10 flex-1">{children}</main>
-      <footer className="relative z-10 border-t border-surface-border bg-surface-card py-8 text-center text-sm text-text-muted">
+      <footer className="relative z-10 border-t border-surface-border bg-surface-card py-6 sm:py-8 px-4 text-center text-xs sm:text-sm text-text-muted">
         <p>&copy; 2026 PRISM - Automated Project Knowledge Management. A 7th-semester Honors Major Project.</p>
       </footer>
     </div>
