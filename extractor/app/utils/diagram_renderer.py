@@ -120,6 +120,7 @@ def render_mermaid_to_png(mermaid_text: str, filename_prefix: str) -> str:
     output_png.unlink(missing_ok=True)
     tmp_path = None
     config_path = None
+    puppeteer_config_path = None
     try:
         with tempfile.NamedTemporaryFile("w", suffix=".mmd", delete=False, encoding="utf-8") as tmp:
             tmp.write(code)
@@ -127,11 +128,15 @@ def render_mermaid_to_png(mermaid_text: str, filename_prefix: str) -> str:
         with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False, encoding='utf-8') as cfg:
             json.dump(REPORT_THEME, cfg)
             config_path = cfg.name
+        with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False, encoding='utf-8') as pcfg:
+            json.dump({"args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]}, pcfg)
+            puppeteer_config_path = pcfg.name
         try:
             # --size rescales SVG text as well as its canvas. Native SVG geometry
             # plus a fixed device scale is required by the export readability checks.
             result = subprocess.run([command, "-i", tmp_path, "-o", str(output_png),
                                      "-b", "white", "-c", config_path,
+                                     "-p", puppeteer_config_path,
                                      "-s", str(DIAGRAM_SCALE)],
                                     capture_output=True, timeout=render_timeout, shell=False)
         except subprocess.TimeoutExpired as exc:
@@ -148,3 +153,5 @@ def render_mermaid_to_png(mermaid_text: str, filename_prefix: str) -> str:
             Path(tmp_path).unlink(missing_ok=True)
         if config_path:
             Path(config_path).unlink(missing_ok=True)
+        if puppeteer_config_path:
+            Path(puppeteer_config_path).unlink(missing_ok=True)

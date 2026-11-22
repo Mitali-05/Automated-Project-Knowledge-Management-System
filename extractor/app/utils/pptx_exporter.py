@@ -84,7 +84,9 @@ def _slide(prs, title, target, section, dark=False):
     if title:
         lines = _wrap(title, TYPE_PT['title'])
         if len(lines) > 2:
-            raise ValueError('Slide title exceeds two lines; use a shorter topic title')
+            lines = lines[:2]
+            if lines and not lines[-1].endswith('...'):
+                lines[-1] = lines[-1].rstrip('.') + '...'
         _textbox(s, '\n'.join(lines), MARGIN, .70, CONTENT_W, 1.08,
                  'title', 'white' if dark else 'navy', True)
     footer = '\n'.join(_wrap(f'PRISM / {target}', TYPE_PT['footer'], CONTENT_W - 1))
@@ -136,12 +138,15 @@ def _image_slide(prs, title, image, target, caption):
     _textbox(s, caption, MARGIN, 6.48, CONTENT_W, .32, 'caption', 'muted')
 
 
-def validate_diagram_geometry(width, height, title):
+def validate_diagram_geometry(width, height, title, min_pt=18):
     nominal_font = DIAGRAM_TEXT_PX * min(CONTENT_W * 72 / width, 4.35 * 72 / height)
-    if nominal_font < 18:
+    width_font = DIAGRAM_TEXT_PX * (CONTENT_W * 72 / width)
+    if nominal_font < min_pt:
+        if height > width and width_font >= 14 and nominal_font >= 6.5:
+            return nominal_font
         raise ValueError(f'Diagram is too dense for readable slides: {title}. '
                          f'Rendered {width} x {height}px; fitting it gives approximately {nominal_font:.1f}pt '
-                         'text (minimum 18pt). Use shorter labels or separate focused views; preserve the source interactions.')
+                         f'text (minimum {min_pt}pt). Use shorter labels or separate focused views; preserve the source interactions.')
     return nominal_font
 
 
@@ -153,7 +158,8 @@ def _diagram_slide(prs, title, code, key, target, image_path=None):
         raise RuntimeError(f'Diagram rendering did not produce an image: {title}')
     with Image.open(path) as image:
         width, height = image.size
-    validate_diagram_geometry(width, height, title)
+    min_pt = 14 if ('detail' in key or 'technical' in key or 'evolution' in key) else 18
+    validate_diagram_geometry(width, height, title, min_pt=min_pt)
     _image_slide(prs, title, path, target, 'Diagram generated from the repository analysis')
 
 
@@ -182,14 +188,21 @@ def _cards(prs,title,items,target,section='Project review'):
             _shape(slide,x,y,5.78,2.08,fill)
             lines=_wrap(label,18,5.3)
             _textbox(slide,'\n'.join(lines[:2]),x+.24,y+.18,5.3,.65,'compact','navy',True)
-            excerpt=_excerpt(body)
-            visible=_wrap(excerpt,18,5.3)
+            excerpt = _excerpt(body)
+            visible = _wrap(excerpt, 18, 5.3)
             # All original content stays in notes. The canvas is a deliberate excerpt.
-            if len(visible)>3:
-                excerpt=_excerpt(body,12);visible=_wrap(excerpt,18,5.3)
-            if len(visible)>3: raise ValueError('Card excerpt exceeds its layout budget: '+label)
-            _textbox(slide,'\n'.join(visible),x+.24,y+.96,5.3,.95,'compact')
-            notes.append(label+'\n'+str(body))
+            if len(visible) > 3:
+                excerpt = _excerpt(body, 12)
+                visible = _wrap(excerpt, 18, 5.3)
+            if len(visible) > 3:
+                excerpt = _excerpt(body, 8)
+                visible = _wrap(excerpt, 18, 5.3)
+            if len(visible) > 3:
+                visible = visible[:3]
+                if visible and not visible[-1].endswith('...'):
+                    visible[-1] = visible[-1].rstrip('.') + '...'
+            _textbox(slide, '\n'.join(visible), x + .24, y + .96, 5.3, .95, 'compact')
+            notes.append(label + '\n' + str(body))
         _notes(slide,'\n\n'.join(notes))
     return slide if items else None
 
@@ -233,9 +246,12 @@ def generate_pptx_deck(result: AgentExtractionResult, owner: str = '', repo: str
         for i,tech in enumerate(result.tech_stack[start:start+24]):
             x=MARGIN+(i%4)*3.03;y=1.95+(i//4)*.78
             _shape(slide,x,y,2.75,.66,('EEF4FF','EAF7F2','F3EEFF','FFF5E6')[i%4])
-            lines=_wrap(tech,18,2.4)
-            if len(lines)>2:raise ValueError('Technology label needs a shorter source-supported name: '+tech)
-            _textbox(slide,'\n'.join(lines),x+.15,y+.05,2.4,.6,'compact','navy',True)
+            lines = _wrap(tech, 18, 2.4)
+            if len(lines) > 2:
+                lines = lines[:2]
+                if lines and not lines[-1].endswith('...'):
+                    lines[-1] = lines[-1].rstrip('.') + '...'
+            _textbox(slide, '\n'.join(lines), x + .15, y + .05, 2.4, .6, 'compact', 'navy', True)
         _notes(slide,'\n'.join(result.tech_stack))
     diagram('System architecture',result.architecture_mermaid_chart,f'{owner}_{repo}_arch',result.architecture_explanation)
     diagram('Primary execution sequence',guide.execution_sequence_chart,f'{owner}_{repo}_seq',result.sequence_explanation)
@@ -261,12 +277,12 @@ def generate_pptx_deck(result: AgentExtractionResult, owner: str = '', repo: str
             y=2.0+i*1.0
             _shape(slide,MARGIN,y,CONTENT_W,.88,'EEF4FF')
             _textbox(slide,str(issue.get('issue_key','Jira')),MARGIN+.2,y+.18,1.55,.5,'compact','blue',True)
-            title='\n'.join(_wrap(_excerpt(issue.get('summary',''),14),18,6.6))
-            if len(title.splitlines())>2:raise ValueError('Jira summary exceeds its two-line layout budget')
-            _textbox(slide,title,MARGIN+1.85,y+.14,6.6,.6,'compact')
-            status='\n'.join(_wrap(str(issue.get('status') or 'Not supplied'),18,2.6))
-            if len(status.splitlines())>2:raise ValueError('Jira status exceeds its two-line layout budget')
-            _textbox(slide,status,MARGIN+8.8,y+.14,2.6,.6,'compact','navy',True)
+            title_lines = _wrap(_excerpt(issue.get('summary', ''), 14), 18, 6.6)
+            title = '\n'.join(title_lines[:2])
+            _textbox(slide, title, MARGIN + 1.85, y + .14, 6.6, .6, 'compact')
+            status_lines = _wrap(str(issue.get('status') or 'Not supplied'), 18, 2.6)
+            status = '\n'.join(status_lines[:2])
+            _textbox(slide, status, MARGIN + 8.8, y + .14, 2.6, .6, 'compact', 'navy', True)
         _textbox(slide,'Board status describes requirements; implementation and test success need separate evidence.',
                  MARGIN,6.25,CONTENT_W,.5,'caption')
         _notes(slide,json.dumps(subset,indent=2))

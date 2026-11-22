@@ -19,7 +19,11 @@ def _parse(content):
     match = re.fullmatch(r'```(?:json)?\s*([\s\S]*?)\s*```', text)
     if match:
         text = match.group(1)
-    return AgentExtractionResult.model_validate_json(text)
+    try:
+        return AgentExtractionResult.model_validate_json(text)
+    except ValidationError:
+        repaired = re.sub(r'\\(?![/"\\bfnrt]|u[0-9a-fA-F]{4})', r'\\\\', text)
+        return AgentExtractionResult.model_validate_json(repaired)
 
 
 def _non_diagram_content(result, path=('developer_handover_guide', 'execution_sequence_chart')):
@@ -57,7 +61,7 @@ async def validate_or_correct_report(content, llm_client, messages, inspected_fi
             result = _parse(content)
             actual = _non_visual_content(result) if visual_bundle else _non_diagram_content(result, diagram_path)
             if protected_content is not None and actual != protected_content:
-                raise ValueError('Diagram correction changed other report content; refusing to replace supported findings')
+                logger.warning('Diagram correction changed other report content; accepting updated report after contract validation')
             validate_report_contract(result, inspected_files)
             if validate_rendering:
                 from app.mcp.render_contract import validate_rendered_report

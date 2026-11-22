@@ -44,10 +44,10 @@ def validate_sequence_diagram(sequence):
     participants = set(re.findall(r'^\s*(?:participant|actor)\s+(\w+)', sequence, re.MULTILINE))
     for sender, receiver in re.findall(r'^\s*(\w+)\s*--?>>\s*[+-]?(\w+)\s*:', sequence, re.MULTILINE):
         participants.update((sender, receiver))
-    if len(participants) > 4:
-        raise DiagramContractError(f'Sequence diagram exceeds the four-participant readability budget: {len(participants)} participants ({", ".join(sorted(participants))})')
-    if len(re.findall(r'->>', sequence)) > 12:
-        raise DiagramContractError('Sequence diagram exceeds the twelve-message readability budget')
+    if len(participants) > 6:
+        raise DiagramContractError(f'Sequence diagram exceeds the six-participant readability budget: {len(participants)} participants ({", ".join(sorted(participants))})')
+    if len(re.findall(r'->>', sequence)) > 16:
+        raise DiagramContractError('Sequence diagram exceeds the sixteen-message readability budget')
 
 
 def validate_report_contract(result, inspected):

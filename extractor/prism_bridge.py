@@ -221,10 +221,14 @@ def process(api: PrismApi, repo: dict) -> None:
     except IngestResourceGone as e:
         log.warning('Cancelled obsolete extraction target (repository %s, project %s): %s', repo_id, project_id, e)
     except Exception as e:
-        log.error("Extraction failed for %s: %s", label, e)
+        curr = e
+        while hasattr(curr, "exceptions") and getattr(curr, "exceptions"):
+            curr = curr.exceptions[0]
+        err_msg = str(curr)
+        log.error("Extraction failed for %s: %s", label, err_msg)
         log.debug(traceback.format_exc())
         try:
-            api.set_status(repo_id, "FAILED", str(e))
+            api.set_status(repo_id, "FAILED", err_msg)
         except Exception as e2:
             log.error("Could not report the failure: %s", e2)
 

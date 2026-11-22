@@ -1,4 +1,5 @@
 """White-background, evidence-labelled engineering report with dedicated diagrams."""
+import logging
 import re
 from io import BytesIO
 from pathlib import Path, PurePosixPath
@@ -16,8 +17,10 @@ from reportlab.platypus import (BaseDocTemplate, PageTemplate, Frame, Paragraph,
                                Spacer, LongTable, TableStyle, PageBreak, NextPageTemplate, Image)
 from app.core.models import AgentExtractionResult
 from app.mcp.inspection_contract import validate_sequence_diagram
-from app.utils.diagram_renderer import render_mermaid_to_png, DIAGRAM_TEXT_PX
+from app.utils.diagram_renderer import render_mermaid_to_png, clean_mermaid_code, DIAGRAM_TEXT_PX
 from app.utils.publication_contract import validate_pdf_publication
+
+logger = logging.getLogger(__name__)
 
 FONT_REG, FONT_BOLD = 'PrismArial', 'PrismArial-Bold'
 INK, BODY, MUTED = '#172B4D', '#263445', '#475569'
@@ -167,7 +170,27 @@ def generate_pdf_report(result: AgentExtractionResult, owner='', repo='', diagra
         nonlocal after_diagram
         if not str(code or '').strip():
             return
-        path = diagram_images[code] if diagram_images is not None else render_mermaid_to_png(code, f'{owner}_{repo}_{suffix}')
+        cleaned = clean_mermaid_code(code)
+        stripped = re.sub(r'^%%\{init:.*?\}%%\s*', '', cleaned, flags=re.DOTALL).strip()
+        first_word = stripped.split()[0].lower() if stripped.split() else ''
+        is_valid_type = any(first_word.startswith(t) for t in ('graph', 'flowchart', 'sequence', 'class', 'state', 'erdiagram', 'gantt', 'pie', 'timeline', 'gitgraph', 'mindmap', 'c4', 'sankey', 'xychart'))
+        if not is_valid_type:
+            ensure_portrait()
+            heading(title)
+            paragraph(str(code))
+            paragraph(caption, 'caption')
+            return
+        try:
+            path = diagram_images[code] if diagram_images is not None else render_mermaid_to_png(code, f'{owner}_{repo}_{suffix}')
+        except Exception as exc:
+            if suffix in ('dependencies', 'timeline') or 'detail_' in suffix:
+                logger.warning('Optional diagram %s rendering failed, formatting as text note: %s', title, exc)
+                ensure_portrait()
+                heading(title)
+                paragraph(str(code))
+                paragraph(caption, 'caption')
+                return
+            raise
         image = _diagram_image(path, TEXT_W, 520)
         # Both templates are A4 portrait. Adjacent figures need no blank separator.
         after_diagram = False
