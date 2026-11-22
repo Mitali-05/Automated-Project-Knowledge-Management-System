@@ -13,12 +13,12 @@ const meta: Record<AttentionKind, { icon: typeof XCircle; tone: string; label: s
 
 export function AttentionPanel({ items }: { items: AttentionItem[] }) {
   return (
-    <Card className="h-full">
+    <Card className="h-full min-w-0 overflow-hidden">
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle>Needs attention</CardTitle>
         {items.length > 0 && <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700">{items.length}</span>}
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-w-0">
         {items.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-8 text-center">
             <CheckCircle2 size={32} className="text-success" aria-hidden />

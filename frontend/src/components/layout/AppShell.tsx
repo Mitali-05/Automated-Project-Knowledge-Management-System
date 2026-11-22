@@ -33,7 +33,7 @@ export function AppShell() {
         )}
         <div className="relative flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
           <TopHeader onMenu={() => setMenuOpen(true)} />
-          <main className="flex-1 overflow-y-auto">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden">
             {orgs.error ? (
               <div className="mx-auto max-w-3xl p-4 sm:p-6 md:p-8">
                 <ErrorState

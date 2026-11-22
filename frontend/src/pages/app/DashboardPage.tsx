@@ -47,23 +47,23 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {stats.map(({ label, value, icon: Icon }, i) => (
-          <motion.div key={label} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: i * 0.08 }}>
-            <Card className="flex items-center gap-4 p-4 sm:p-5">
-              <span className="rounded-xl bg-gradient-to-br from-primary-indigo to-primary-violet p-3 text-white shadow-md"><Icon size={20} aria-hidden /></span>
-              <div><p className="text-xl sm:text-2xl font-bold leading-none">{value}</p><p className="mt-1 text-xs text-text-muted">{label}</p></div>
+          <motion.div key={label} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: i * 0.08 }} className="min-w-0">
+            <Card className="flex items-center gap-4 p-4 sm:p-5 min-w-0">
+              <span className="rounded-xl bg-gradient-to-br from-primary-indigo to-primary-violet p-3 text-white shadow-md shrink-0"><Icon size={20} aria-hidden /></span>
+              <div className="min-w-0"><p className="text-xl sm:text-2xl font-bold leading-none">{value}</p><p className="mt-1 text-xs text-text-muted truncate">{label}</p></div>
             </Card>
           </motion.div>
         ))}
       </div>
 
-      <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2"><AttentionPanel items={data.attention} /></div>
-        <HealthChart health={data.health} />
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
+        <div className="min-w-0 lg:col-span-2"><AttentionPanel items={data.attention} /></div>
+        <div className="min-w-0"><HealthChart health={data.health} /></div>
       </div>
 
-      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-        <TypeChart rows={data.knowledgeByType} />
-        <Card className="h-full">
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
+        <div className="min-w-0"><TypeChart rows={data.knowledgeByType} /></div>
+        <Card className="min-w-0 h-full">
           <CardHeader><CardTitle>Recently extracted knowledge</CardTitle></CardHeader>
           <CardContent>
             {data.recentKnowledge.length === 0 ? (
@@ -87,8 +87,8 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
+        <Card className="min-w-0 lg:col-span-2">
           <CardHeader><CardTitle>Recent activity</CardTitle></CardHeader>
           <CardContent>
             {data.recentActivity.length === 0
@@ -97,10 +97,10 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="min-w-0">
           <CardHeader className="flex-row items-center justify-between space-y-0">
             <CardTitle>Your organizations</CardTitle>
-            <Link to="/app/organizations" className="text-xs font-medium text-primary-indigo hover:text-primary-violet">Manage</Link>
+            <Link to="/app/organizations" className="text-xs font-medium text-primary-indigo hover:text-primary-violet shrink-0">Manage</Link>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2">
@@ -113,7 +113,7 @@ export default function DashboardPage() {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium">{o.name}</span>
-                      <span className="block text-xs text-text-muted">{o.projectCount} project{o.projectCount === 1 ? '' : 's'} · {o.memberCount} member{o.memberCount === 1 ? '' : 's'}</span>
+                      <span className="block text-xs text-text-muted truncate">{o.projectCount} project{o.projectCount === 1 ? '' : 's'} · {o.memberCount} member{o.memberCount === 1 ? '' : 's'}</span>
                     </span>
                     <RoleBadge role={o.role} />
                   </div>
