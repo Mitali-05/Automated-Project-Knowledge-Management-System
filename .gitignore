@@ -28,6 +28,10 @@ Thumbs.db
 # Local QA evidence and generated artifacts - never push
 /.local-audit/
 /generated_diagrams/
+/reports/
+reports/
+*.pptx
+*.pdf
 
 # Deployment credentials and licensed local fonts
 /deploy/*.env
