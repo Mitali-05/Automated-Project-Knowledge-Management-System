@@ -75,9 +75,9 @@ export default function KnowledgeTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold">Knowledge Base</h2>
+          <h2 className="text-xl sm:text-2xl font-bold">Knowledge Base</h2>
           <p className="text-xs text-text-muted mt-0.5">
             Structured architectural knowledge with independent age & repository drift tracking.
           </p>
@@ -92,9 +92,9 @@ export default function KnowledgeTab() {
         />
       ) : (
         <>
-          <div className="flex flex-col gap-3 rounded-2xl border border-surface-border bg-surface-card p-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="relative flex-1 min-w-[240px]">
+          <div className="flex flex-col gap-3 rounded-2xl border border-surface-border bg-surface-card p-3 sm:p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="relative flex-1 min-w-0">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" aria-hidden />
                 <input
                   type="search"
@@ -126,7 +126,7 @@ export default function KnowledgeTab() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-surface-border/60" role="group" aria-label="Filter by type">
+            <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-surface-border/60" role="group" aria-label="Filter by type">
               <span className="text-xs font-semibold text-text-muted mr-1">Type:</span>
               {types.map((t) => (
                 <button
@@ -152,7 +152,7 @@ export default function KnowledgeTab() {
             </p>
           )}
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             {items.map((k, i) => (
               <motion.div
                 key={k.id}
@@ -167,9 +167,9 @@ export default function KnowledgeTab() {
                   onKeyDown={(e) => e.key === 'Enter' && setSelected(k)}
                   className="group h-full cursor-pointer transition-all duration-200 hover:border-primary-indigo/50 hover:shadow-md"
                 >
-                  <CardContent className="p-5 flex flex-col justify-between h-full">
+                  <CardContent className="p-4 sm:p-5 flex flex-col justify-between h-full">
                     <div>
-                      <div className="mb-2.5 flex flex-wrap items-center gap-2">
+                      <div className="mb-2.5 flex flex-wrap items-center gap-1.5 sm:gap-2">
                         <Badge variant="primary">{k.type}</Badge>
                         {renderChangeBadge(k.changeFreshness)}
                         <Badge variant={freshnessTone(k.freshness)}>Age: {k.freshness}</Badge>

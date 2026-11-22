@@ -40,6 +40,18 @@ public class ExtractionBridgeService {
     @Value("${server.port:8081}")
     private int serverPort;
 
+    @Value("${app.github.token:${GITHUB_TOKEN:}}")
+    private String githubToken;
+
+    @Value("${LLM1_API_KEY:${LLM_API_KEY:${app.gemini.api-key:}}}")
+    private String llm1ApiKey;
+
+    @Value("${LLM1_PROVIDER:gemini}")
+    private String llm1Provider;
+
+    @Value("${LLM1_MODEL:gemini-3.5-flash-lite}")
+    private String llm1Model;
+
     private Process process;
     private final Object lock = new Object();
 
@@ -80,6 +92,21 @@ public class ExtractionBridgeService {
                     env.put("INGEST_SERVICE_KEY", serviceKey);
                 }
                 env.put("PRISM_POLL_SECONDS", String.valueOf(pollSeconds));
+                if (githubToken != null && !githubToken.isBlank()) {
+                    env.put("GITHUB_TOKEN", githubToken);
+                    env.put("GITHUB_PERSONAL_ACCESS_TOKEN", githubToken);
+                }
+                if (llm1ApiKey != null && !llm1ApiKey.isBlank()) {
+                    env.put("LLM1_API_KEY", llm1ApiKey);
+                    env.put("LLM_API_KEY", llm1ApiKey);
+                }
+                if (llm1Provider != null && !llm1Provider.isBlank()) {
+                    env.put("LLM1_PROVIDER", llm1Provider);
+                }
+                if (llm1Model != null && !llm1Model.isBlank()) {
+                    env.put("LLM1_MODEL", llm1Model);
+                }
+
                 process = pb.start();
                 log.info("Started PRISM extraction bridge process (PID {})", process.pid());
 
@@ -139,24 +166,52 @@ public class ExtractionBridgeService {
     }
 
     private File resolvePythonExecutable() {
-        if (pythonPath == null || pythonPath.isBlank()) {
-            throw new IllegalStateException("EXTRACTOR_PYTHON_PATH is required for automatic bridge startup");
+        if (pythonPath != null && !pythonPath.isBlank()) {
+            File custom = new File(pythonPath);
+            if (custom.isFile()) {
+                return custom;
+            }
         }
-        File file = new File(pythonPath);
-        if (!file.isFile()) {
-            throw new IllegalStateException("Configured extractor Python executable does not exist");
+
+        List<String> candidates = List.of(
+                "D:/Honours VII Sem/extractor-venv/Scripts/python.exe",
+                "../extractor-venv/Scripts/python.exe",
+                "../../extractor-venv/Scripts/python.exe",
+                "extractor-venv/Scripts/python.exe"
+        );
+
+        for (String candidate : candidates) {
+            File f = new File(candidate);
+            if (f.isFile()) {
+                return f;
+            }
         }
-        return file;
+
+        throw new IllegalStateException("EXTRACTOR_PYTHON_PATH is required for automatic bridge startup");
     }
 
     private File resolveWorkingDirectory() {
-        if (workingDir == null || workingDir.isBlank()) {
-            throw new IllegalStateException("EXTRACTOR_WORKING_DIR is required for automatic bridge startup");
+        if (workingDir != null && !workingDir.isBlank()) {
+            File custom = new File(workingDir);
+            if (custom.isDirectory()) {
+                return custom;
+            }
         }
-        File file = new File(workingDir);
-        if (!file.isDirectory()) {
-            throw new IllegalStateException("Configured extractor working directory does not exist");
+
+        List<String> candidates = List.of(
+                "D:/Honours VII Sem/Automated-Project-Knowledge-Management-System/extractor",
+                "../extractor",
+                "../../extractor",
+                "extractor"
+        );
+
+        for (String candidate : candidates) {
+            File f = new File(candidate);
+            if (f.isDirectory()) {
+                return f;
+            }
         }
-        return file;
+
+        throw new IllegalStateException("EXTRACTOR_WORKING_DIR is required for automatic bridge startup");
     }
 }

@@ -15,16 +15,16 @@ export default function HistoryTab() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">History</h2>
+      <h2 className="text-xl sm:text-2xl font-bold">History</h2>
       {loading && !data && <LoadingState />}
       {error && <ErrorState message={error} onRetry={reload} />}
       {data && data.items.length === 0 && <EmptyState icon={<History size={32} />} title="No activity yet" description="Commits and pull requests will appear here after the first sync." />}
       {data && data.items.length > 0 && (
-        <Card><CardContent className="p-6">
+        <Card><CardContent className="p-4 sm:p-6">
           <ActivityList items={data.items} />
-          <div className="mt-6 flex items-center justify-between border-t border-surface-border pt-4 text-sm text-text-muted">
+          <div className="mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-t border-surface-border pt-4 text-xs sm:text-sm text-text-muted">
             <span>Page {data.page + 1} of {Math.max(1, data.totalPages)} · {data.totalItems} events</span>
-            <div className="flex gap-2">
+            <div className="flex gap-2 self-end sm:self-auto">
               <Button variant="outline" size="sm" disabled={page === 0 || loading} onClick={() => setPage(page - 1)}>Previous</Button>
               <Button variant="outline" size="sm" disabled={page + 1 >= data.totalPages || loading} onClick={() => setPage(page + 1)}>Next</Button>
             </div>

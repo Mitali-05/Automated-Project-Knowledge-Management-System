@@ -341,7 +341,6 @@ public class FreshnessService {
         long stale = freshnessRepository.countByProjectIdAndChangeStatus(projectId, "POTENTIALLY_STALE");
         long outdated = freshnessRepository.countByProjectIdAndChangeStatus(projectId, "OUTDATED");
         long total = knowledgeRepository.countByProjectId(projectId);
-        // Items with no freshness row also have no verified baseline.
         long unknown = Math.max(0L, total - current - stale - outdated);
 
         List<RepositorySnapshot> snaps = snapshotRepository.findByProjectIdOrderByCreatedAtDesc(projectId);

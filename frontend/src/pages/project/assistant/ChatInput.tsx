@@ -47,14 +47,17 @@ export function ChatInput({ value, onChange, onSend, disabled = false, placehold
       />
       <div className="flex items-center justify-between px-2 pt-1 pb-0.5">
         <span className="text-[11px] text-text-muted">
-          <kbd className="rounded border border-surface-border px-1 py-0.5 font-mono text-[10px]">Enter</kbd> to send, <kbd className="rounded border border-surface-border px-1 py-0.5 font-mono text-[10px]">Shift+Enter</kbd> for newline
+          <span className="hidden sm:inline">
+            <kbd className="rounded border border-surface-border px-1 py-0.5 font-mono text-[10px]">Enter</kbd> to send, <kbd className="rounded border border-surface-border px-1 py-0.5 font-mono text-[10px]">Shift+Enter</kbd> for newline
+          </span>
+          <span className="sm:hidden text-text-muted">PRISM AI</span>
         </span>
         <button
           type="button"
           onClick={onSend}
           disabled={!value.trim() || disabled}
           className={cn(
-            'flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200',
+            'flex h-9 w-9 sm:h-8 sm:w-8 items-center justify-center rounded-xl transition-all duration-200 shrink-0',
             value.trim() && !disabled
               ? 'bg-primary-indigo text-white shadow-xs hover:bg-primary-indigo/90 cursor-pointer scale-100'
               : 'bg-surface-border/50 text-text-muted cursor-not-allowed scale-95'

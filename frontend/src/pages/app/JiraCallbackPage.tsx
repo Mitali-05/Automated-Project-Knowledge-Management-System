@@ -17,7 +17,6 @@ export default function JiraCallbackPage() {
     const code = params.get('code')
     const state = params.get('state')
     const denied = params.has('error')
-    // Remove the one-time code from the address bar and referrers immediately.
     window.history.replaceState(window.history.state, '', '/app/jira/callback')
     if (denied || !code || !state) {
       setError(denied ? 'Jira authorization was not granted. Return to your project to connect again.'
@@ -31,7 +30,7 @@ export default function JiraCallbackPage() {
 
   return <PageContainer narrow>
     {error ? <div className="space-y-4"><Alert>{error}</Alert>
-      <Link to="/app/projects" className="text-primary-indigo hover:underline">Back to projects</Link>
-    </div> : <><h1 className="text-2xl font-bold">Connecting Jira</h1><LoadingState rows={1} /></>}
+      <Link to="/app/projects" className="text-primary-indigo hover:underline text-sm font-medium">Back to projects</Link>
+    </div> : <><h1 className="text-xl sm:text-2xl font-bold">Connecting Jira</h1><LoadingState rows={1} /></>}
   </PageContainer>
 }

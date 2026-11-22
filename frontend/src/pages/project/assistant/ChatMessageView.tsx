@@ -39,7 +39,7 @@ export function ChatMessageView({ message, onRegenerate, isLast }: ChatMessageVi
         const headerRow = rows[0]
         const dataRows = rows.slice(rows[1].every(c => /^:?-+:?$/.test(c)) ? 2 : 1)
         renderedNodes.push(
-          <div key={key} className="my-3 overflow-x-auto rounded-xl border border-surface-border bg-surface-card">
+          <div key={key} className="my-3 max-w-full overflow-x-auto rounded-xl border border-surface-border bg-surface-card">
             <table className="w-full text-left text-xs">
               <thead className="bg-primary-light-indigo/50 text-text-primary border-b border-surface-border font-semibold">
                 <tr>
@@ -71,7 +71,7 @@ export function ChatMessageView({ message, onRegenerate, isLast }: ChatMessageVi
         if (inCodeBlock) {
           const codeText = codeBuffer.join('\n')
           renderedNodes.push(
-            <div key={`code-${idx}`} className="my-3 overflow-hidden rounded-xl border border-surface-border bg-slate-900 text-slate-100 shadow-xs">
+            <div key={`code-${idx}`} className="my-3 max-w-full overflow-hidden rounded-xl border border-surface-border bg-slate-900 text-slate-100 shadow-xs">
               <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950/60 px-3.5 py-1.5 text-[11px] font-mono text-slate-400">
                 <span>{codeLanguage || 'code'}</span>
                 <button
@@ -83,7 +83,7 @@ export function ChatMessageView({ message, onRegenerate, isLast }: ChatMessageVi
                   <span>Copy</span>
                 </button>
               </div>
-              <pre className="p-3.5 text-xs font-mono overflow-x-auto whitespace-pre leading-relaxed">
+              <pre className="p-3.5 text-xs font-mono max-w-full overflow-x-auto whitespace-pre leading-relaxed">
                 <code>{codeText}</code>
               </pre>
             </div>
@@ -171,7 +171,7 @@ export function ChatMessageView({ message, onRegenerate, isLast }: ChatMessageVi
       }
 
       renderedNodes.push(
-        <p key={idx} className="text-sm text-text-secondary leading-relaxed">
+        <p key={idx} className="text-sm text-text-secondary leading-relaxed break-words">
           {renderInline(line)}
         </p>
       )
@@ -189,7 +189,7 @@ export function ChatMessageView({ message, onRegenerate, isLast }: ChatMessageVi
     return parts.map((part, i) => {
       if (part.startsWith('`') && part.endsWith('`')) {
         return (
-          <code key={i} className="rounded bg-surface-background px-1.5 py-0.5 font-mono text-xs text-primary-indigo font-semibold border border-surface-border">
+          <code key={i} className="rounded bg-surface-background px-1.5 py-0.5 font-mono text-xs text-primary-indigo font-semibold border border-surface-border break-all">
             {part.slice(1, -1)}
           </code>
         )
@@ -214,24 +214,24 @@ export function ChatMessageView({ message, onRegenerate, isLast }: ChatMessageVi
   }
 
   return (
-    <div className={cn('flex gap-3.5 mb-6 group', isUser ? 'justify-end' : 'justify-start')}>
+    <div className={cn('flex gap-2.5 sm:gap-3.5 mb-5 sm:mb-6 group', isUser ? 'justify-end' : 'justify-start')}>
       {!isUser && (
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-600 text-white shadow-sm mt-0.5">
-          <Sparkles size={16} aria-hidden />
+        <div className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-600 text-white shadow-sm mt-0.5">
+          <Sparkles size={15} aria-hidden />
         </div>
       )}
 
-      <div className={cn('max-w-3xl space-y-2', isUser ? 'items-end' : 'items-start')}>
+      <div className={cn('min-w-0 max-w-full sm:max-w-3xl space-y-2', isUser ? 'items-end' : 'items-start flex-1')}>
         <div
           className={cn(
-            'rounded-2xl p-4 transition-all duration-200',
+            'rounded-2xl p-3.5 sm:p-4 transition-all duration-200 break-words',
             isUser
-              ? 'bg-primary-indigo text-white shadow-xs ml-auto rounded-tr-xs'
-              : 'bg-surface-card border border-surface-border/80 text-text-primary shadow-xs rounded-tl-xs'
+              ? 'bg-primary-indigo text-white shadow-xs ml-auto rounded-tr-xs max-w-[90%] sm:max-w-[80%]'
+              : 'bg-surface-card border border-surface-border/80 text-text-primary shadow-xs rounded-tl-xs w-full'
           )}
         >
           {isUser ? (
-            <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
+            <p className="text-sm whitespace-pre-wrap leading-relaxed break-words">{message.content}</p>
           ) : (
             <div className="space-y-1">{renderContent(message.content)}</div>
           )}
@@ -240,9 +240,9 @@ export function ChatMessageView({ message, onRegenerate, isLast }: ChatMessageVi
         {!isUser && message.freshnessWarning && (
           <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-900 shadow-xs">
             <AlertTriangle size={15} className="shrink-0 text-amber-600 mt-0.5" aria-hidden />
-            <div className="space-y-0.5">
+            <div className="space-y-0.5 min-w-0">
               <span className="font-bold">Freshness Advisory:</span>
-              <p className="text-amber-800 leading-normal">{message.freshnessWarning}</p>
+              <p className="text-amber-800 leading-normal break-words">{message.freshnessWarning}</p>
             </div>
           </div>
         )}
@@ -261,7 +261,7 @@ export function ChatMessageView({ message, onRegenerate, isLast }: ChatMessageVi
         )}
 
         {!isUser && (
-          <div className="flex items-center gap-3 pt-1 text-xs text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-text-muted opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
             <button
               type="button"
               onClick={copyContent}
@@ -285,8 +285,8 @@ export function ChatMessageView({ message, onRegenerate, isLast }: ChatMessageVi
       </div>
 
       {isUser && (
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-surface-border/80 text-text-secondary shadow-xs mt-0.5">
-          <UserIcon size={16} aria-hidden />
+        <div className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-xl bg-surface-border/80 text-text-secondary shadow-xs mt-0.5">
+          <UserIcon size={15} aria-hidden />
         </div>
       )}
     </div>

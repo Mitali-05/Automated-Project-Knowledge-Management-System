@@ -12,6 +12,7 @@ interface ConversationSidebarProps {
   onNewChat: () => void
   onDelete: (id: number) => void
   onRename?: (id: number, newTitle: string) => void
+  onClose?: () => void
   loading?: boolean
 }
 
@@ -22,6 +23,7 @@ export function ConversationSidebar({
   onNewChat,
   onDelete,
   onRename,
+  onClose,
   loading = false,
 }: ConversationSidebarProps) {
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -49,20 +51,30 @@ export function ConversationSidebar({
   }
 
   return (
-    <div className="flex flex-col h-full border-r border-surface-border bg-surface-background/40 w-72 shrink-0">
-      <div className="p-3 border-b border-surface-border">
+    <div className="flex flex-col h-full border-r border-surface-border bg-surface-background/80 w-72 max-w-full shrink-0">
+      <div className="p-3 border-b border-surface-border flex items-center gap-2">
         <button
           type="button"
           onClick={onNewChat}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-indigo px-3.5 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-primary-indigo/90 transition-all cursor-pointer"
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary-indigo min-h-[42px] px-3.5 py-2 text-sm font-semibold text-white shadow-xs hover:bg-primary-indigo/90 transition-all cursor-pointer"
         >
           <Plus size={16} aria-hidden />
           <span>New Chat</span>
         </button>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-surface-border bg-surface-card text-text-muted hover:text-text-primary md:hidden"
+            aria-label="Close conversation drawer"
+          >
+            <X size={18} />
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
-        <div className="px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-text-muted">
+        <div className="px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-text-muted">
           Recent Conversations
         </div>
 
@@ -120,24 +132,24 @@ export function ConversationSidebar({
               key={c.id}
               onClick={() => onSelect(c.id)}
               className={cn(
-                'group flex items-center justify-between gap-2 rounded-xl p-2.5 text-left text-xs transition-all cursor-pointer',
+                'group flex items-center justify-between gap-2 rounded-xl p-2.5 text-left text-xs transition-all cursor-pointer min-h-[44px]',
                 isActive
-                  ? 'bg-primary-light-indigo/60 text-primary-indigo font-semibold shadow-xs'
+                  ? 'bg-primary-light-indigo/70 text-primary-indigo font-semibold shadow-xs'
                   : 'text-text-secondary hover:bg-surface-card hover:text-text-primary'
               )}
             >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <MessageSquare size={14} className={isActive ? 'text-primary-indigo shrink-0' : 'text-text-muted shrink-0'} aria-hidden />
-                <div className="min-w-0">
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                <MessageSquare size={15} className={isActive ? 'text-primary-indigo shrink-0' : 'text-text-muted shrink-0'} aria-hidden />
+                <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{c.title || 'Conversation'}</p>
-                  <p className="text-[10px] text-text-muted flex items-center gap-1">
+                  <p className="text-[10px] text-text-muted flex items-center gap-1 mt-0.5">
                     <Clock size={10} aria-hidden />
                     <span>{formatDate(c.updatedAt)}</span>
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0">
                 {onRename && (
                   <button
                     type="button"
@@ -145,7 +157,7 @@ export function ConversationSidebar({
                     className="rounded p-1 text-text-muted hover:text-primary-indigo hover:bg-surface-border/60 transition-colors"
                     title="Rename"
                   >
-                    <Edit2 size={12} aria-hidden />
+                    <Edit2 size={13} aria-hidden />
                   </button>
                 )}
                 <button
@@ -159,7 +171,7 @@ export function ConversationSidebar({
                   className="rounded p-1 text-text-muted hover:text-red-600 hover:bg-red-50 transition-colors"
                   title="Delete conversation"
                 >
-                  <Trash2 size={12} aria-hidden />
+                  <Trash2 size={13} aria-hidden />
                 </button>
               </div>
             </div>

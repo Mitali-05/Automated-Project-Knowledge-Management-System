@@ -25,8 +25,8 @@ export function SyncHistoryTable({ history, loading = false }: SyncHistoryTableP
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-xs">
+    <div className="overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
+      <table className="w-full min-w-[540px] text-left text-xs">
         <thead>
           <tr className="border-b border-surface-border text-text-muted">
             <th className="pb-2.5 font-semibold">Repository</th>
@@ -60,7 +60,7 @@ export function SyncHistoryTable({ history, loading = false }: SyncHistoryTableP
                 <td className="py-3 text-text-secondary whitespace-nowrap">
                   {formatDate(run.startedAt)}
                 </td>
-                <td className="py-3 font-mono text-text-secondary">
+                <td className="py-3 font-mono text-text-secondary whitespace-nowrap">
                   {run.durationSeconds !== null && run.durationSeconds !== undefined ? `${run.durationSeconds}s` : '—'}
                 </td>
                 <td className="py-3 font-semibold text-text-primary">
@@ -72,7 +72,7 @@ export function SyncHistoryTable({ history, loading = false }: SyncHistoryTableP
                       {run.errorMessage}
                     </span>
                   ) : (
-                    <span>{run.statusMessage || 'Completed'}</span>
+                    <span className="truncate block">{run.statusMessage || 'Completed'}</span>
                   )}
                 </td>
               </tr>

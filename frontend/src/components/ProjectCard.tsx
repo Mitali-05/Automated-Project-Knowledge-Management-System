@@ -15,17 +15,17 @@ export function ProjectCard({ project }: { project: ProjectSummary }) {
       onClick={open} onKeyDown={(e) => e.key === 'Enter' && open()}
       className="group h-full cursor-pointer border-surface-border transition-all duration-300 hover:border-primary-indigo/40 hover:shadow-xl"
     >
-      <CardContent className="flex h-full flex-col p-6">
-        <div className="mb-4 flex items-start justify-between">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary-indigo to-primary-violet text-lg font-bold text-white shadow-md transition-transform group-hover:scale-105">
+      <CardContent className="flex h-full flex-col p-4 sm:p-6">
+        <div className="mb-3 sm:mb-4 flex items-start justify-between">
+          <div className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary-indigo to-primary-violet text-lg font-bold text-white shadow-md transition-transform group-hover:scale-105">
             {project.name.charAt(0).toUpperCase()}
           </div>
           <Badge variant={syncTone(project.syncStatus)}>{project.syncStatus}</Badge>
         </div>
-        <h3 className="mb-2 line-clamp-1 text-xl font-bold text-text-primary transition-colors group-hover:text-primary-indigo">{project.name}</h3>
+        <h3 className="mb-1 sm:mb-2 line-clamp-1 text-lg sm:text-xl font-bold text-text-primary transition-colors group-hover:text-primary-indigo">{project.name}</h3>
         <p className="mb-2 text-xs font-medium text-text-muted">{project.orgType === 'PERSONAL' ? 'Personal' : project.orgName}</p>
-        <p className="mb-6 line-clamp-2 flex-1 text-sm text-text-secondary">{project.description || 'No description provided for this project.'}</p>
-        <div className="mt-auto flex items-center gap-4 border-t border-surface-border pt-4 text-xs text-text-muted">
+        <p className="mb-4 sm:mb-6 line-clamp-2 flex-1 text-xs sm:text-sm text-text-secondary">{project.description || 'No description provided for this project.'}</p>
+        <div className="mt-auto flex flex-wrap items-center gap-3 sm:gap-4 border-t border-surface-border pt-3 sm:pt-4 text-xs text-text-muted">
           <span className="flex items-center gap-1.5" title="Repositories"><GitBranch size={14} className="text-primary-indigo" aria-hidden />{project.repositoryCount}</span>
           <span className="flex items-center gap-1.5" title="Knowledge items"><BookOpen size={14} className="text-primary-indigo" aria-hidden />{project.knowledgeItemCount}</span>
           <span className="flex items-center gap-1.5" title="Members"><Users size={14} className="text-primary-indigo" aria-hidden />{project.memberCount}</span>

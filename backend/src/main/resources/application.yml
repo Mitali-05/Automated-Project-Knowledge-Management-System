@@ -67,7 +67,8 @@ app:
     private-key-base64: ${GITHUB_APP_PRIVATE_KEY_BASE64:}
     client-id: ${GITHUB_APP_CLIENT_ID:}
     client-secret: ${GITHUB_APP_CLIENT_SECRET:}
-    redirect-uri: ${GITHUB_REDIRECT_URI}
+    token: ${GITHUB_TOKEN:}
+    redirect-uri: ${GITHUB_REDIRECT_URI:}
   ingest:
     service-key: ${INGEST_SERVICE_KEY:}
   jira:

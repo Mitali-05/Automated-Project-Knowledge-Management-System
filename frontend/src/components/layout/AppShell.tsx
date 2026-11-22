@@ -16,19 +16,41 @@ export function AppShell() {
   return (
     <NotificationProvider>
       <div className="flex h-screen overflow-hidden bg-surface-background">
-        <div className="hidden md:block"><Sidebar /></div>
+        <div className="hidden lg:block shrink-0">
+          <Sidebar />
+        </div>
         {menuOpen && (
-          <div className="fixed inset-0 z-50 flex md:hidden">
-            <div className="h-full shadow-2xl"><Sidebar onNavigate={() => setMenuOpen(false)} /></div>
-            <button className="flex-1 bg-black/40" aria-label="Close menu" onClick={() => setMenuOpen(false)} />
+          <div className="fixed inset-0 z-50 flex lg:hidden">
+            <div className="relative z-10 h-full w-72 max-w-[85vw] shadow-2xl">
+              <Sidebar onNavigate={() => setMenuOpen(false)} onClose={() => setMenuOpen(false)} />
+            </div>
+            <button
+              className="flex-1 bg-black/40 backdrop-blur-xs transition-opacity cursor-pointer"
+              aria-label="Close menu"
+              onClick={() => setMenuOpen(false)}
+            />
           </div>
         )}
-        <div className="relative flex h-screen flex-1 flex-col overflow-hidden">
+        <div className="relative flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
           <TopHeader onMenu={() => setMenuOpen(true)} />
-          <main className="flex-1 overflow-y-auto">{orgs.error
-            ? <div className="mx-auto max-w-3xl p-8"><ErrorState message={`Could not load workspaces: ${orgs.error}`} onRetry={() => { void orgs.refresh().catch(() => undefined) }} /></div>
-            : orgs.loading && !orgs.activeOrg ? <div className="mx-auto max-w-5xl p-8"><LoadingState label="Loading your workspace..." /></div>
-            : <Outlet />}</main>
+          <main className="flex-1 overflow-y-auto">
+            {orgs.error ? (
+              <div className="mx-auto max-w-3xl p-4 sm:p-6 md:p-8">
+                <ErrorState
+                  message={`Could not load workspaces: ${orgs.error}`}
+                  onRetry={() => {
+                    void orgs.refresh().catch(() => undefined)
+                  }}
+                />
+              </div>
+            ) : orgs.loading && !orgs.activeOrg ? (
+              <div className="mx-auto max-w-5xl p-4 sm:p-6 md:p-8">
+                <LoadingState label="Loading your workspace..." />
+              </div>
+            ) : (
+              <Outlet />
+            )}
+          </main>
         </div>
       </div>
     </NotificationProvider>

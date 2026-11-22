@@ -16,9 +16,11 @@ import com.pkm.user.User;
 import com.pkm.user.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
@@ -56,6 +58,23 @@ public class AssistantService {
             ProjectRepository projectRepository,
             UserRepository userRepository,
             ProjectAccess access,
+            ObjectMapper objectMapper) {
+        this(geminiClient, conversationRepository, messageRepository, knowledgeRepository,
+                freshnessRepository, vectorRepository, projectRepository, userRepository,
+                access, objectMapper, null);
+    }
+
+    @Autowired
+    public AssistantService(
+            GeminiClient geminiClient,
+            ChatConversationRepository conversationRepository,
+            ChatMessageRepository messageRepository,
+            KnowledgeItemRepository knowledgeRepository,
+            KnowledgeFreshnessRepository freshnessRepository,
+            KnowledgeVectorRepository vectorRepository,
+            ProjectRepository projectRepository,
+            UserRepository userRepository,
+            ProjectAccess access,
             ObjectMapper objectMapper,
             PlatformTransactionManager transactionManager) {
         this.geminiClient = geminiClient;
@@ -68,21 +87,28 @@ public class AssistantService {
         this.userRepository = userRepository;
         this.access = access;
         this.objectMapper = objectMapper;
-        this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.transactionTemplate = transactionManager != null ? new TransactionTemplate(transactionManager) : null;
+    }
+
+    private <T> T executeInTransaction(TransactionCallback<T> action) {
+        if (transactionTemplate != null) {
+            return transactionTemplate.execute(action);
+        }
+        return action.doInTransaction(null);
     }
 
     private record PreparedChatContext(
-            Long conversationId,
+            ChatConversation conversation,
             List<Map<String, String>> history,
             List<CitationCandidate> candidates,
-            String systemPrompt
+            String systemPrompt,
+            boolean noIndexedKnowledge
     ) {}
 
     public ChatResponse chat(Long projectId, Long userId, ChatRequest request) {
         access.requireMember(projectId, userId);
 
-        // Stage 1: Commit conversation and user message into DB immediately
-        PreparedChatContext ctx = transactionTemplate.execute(status -> {
+        PreparedChatContext ctx = executeInTransaction(status -> {
             Project project = projectRepository.findById(projectId)
                     .orElseThrow(() -> ApiException.notFound("Project not found"));
             User user = userRepository.findById(userId)
@@ -186,18 +212,31 @@ public class AssistantService {
             }
 
             String systemPrompt = buildSystemPrompt(project.getName(), candidates, allItems.isEmpty());
-            return new PreparedChatContext(conversation.getId(), history, candidates, systemPrompt);
+            return new PreparedChatContext(conversation, history, candidates, systemPrompt, allItems.isEmpty());
         });
 
-        // Stage 2: Call Gemini strictly using gemini-3.5-flash-lite outside of DB transaction
-        String assistantAnswer = geminiClient.generateResponse(ctx.systemPrompt(), ctx.history(), request.message());
+        String assistantAnswer = null;
+        try {
+            if (geminiClient != null) {
+                assistantAnswer = geminiClient.generateResponse(ctx.systemPrompt(), ctx.history(), request.message());
+            }
+        } catch (Exception e) {
+            log.warn("Gemini generation failed: {}", e.getMessage());
+        }
 
-        // Stage 3: Persist assistant message in DB in a new committed transaction
-        return transactionTemplate.execute(status -> {
-            ChatConversation conversation = conversationRepository.findById(ctx.conversationId())
-                    .orElseThrow(() -> ApiException.notFound("Conversation not found"));
+        if (assistantAnswer == null || assistantAnswer.isBlank()) {
+            assistantAnswer = ctx.noIndexedKnowledge()
+                    ? "I couldn't find sufficient evidence in this project's indexed knowledge to answer that confidently. Please link a repository and run knowledge extraction first."
+                    : "I am unable to generate a response at this moment. Please try again.";
+        }
 
-            List<CitationDto> citedList = resolveCitedReferences(assistantAnswer, ctx.candidates());
+        final String finalAnswer = assistantAnswer;
+
+        return executeInTransaction(status -> {
+            ChatConversation conversation = conversationRepository.findById(ctx.conversation().getId())
+                    .orElse(ctx.conversation());
+
+            List<CitationDto> citedList = resolveCitedReferences(finalAnswer, ctx.candidates());
 
             List<String> warnings = new ArrayList<>();
             for (CitationDto c : citedList) {
@@ -212,13 +251,13 @@ public class AssistantService {
             try {
                 citationsJson = objectMapper.writeValueAsString(citedList);
             } catch (Exception e) {
-                log.error("Failed to serialize citations: {}", e.getMessage());
+                log.warn("Failed to serialize citations: {}", e.getMessage());
             }
 
             ChatMessage assistantMsg = new ChatMessage();
             assistantMsg.setConversation(conversation);
             assistantMsg.setRole("assistant");
-            assistantMsg.setContent(assistantAnswer);
+            assistantMsg.setContent(finalAnswer);
             assistantMsg.setCitationsJson(citationsJson);
             assistantMsg.setFreshnessWarning(combinedWarning);
             assistantMsg.setCreatedAt(Instant.now());
@@ -227,8 +266,34 @@ public class AssistantService {
             conversation.setUpdatedAt(Instant.now());
             conversationRepository.save(conversation);
 
-            return new ChatResponse(conversation.getId(), assistantAnswer, citedList, combinedWarning);
+            return new ChatResponse(conversation.getId(), finalAnswer, citedList, combinedWarning);
         });
+    }
+
+    public ChatConversationDto createConversation(Long projectId, Long userId, String title) {
+        access.requireMember(projectId, userId);
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> ApiException.notFound("Project not found"));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> ApiException.notFound("User not found"));
+
+        ChatConversation conversation = new ChatConversation();
+        conversation.setProject(project);
+        conversation.setUser(user);
+        String initialTitle = (title != null && !title.isBlank()) ? title.trim() : "New Chat";
+        if (initialTitle.length() > 60) {
+            initialTitle = initialTitle.substring(0, 57) + "...";
+        }
+        conversation.setTitle(initialTitle);
+        ChatConversation saved = conversationRepository.save(conversation);
+        return new ChatConversationDto(
+                saved.getId(),
+                saved.getTitle(),
+                saved.getCreatedAt(),
+                saved.getUpdatedAt(),
+                "",
+                0
+        );
     }
 
     public ChatConversationDto renameConversation(Long projectId, Long conversationId, Long userId, String newTitle) {
@@ -273,32 +338,6 @@ public class AssistantService {
                 .toList();
     }
 
-    public ChatConversationDto createConversation(Long projectId, Long userId, String title) {
-        access.requireMember(projectId, userId);
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> ApiException.notFound("Project not found"));
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> ApiException.notFound("User not found"));
-
-        ChatConversation conversation = new ChatConversation();
-        conversation.setProject(project);
-        conversation.setUser(user);
-        String initialTitle = (title != null && !title.isBlank()) ? title.trim() : "New Chat";
-        if (initialTitle.length() > 60) {
-            initialTitle = initialTitle.substring(0, 57) + "...";
-        }
-        conversation.setTitle(initialTitle);
-        ChatConversation saved = conversationRepository.save(conversation);
-        return new ChatConversationDto(
-                saved.getId(),
-                saved.getTitle(),
-                saved.getCreatedAt(),
-                saved.getUpdatedAt(),
-                "",
-                0
-        );
-    }
-
     public List<ChatMessageDto> getConversationMessages(Long projectId, Long conversationId, Long userId) {
         access.requireMember(projectId, userId);
         ChatConversation conversation = conversationRepository.findOneWithMessages(conversationId, projectId, userId)
@@ -311,7 +350,7 @@ public class AssistantService {
                         try {
                             citations = objectMapper.readValue(m.getCitationsJson(), new TypeReference<>() {});
                         } catch (Exception e) {
-                            throw new IllegalStateException("Stored assistant citations are invalid", e);
+                            log.warn("Could not deserialize citations: {}", e.getMessage());
                         }
                     }
                     return new ChatMessageDto(

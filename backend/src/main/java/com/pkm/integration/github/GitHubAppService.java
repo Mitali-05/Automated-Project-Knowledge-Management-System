@@ -52,7 +52,7 @@ public class GitHubAppService {
     private String clientId;
     @Value("${app.github.client-secret:}")
     private String clientSecret;
-    @Value("${app.github.redirect-uri}")
+    @Value("${app.github.redirect-uri:}")
     private String redirectUri;
     @Value("${app.github.token:${GITHUB_TOKEN:}}")
     private String githubToken;

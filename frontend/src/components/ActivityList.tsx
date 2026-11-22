@@ -19,7 +19,7 @@ export function ActivityList({ items, showProject = false }: { items: Activity[]
                   </a>
                 )}
               </p>
-              <p className="text-xs text-text-muted">{[a.actor, showProject ? a.projectName : null, a.sourceRef, timeAgo(a.occurredAt)].filter(Boolean).join(' · ')}</p>
+              <p className="text-xs text-text-muted break-words">{[a.actor, showProject ? a.projectName : null, a.sourceRef, timeAgo(a.occurredAt)].filter(Boolean).join(' · ')}</p>
             </div>
           </li>
         )

@@ -58,7 +58,7 @@ export function KnowledgeDetailDrawer({ item, projectId, onClose, onRevalidated 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs"
       onClick={onClose}
     >
       <motion.aside
@@ -69,13 +69,13 @@ export function KnowledgeDetailDrawer({ item, projectId, onClose, onRevalidated 
         animate={{ x: 0 }}
         exit={{ x: 40 }}
         transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-        className="h-full w-full max-w-xl overflow-y-auto bg-surface-card p-6 shadow-2xl space-y-6"
+        className="h-full w-full max-w-full sm:max-w-xl md:max-w-2xl overflow-y-auto bg-surface-card p-4 sm:p-6 md:p-8 shadow-2xl space-y-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3 border-b border-surface-border pb-4">
-          <div>
+          <div className="min-w-0 flex-1">
             <span className="text-xs font-bold uppercase tracking-wider text-text-muted">{item.type}</span>
-            <h3 className="text-xl font-bold text-text-primary mt-1">{item.title}</h3>
+            <h3 className="text-lg sm:text-xl font-bold text-text-primary mt-1 break-words">{item.title}</h3>
             {item.module && (
               <span className="mt-1.5 inline-block rounded-md bg-surface-border/60 px-2 py-0.5 text-xs font-semibold text-text-secondary">
                 Module: {item.module}
@@ -85,13 +85,13 @@ export function KnowledgeDetailDrawer({ item, projectId, onClose, onRevalidated 
           <button
             onClick={onClose}
             aria-label="Close"
-            className="rounded-lg p-1.5 text-text-muted hover:bg-surface-background hover:text-text-primary cursor-pointer"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl p-1.5 text-text-muted hover:bg-surface-background hover:text-text-primary cursor-pointer"
           >
             <X size={20} aria-hidden />
           </button>
         </div>
 
-        <div className="rounded-2xl border border-surface-border bg-surface-background/60 p-4 space-y-3">
+        <div className="rounded-2xl border border-surface-border bg-surface-background/60 p-3.5 sm:p-4 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-text-muted">Freshness Status</span>
             <Button
@@ -125,7 +125,7 @@ export function KnowledgeDetailDrawer({ item, projectId, onClose, onRevalidated 
           </div>
 
           {freshness?.reason && (
-            <p className="text-xs text-text-secondary leading-relaxed bg-surface-card p-2.5 rounded-xl border border-surface-border/60">
+            <p className="text-xs text-text-secondary leading-relaxed bg-surface-card p-2.5 rounded-xl border border-surface-border/60 break-words">
               {freshness.reason}
             </p>
           )}
@@ -135,8 +135,8 @@ export function KnowledgeDetailDrawer({ item, projectId, onClose, onRevalidated 
               <span className="text-[11px] font-semibold text-text-muted">Changed Files Detected:</span>
               <div className="flex flex-wrap gap-1.5">
                 {freshness.changedFiles.map((f, idx) => (
-                  <span key={idx} className="inline-flex items-center gap-1 rounded bg-amber-100/70 border border-amber-200 px-2 py-0.5 font-mono text-[11px] text-amber-900">
-                    <FileCode size={11} />
+                  <span key={idx} className="inline-flex items-center gap-1 rounded bg-amber-100/70 border border-amber-200 px-2 py-0.5 font-mono text-[11px] text-amber-900 break-all">
+                    <FileCode size={11} className="shrink-0" />
                     <span>{f}</span>
                   </span>
                 ))}
@@ -154,7 +154,7 @@ export function KnowledgeDetailDrawer({ item, projectId, onClose, onRevalidated 
 
         <div>
           <h4 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-2">Summary</h4>
-          <p className="text-sm text-text-secondary leading-relaxed bg-surface-card p-3 rounded-xl border border-surface-border">
+          <p className="text-sm text-text-secondary leading-relaxed bg-surface-card p-3 sm:p-3.5 rounded-xl border border-surface-border break-words">
             {item.summary}
           </p>
         </div>
@@ -162,7 +162,7 @@ export function KnowledgeDetailDrawer({ item, projectId, onClose, onRevalidated 
         {item.details && (
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-2">Technical Details</h4>
-            <div className="text-sm text-text-secondary leading-relaxed whitespace-pre-line bg-surface-card p-3 rounded-xl border border-surface-border">
+            <div className="text-sm text-text-secondary leading-relaxed whitespace-pre-line bg-surface-card p-3 sm:p-3.5 rounded-xl border border-surface-border break-words">
               {item.details}
             </div>
           </div>
@@ -184,7 +184,7 @@ export function KnowledgeDetailDrawer({ item, projectId, onClose, onRevalidated 
                     </span>
                     <span>{formatDate(h.detectedAt)}</span>
                   </div>
-                  <p className="font-mono text-[11px] text-text-primary">
+                  <p className="font-mono text-[11px] text-text-primary break-all">
                     <span className="text-amber-700 font-semibold">{h.changeType}</span>: {h.filePath}
                   </p>
                   {h.commitMessage && (
@@ -207,20 +207,20 @@ export function KnowledgeDetailDrawer({ item, projectId, onClose, onRevalidated 
                 return (
                   <li key={s.id} className="rounded-xl border border-surface-border bg-surface-card p-3 text-xs space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold text-text-primary">{s.type}: {s.reference}</span>
+                      <span className="font-semibold text-text-primary truncate">{s.type}: {s.reference}</span>
                       {url && (
                         <a
                           href={url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-primary-indigo hover:underline font-medium"
+                          className="inline-flex items-center gap-1 text-primary-indigo hover:underline font-medium shrink-0"
                         >
                           Open <ExternalLink size={12} aria-hidden />
                         </a>
                       )}
                     </div>
                     {s.excerpt && (
-                      <pre className="rounded-lg bg-surface-background p-2 font-mono text-[11px] text-text-secondary whitespace-pre-wrap break-words border border-surface-border/50">
+                      <pre className="rounded-lg bg-surface-background p-2 font-mono text-[11px] text-text-secondary whitespace-pre-wrap break-words border border-surface-border/50 max-w-full overflow-x-auto">
                         {s.excerpt}
                       </pre>
                     )}

@@ -25,7 +25,7 @@ import {
 } from 'lucide-react'
 import { jiraApi, jiraSyncApi } from '../../api/jira'
 import { Button } from '../../components/ui/Button'
-import { Card, CardContent } from '../../components/ui/Card'
+import { Card } from '../../components/ui/Card'
 import { Badge } from '../../components/ui/Badge'
 import { Alert, ErrorState, LoadingState } from '../../components/ui/States'
 import { useAsync } from '../../hooks/useAsync'
@@ -52,7 +52,6 @@ export default function JiraTab() {
   const [typeFilter, setTypeFilter] = useState('All')
   const [selectedIssue, setSelectedIssue] = useState<JiraIssue | null>(null)
 
-  // Site & Project selection state for initial connect
   const [site, setSite] = useState('')
   const [page, setPage] = useState(0)
   const [selected, setSelected] = useState('')
@@ -64,7 +63,6 @@ export default function JiraTab() {
     [id, site, page]
   )
 
-  // Auto-polling when sync is active
   useEffect(() => {
     if (snapshot.loading) return
     const isSyncing =
@@ -114,7 +112,6 @@ export default function JiraTab() {
 
   const issues = useMemo(() => snapshot.data?.issues ?? [], [snapshot.data?.issues])
 
-  // Calculated metrics
   const totalCount = issues.length
   const toDoIssues = useMemo(
     () =>
@@ -143,7 +140,6 @@ export default function JiraTab() {
 
   const completionRate = totalCount > 0 ? Math.round((doneIssues.length / totalCount) * 100) : 0
 
-  // Filtered issues
   const filteredIssues = useMemo(() => {
     const q = query.trim().toLowerCase()
     return issues.filter((i) => {
@@ -235,15 +231,14 @@ export default function JiraTab() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/25">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/25">
               <Ticket size={22} />
             </div>
             <div>
-              <h2 className="text-2xl font-bold flex items-center gap-2">
+              <h2 className="text-xl sm:text-2xl font-bold flex flex-wrap items-center gap-2">
                 <span>Jira Requirements & Epics</span>
                 {data.connected && data.projectKey && (
                   <Badge variant="primary" className="bg-blue-50 text-blue-700 border-blue-200 font-mono text-xs">
@@ -259,7 +254,7 @@ export default function JiraTab() {
         </div>
 
         {data.connected && (
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
             {data.siteUrl && data.projectKey && (
               <a
                 href={`${data.siteUrl}/browse/${encodeURIComponent(data.projectKey)}`}
@@ -307,10 +302,9 @@ export default function JiraTab() {
         </Alert>
       )}
 
-      {/* When Jira is NOT yet authorized / connected */}
       {!data.authorized ? (
         <Card className="border-indigo-100 bg-gradient-to-br from-surface-card via-surface-card to-blue-50/30">
-          <CardContent className="p-8 space-y-6 text-center max-w-xl mx-auto">
+          <div className="p-6 sm:p-8 space-y-6 text-center max-w-xl mx-auto">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 shadow-inner">
               <Ticket size={32} />
             </div>
@@ -352,12 +346,11 @@ export default function JiraTab() {
             ) : (
               <Alert tone="info">Ask a workspace administrator who owns this PRISM project to connect Jira.</Alert>
             )}
-          </CardContent>
+          </div>
         </Card>
       ) : !data.connected ? (
-        /* Authorized but site/project picker required */
         <Card className="border-surface-border">
-          <CardContent className="p-6 space-y-5">
+          <div className="p-4 sm:p-6 space-y-5">
             <div>
               <h3 className="text-lg font-bold text-text-primary">Select Jira Site & Project</h3>
               <p className="text-xs text-text-muted mt-1">
@@ -471,68 +464,61 @@ export default function JiraTab() {
                 The user who authorized Jira needs to select the project. An owner can disconnect to switch accounts.
               </Alert>
             )}
-          </CardContent>
+          </div>
         </Card>
       ) : (
-        /* Connected Jira Dashboard View */
         <div className="space-y-6">
-          {/* Key Metric Stats Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Total Issues */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-              <Card className="p-5 border-blue-100 bg-gradient-to-br from-surface-card via-surface-card to-blue-50/20">
+              <Card className="p-4 sm:p-5 border-blue-100 bg-gradient-to-br from-surface-card via-surface-card to-blue-50/20">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-text-muted">Total Requirements</span>
                   <span className="rounded-lg bg-blue-100/70 p-2 text-blue-700">
                     <Ticket size={18} />
                   </span>
                 </div>
-                <p className="mt-2 text-3xl font-black text-text-primary">{totalCount}</p>
-                <p className="text-[11px] text-text-muted mt-1">
+                <p className="mt-2 text-2xl sm:text-3xl font-black text-text-primary">{totalCount}</p>
+                <p className="text-[11px] text-text-muted mt-1 truncate">
                   Synchronized from {data.projectName || data.projectKey || 'Jira'}
                 </p>
               </Card>
             </motion.div>
 
-            {/* To Do */}
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.05 }}>
-              <Card className="p-5 border-slate-200 bg-slate-50/40">
+              <Card className="p-4 sm:p-5 border-slate-200 bg-slate-50/40">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-700">To Do</span>
                   <span className="rounded-lg bg-slate-200/60 p-2 text-slate-700">
                     <FileText size={18} />
                   </span>
                 </div>
-                <p className="mt-2 text-3xl font-black text-slate-800">{toDoIssues.length}</p>
+                <p className="mt-2 text-2xl sm:text-3xl font-black text-slate-800">{toDoIssues.length}</p>
                 <p className="text-[11px] text-slate-600 mt-1">Awaiting implementation</p>
               </Card>
             </motion.div>
 
-            {/* In Progress */}
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1 }}>
-              <Card className="p-5 border-blue-200 bg-blue-50/40">
+              <Card className="p-4 sm:p-5 border-blue-200 bg-blue-50/40">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-blue-800">In Progress</span>
                   <span className="rounded-lg bg-blue-100/80 p-2 text-blue-700">
                     <Clock size={18} />
                   </span>
                 </div>
-                <p className="mt-2 text-3xl font-black text-blue-900">{inProgressIssues.length}</p>
+                <p className="mt-2 text-2xl sm:text-3xl font-black text-blue-900">{inProgressIssues.length}</p>
                 <p className="text-[11px] text-blue-700 mt-1">Active sprint work</p>
               </Card>
             </motion.div>
 
-            {/* Done / Progress */}
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.15 }}>
-              <Card className="p-5 border-emerald-200 bg-emerald-50/40">
+              <Card className="p-4 sm:p-5 border-emerald-200 bg-emerald-50/40">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">Resolved ({completionRate}%)</span>
                   <span className="rounded-lg bg-emerald-100/80 p-2 text-emerald-700">
                     <CheckCircle2 size={18} />
                   </span>
                 </div>
-                <p className="mt-2 text-3xl font-black text-emerald-900">{doneIssues.length}</p>
-                {/* Progress bar */}
+                <p className="mt-2 text-2xl sm:text-3xl font-black text-emerald-900">{doneIssues.length}</p>
                 <div className="mt-2 h-1.5 w-full rounded-full bg-emerald-200/60 overflow-hidden">
                   <div
                     className="h-full bg-emerald-600 transition-all duration-500 rounded-full"
@@ -543,15 +529,14 @@ export default function JiraTab() {
             </motion.div>
           </div>
 
-          {/* Architecture Sync & Report Traceability Banner */}
           <div className="rounded-2xl border border-indigo-100 bg-gradient-to-r from-surface-card via-indigo-50/20 to-purple-50/20 p-4 shadow-xs">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-indigo/10 text-primary-indigo">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-indigo/10 text-primary-indigo mt-0.5 sm:mt-0">
                   <Sparkles size={20} />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-text-primary flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-text-primary flex flex-wrap items-center gap-2">
                     <span>Engineering Traceability & Architecture Reports</span>
                     {snapshot.data?.connection?.synced_at && (
                       <span className="text-[11px] font-normal text-text-muted">
@@ -586,11 +571,9 @@ export default function JiraTab() {
             </div>
           </div>
 
-          {/* Search, Filters, and Board/List Switcher Toolbar */}
-          <div className="flex flex-col gap-3 rounded-2xl border border-surface-border bg-surface-card p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              {/* Search bar */}
-              <div className="relative flex-1 min-w-[260px]">
+          <div className="flex flex-col gap-3 rounded-2xl border border-surface-border bg-surface-card p-3 sm:p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="relative flex-1 min-w-0">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" aria-hidden />
                 <input
                   type="search"
@@ -602,8 +585,7 @@ export default function JiraTab() {
                 />
               </div>
 
-              {/* View Switcher (Board vs List) */}
-              <div className="flex items-center rounded-xl border border-surface-border bg-surface-background p-1" role="group" aria-label="View mode">
+              <div className="flex items-center rounded-xl border border-surface-border bg-surface-background p-1 self-start sm:self-auto shrink-0" role="group" aria-label="View mode">
                 <button
                   onClick={() => setViewMode('board')}
                   className={cn(
@@ -631,8 +613,7 @@ export default function JiraTab() {
               </div>
             </div>
 
-            {/* Filter pills */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-surface-border/60">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-surface-border/60">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-semibold text-text-muted mr-1">Status:</span>
                 {statusFilters.map((s) => (
@@ -650,7 +631,7 @@ export default function JiraTab() {
                   </button>
                 ))}
 
-                <span className="text-xs font-semibold text-text-muted ml-2 mr-1">Type:</span>
+                <span className="text-xs font-semibold text-text-muted ml-1 mr-1">Type:</span>
                 {types.map((t) => (
                   <button
                     key={t}
@@ -673,9 +654,8 @@ export default function JiraTab() {
             </div>
           </div>
 
-          {/* No Issues Match Filter Empty State */}
           {filteredIssues.length === 0 ? (
-            <div className="rounded-3xl border border-surface-border bg-surface-card/60 p-12 text-center space-y-3">
+            <div className="rounded-3xl border border-surface-border bg-surface-card/60 p-8 sm:p-12 text-center space-y-3">
               <Ticket size={32} className="mx-auto text-text-muted" />
               <h3 className="font-bold text-lg text-text-primary">No Jira issues match your filters</h3>
               <p className="text-xs text-text-secondary max-w-sm mx-auto">
@@ -694,10 +674,8 @@ export default function JiraTab() {
               </Button>
             </div>
           ) : viewMode === 'board' ? (
-            /* Kanban Board View */
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-start">
-              {/* Column 1: To Do */}
-              <div className="rounded-2xl border border-surface-border/80 bg-surface-background/60 p-4 space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5 items-start">
+              <div className="rounded-2xl border border-surface-border/80 bg-surface-background/60 p-3 sm:p-4 space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-surface-border">
                   <div className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 rounded-full bg-slate-400" />
@@ -728,7 +706,7 @@ export default function JiraTab() {
                           tabIndex={0}
                           onClick={() => setSelectedIssue(issue)}
                           onKeyDown={(e) => e.key === 'Enter' && setSelectedIssue(issue)}
-                          className="cursor-pointer border-surface-border/80 hover:border-blue-500/60 hover:shadow-md transition-all duration-200 bg-surface-card p-4 space-y-2.5"
+                          className="cursor-pointer border-surface-border/80 hover:border-blue-500/60 hover:shadow-md transition-all duration-200 bg-surface-card p-3.5 sm:p-4 space-y-2.5"
                         >
                           <div className="flex items-center justify-between gap-2">
                             <span className="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-blue-700">
@@ -769,8 +747,7 @@ export default function JiraTab() {
                 </div>
               </div>
 
-              {/* Column 2: In Progress */}
-              <div className="rounded-2xl border border-blue-200/80 bg-blue-50/20 p-4 space-y-3">
+              <div className="rounded-2xl border border-blue-200/80 bg-blue-50/20 p-3 sm:p-4 space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-blue-200/60">
                   <div className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 rounded-full bg-blue-500 animate-pulse" />
@@ -801,7 +778,7 @@ export default function JiraTab() {
                           tabIndex={0}
                           onClick={() => setSelectedIssue(issue)}
                           onKeyDown={(e) => e.key === 'Enter' && setSelectedIssue(issue)}
-                          className="cursor-pointer border-blue-200 hover:border-blue-500 hover:shadow-md transition-all duration-200 bg-surface-card p-4 space-y-2.5"
+                          className="cursor-pointer border-blue-200 hover:border-blue-500 hover:shadow-md transition-all duration-200 bg-surface-card p-3.5 sm:p-4 space-y-2.5"
                         >
                           <div className="flex items-center justify-between gap-2">
                             <span className="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-blue-700">
@@ -848,8 +825,7 @@ export default function JiraTab() {
                 </div>
               </div>
 
-              {/* Column 3: Done */}
-              <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/20 p-4 space-y-3">
+              <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/20 p-3 sm:p-4 space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-emerald-200/60">
                   <div className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
@@ -880,7 +856,7 @@ export default function JiraTab() {
                           tabIndex={0}
                           onClick={() => setSelectedIssue(issue)}
                           onKeyDown={(e) => e.key === 'Enter' && setSelectedIssue(issue)}
-                          className="cursor-pointer border-emerald-200/70 hover:border-emerald-500 hover:shadow-md transition-all duration-200 bg-surface-card p-4 space-y-2.5"
+                          className="cursor-pointer border-emerald-200/70 hover:border-emerald-500 hover:shadow-md transition-all duration-200 bg-surface-card p-3.5 sm:p-4 space-y-2.5"
                         >
                           <div className="flex items-center justify-between gap-2">
                             <span className="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-emerald-700">
@@ -922,7 +898,6 @@ export default function JiraTab() {
               </div>
             </div>
           ) : (
-            /* List View */
             <div className="space-y-3">
               {filteredIssues.map((issue, idx) => (
                 <motion.div
@@ -936,11 +911,11 @@ export default function JiraTab() {
                     tabIndex={0}
                     onClick={() => setSelectedIssue(issue)}
                     onKeyDown={(e) => e.key === 'Enter' && setSelectedIssue(issue)}
-                    className="cursor-pointer transition-all duration-200 hover:border-blue-500/60 hover:shadow-md p-4 bg-surface-card"
+                    className="cursor-pointer transition-all duration-200 hover:border-blue-500/60 hover:shadow-md p-3.5 sm:p-4 bg-surface-card"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-start gap-3 min-w-0">
-                        <span className="mt-0.5">{renderTypeIcon(issue.issue_type)}</span>
+                        <span className="mt-0.5 shrink-0">{renderTypeIcon(issue.issue_type)}</span>
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2 mb-1">
                             <span className="font-mono text-xs font-bold text-blue-700 hover:underline">
@@ -953,7 +928,7 @@ export default function JiraTab() {
                               </span>
                             )}
                           </div>
-                          <h4 className="text-sm font-semibold text-text-primary leading-snug">
+                          <h4 className="text-sm font-semibold text-text-primary leading-snug break-words">
                             {issue.summary}
                           </h4>
                           {issue.description && (
@@ -964,7 +939,7 @@ export default function JiraTab() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-4 shrink-0 self-end sm:self-center text-xs text-text-muted">
+                      <div className="flex items-center gap-3 shrink-0 self-start sm:self-center text-xs text-text-muted">
                         <div className="flex items-center gap-1.5">
                           {renderPriorityIcon(issue.priority)}
                           <span className="capitalize">{issue.priority || 'Medium'}</span>
@@ -981,7 +956,6 @@ export default function JiraTab() {
         </div>
       )}
 
-      {/* Slide-over Issue Detail Drawer */}
       <AnimatePresence>
         {selectedIssue && (
           <JiraIssueDrawer
