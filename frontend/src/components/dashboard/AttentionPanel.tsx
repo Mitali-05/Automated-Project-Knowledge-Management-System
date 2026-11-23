@@ -35,7 +35,7 @@ export function AttentionPanel({ items }: { items: AttentionItem[] }) {
                     <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${m.tone}`}><m.icon size={16} aria-hidden /></span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium text-text-primary">{it.projectName} <span className="font-normal text-text-muted">· {m.label}</span></span>
-                      <span className="block break-words text-xs text-text-secondary">{it.message}</span>
+                      <span className="block break-all sm:break-words text-xs text-text-secondary">{it.message}</span>
                     </span>
                   </Link>
                 </li>

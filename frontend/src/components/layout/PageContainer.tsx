@@ -7,7 +7,7 @@ export function PageContainer({ children, narrow }: { children: ReactNode; narro
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
-      className={`mx-auto w-full min-w-0 max-w-full space-y-6 sm:space-y-8 p-3.5 sm:p-6 md:p-8 ${narrow ? 'max-w-3xl' : 'max-w-7xl'}`}
+      className={`mx-auto w-full min-w-0 max-w-full overflow-x-hidden space-y-6 sm:space-y-8 p-3.5 sm:p-6 md:p-8 ${narrow ? 'max-w-3xl' : 'max-w-7xl'}`}
     >
       {children}
     </motion.div>

@@ -20,6 +20,8 @@ import { cn } from '../../lib/cn'
 export default function OverviewTab() {
   const { detail, reload } = useProject()
   const { project, repositories } = detail
+  const canSync = project.role !== 'viewer'
+  const hasRepositories = repositories.length > 0
   const recent = useAsync(
     () => activityApi.list(project.id, 0, 5),
     [project.id],
@@ -40,6 +42,13 @@ export default function OverviewTab() {
   const [historyError, setHistoryError] = useState<string | null>(null)
   const pollTimerRef = useRef<number | null>(null)
   const pollGenerationRef = useRef(0)
+
+  const isSyncActive =
+    busy === 'sync' ||
+    project.syncStatus === 'Syncing' ||
+    project.syncStatus === 'Pending' ||
+    Boolean(syncStatus?.active) ||
+    repositories.some((r) => r.syncStatus === 'Syncing' || r.syncStatus === 'Pending')
 
   const loadSyncHistory = useCallback(async () => {
     try {
@@ -110,6 +119,7 @@ export default function OverviewTab() {
   }, [project.id, fetchSyncStatus, startPolling, stopPolling, loadSyncHistory])
 
   const runSync = async () => {
+    if (!hasRepositories || isSyncActive) return
     setBusy('sync')
     setMsg(null)
     try {
@@ -128,6 +138,7 @@ export default function OverviewTab() {
   }
 
   const runRecheck = async () => {
+    if (!hasRepositories || isSyncActive) return
     setBusy('recheck')
     setMsg(null)
     try {
@@ -163,18 +174,44 @@ export default function OverviewTab() {
           <Button
             variant="outline"
             isLoading={busy === 'recheck'}
+            disabled={!hasRepositories || isSyncActive}
             onClick={() => void runRecheck()}
+            title={
+              !hasRepositories
+                ? 'Link at least one repository before checking drift'
+                : isSyncActive
+                ? 'Wait for the current sync to complete before rechecking drift'
+                : 'Recheck repository drift'
+            }
             className="flex-1 sm:flex-initial"
           >
-            <RotateCw size={14} aria-hidden /> Recheck drift
+            {busy !== 'recheck' && <RotateCw size={14} aria-hidden />} Recheck drift
           </Button>
-          <Button
-            isLoading={busy === 'sync'}
-            onClick={() => void runSync()}
-            className="flex-1 sm:flex-initial shadow-lg shadow-primary-indigo/20"
-          >
-            <RefreshCw size={16} aria-hidden /> Sync now
-          </Button>
+          {canSync && (
+            <Button
+              isLoading={busy === 'sync' || (isSyncActive && project.syncStatus === 'Syncing')}
+              disabled={!hasRepositories || isSyncActive}
+              onClick={() => void runSync()}
+              title={
+                !hasRepositories
+                  ? 'Link at least one repository in Settings before syncing'
+                  : isSyncActive
+                  ? 'Repository synchronization is already in progress'
+                  : 'Sync all repositories'
+              }
+              className={cn(
+                'flex-1 sm:flex-initial shadow-lg',
+                !hasRepositories || isSyncActive
+                  ? 'opacity-60 cursor-not-allowed shadow-none'
+                  : 'shadow-primary-indigo/20'
+              )}
+            >
+              {!(busy === 'sync' || (isSyncActive && project.syncStatus === 'Syncing')) && (
+                <RefreshCw size={16} aria-hidden />
+              )}
+              <span>{isSyncActive ? 'Syncing...' : 'Sync now'}</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -183,7 +220,7 @@ export default function OverviewTab() {
       {syncStatus && syncStatus.status !== 'IDLE' && (
         <SyncProgressSection
           status={syncStatus}
-          onRetry={() => void runSync()}
+          onRetry={canSync && hasRepositories && !isSyncActive ? () => void runSync() : undefined}
           isRetrying={busy === 'sync'}
         />
       )}
@@ -327,12 +364,11 @@ export default function OverviewTab() {
                     </div>
                     <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-auto">
                       <span className="text-xs text-text-muted">{timeAgo(r.lastSyncedAt)}</span>
-                      {isFailed && (
+                      {isFailed && canSync && hasRepositories && !isSyncActive && (
                         <Button
                           size="sm"
                           variant="outline"
                           className="h-7 px-2 text-xs border-red-200 text-red-700 hover:bg-red-50"
-                          isLoading={busy === 'sync'}
                           onClick={() => void runSync()}
                         >
                           <RotateCw size={12} className="mr-1" /> Retry

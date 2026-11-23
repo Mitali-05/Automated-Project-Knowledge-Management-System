@@ -63,7 +63,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
         <div className="min-w-0"><TypeChart rows={data.knowledgeByType} /></div>
-        <Card className="min-w-0 h-full">
+        <Card className="min-w-0 h-full overflow-hidden">
           <CardHeader><CardTitle>Recently extracted knowledge</CardTitle></CardHeader>
           <CardContent>
             {data.recentKnowledge.length === 0 ? (
@@ -88,7 +88,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
-        <Card className="min-w-0 lg:col-span-2">
+        <Card className="min-w-0 lg:col-span-2 overflow-hidden">
           <CardHeader><CardTitle>Recent activity</CardTitle></CardHeader>
           <CardContent>
             {data.recentActivity.length === 0
@@ -97,7 +97,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="min-w-0">
+        <Card className="min-w-0 overflow-hidden">
           <CardHeader className="flex-row items-center justify-between space-y-0">
             <CardTitle>Your organizations</CardTitle>
             <Link to="/app/organizations" className="text-xs font-medium text-primary-indigo hover:text-primary-violet shrink-0">Manage</Link>

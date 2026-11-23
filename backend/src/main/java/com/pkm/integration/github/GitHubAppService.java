@@ -77,9 +77,13 @@ public class GitHubAppService {
 
     public String authorizationUrl(String state) {
         requireConfigured();
-        return org.springframework.web.util.UriComponentsBuilder.fromHttpUrl("https://github.com/login/oauth/authorize")
-                .queryParam("client_id",clientId).queryParam("redirect_uri",redirectUri).queryParam("state",state)
-                .build().encode().toUriString();
+        var builder = org.springframework.web.util.UriComponentsBuilder.fromHttpUrl("https://github.com/login/oauth/authorize")
+                .queryParam("client_id", clientId)
+                .queryParam("state", state);
+        if (redirectUri != null && !redirectUri.isBlank()) {
+            builder.queryParam("redirect_uri", redirectUri.trim());
+        }
+        return builder.build().encode().toUriString();
     }
 
     public record UserInstallation(String id,String account) {}

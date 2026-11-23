@@ -8,7 +8,7 @@ import { cn } from '../../lib/cn'
 
 interface SyncProgressSectionProps {
   status: ExtractionSyncStatus | null
-  onRetry: () => void
+  onRetry?: () => void
   isRetrying?: boolean
 }
 
@@ -123,7 +123,7 @@ export function SyncProgressSection({ status, onRetry, isRetrying = false }: Syn
               {status.itemsExtracted} items extracted
             </div>
           )}
-          {isFailed && (
+          {isFailed && onRetry && (
             <Button
               size="sm"
               variant="outline"
