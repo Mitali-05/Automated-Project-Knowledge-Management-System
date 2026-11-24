@@ -1,7 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Check, Copy, ExternalLink, LogOut, RefreshCw, Trash2 } from 'lucide-react'
-import { githubApi, orgApi } from '../../api/endpoints'
+import { githubApi, orgApi, projectApi } from '../../api/endpoints'
 import type { OrgMember, OrgSummary } from '../../api/types'
 import { RoleBadge } from '../../components/OrgBadges'
 import { PageContainer, PageHeader } from '../../components/layout/PageContainer'
@@ -92,20 +92,48 @@ export default function OrganizationDetailPage() {
     setOwnedProjects([])
     setDeleteOwnedOnLeave(false)
     leaveDialog.current?.showModal()
-    void orgApi.leaveBlockers(id).then(setOwnedProjects).catch(() => [])
+    void orgApi.leaveBlockers(id)
+      .then((blockers) => {
+        if (blockers && blockers.length > 0) {
+          setOwnedProjects(blockers)
+        } else {
+          return projectApi.list().then((list) => {
+            const owned = list.filter((p) => p.orgId === id && p.role === 'owner').map((p) => ({ id: p.id, name: p.name }))
+            setOwnedProjects(owned)
+          })
+        }
+      })
+      .catch(async () => {
+        const list = await projectApi.list().catch(() => [])
+        const owned = list.filter((p) => p.orgId === id && p.role === 'owner').map((p) => ({ id: p.id, name: p.name }))
+        setOwnedProjects(owned)
+      })
   }
 
   const leave = async () => {
     setBusy('leave')
     setLeaveError(null)
     try {
+      if (deleteOwnedOnLeave) {
+        let toDelete = ownedProjects
+        if (toDelete.length === 0) {
+          const list = await projectApi.list().catch(() => [])
+          toDelete = list.filter((p) => p.orgId === id && p.role === 'owner').map((p) => ({ id: p.id, name: p.name }))
+        }
+        for (const p of toDelete) {
+          await projectApi.remove(p.id)
+        }
+      }
       await orgApi.leave(id, deleteOwnedOnLeave)
       leaveDialog.current?.close()
       void refresh().catch(() => undefined)
       navigate('/app/organizations', { replace: true })
     } catch (err) {
       setLeaveError(errorMessage(err))
-      void orgApi.leaveBlockers(id).then(setOwnedProjects).catch(() => [])
+      void projectApi.list().then((list) => {
+        const owned = list.filter((p) => p.orgId === id && p.role === 'owner').map((p) => ({ id: p.id, name: p.name }))
+        setOwnedProjects(owned)
+      }).catch(() => [])
     } finally {
       setBusy(null)
     }
@@ -121,6 +149,13 @@ export default function OrganizationDetailPage() {
     setBusy('delete')
     setDeleteOrgError(null)
     try {
+      if (deleteAllProjectsOnDelete) {
+        const list = await projectApi.list().catch(() => [])
+        const orgProjects = list.filter((p) => p.orgId === id)
+        for (const p of orgProjects) {
+          await projectApi.remove(p.id)
+        }
+      }
       await orgApi.remove(id, deleteAllProjectsOnDelete)
       deleteOrgDialog.current?.close()
       await refresh()
@@ -291,21 +326,25 @@ export default function OrganizationDetailPage() {
 
                   {leaveError && <div className="mt-4"><Alert tone="error">{leaveError}</Alert></div>}
 
-                  {ownedProjects.length > 0 && (
+                  {(ownedProjects.length > 0 || Boolean(leaveError?.toLowerCase().includes('owns projects'))) && (
                     <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 text-xs sm:text-sm">
                       <p className="font-semibold text-amber-900">
-                        You are an owner of {ownedProjects.length} project{ownedProjects.length === 1 ? '' : 's'} in this organization:
+                        {ownedProjects.length > 0
+                          ? `You are an owner of ${ownedProjects.length} project${ownedProjects.length === 1 ? '' : 's'} in this organization:`
+                          : 'You own projects in this organization that must be handled before leaving:'}
                       </p>
-                      <ul className="mt-2 list-disc pl-4 space-y-1 text-amber-900 font-medium">
-                        {ownedProjects.map((project) => (
-                          <li key={project.id}>
-                            {project.name}{' '}
-                            <Link to={`/app/projects/${project.id}/settings`} target="_blank" rel="noopener noreferrer" className="ml-1 text-xs text-primary-indigo underline font-normal">
-                              (open project settings)
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
+                      {ownedProjects.length > 0 && (
+                        <ul className="mt-2 list-disc pl-4 space-y-1 text-amber-900 font-medium">
+                          {ownedProjects.map((project) => (
+                            <li key={project.id}>
+                              {project.name}{' '}
+                              <Link to={`/app/projects/${project.id}/settings`} target="_blank" rel="noopener noreferrer" className="ml-1 text-xs text-primary-indigo underline font-normal">
+                                (open project settings)
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
 
                       <label className="mt-3 flex items-start gap-2.5 cursor-pointer pt-2 border-t border-amber-200/80">
                         <input
@@ -315,7 +354,7 @@ export default function OrganizationDetailPage() {
                           className="mt-0.5 h-4 w-4 rounded border-amber-300 text-danger focus:ring-danger"
                         />
                         <span className="text-xs font-semibold text-danger">
-                          Delete all projects created by me in this organization ({ownedProjects.length}) along with their repositories, knowledge, and history
+                          Delete all projects created by me in this organization{ownedProjects.length > 0 ? ` (${ownedProjects.length})` : ''} along with their repositories, knowledge, and history
                         </span>
                       </label>
                     </div>
@@ -326,8 +365,8 @@ export default function OrganizationDetailPage() {
                     <Button
                       variant="danger"
                       isLoading={busy === 'leave'}
-                      disabled={ownedProjects.length > 0 && !deleteOwnedOnLeave}
-                      title={ownedProjects.length > 0 && !deleteOwnedOnLeave ? 'Check the box to delete your projects or transfer ownership before leaving' : undefined}
+                      disabled={(ownedProjects.length > 0 || Boolean(leaveError?.toLowerCase().includes('owns projects'))) && !deleteOwnedOnLeave}
+                      title={(ownedProjects.length > 0 || Boolean(leaveError?.toLowerCase().includes('owns projects'))) && !deleteOwnedOnLeave ? 'Check the box to delete your projects or transfer ownership before leaving' : undefined}
                       onClick={() => void leave()}
                     >
                       Leave organization
