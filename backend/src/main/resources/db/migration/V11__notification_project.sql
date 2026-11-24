@@ -1,0 +1,1 @@
+ALTER TABLE notifications ADD COLUMN project_id BIGINT REFERENCES projects(id) ON DELETE SET NULL;

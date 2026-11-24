@@ -201,6 +201,14 @@ export function TopHeader({ onMenu }: { onMenu: () => void }) {
               <span className="shrink-0 text-xs text-text-muted">{new Date(selected.createdAt).toLocaleString()}</span>
             </div>
             <p className="mb-6 whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">{selected.description}</p>
+            {selected.projectId != null && (
+              <button type="button" onClick={() => {
+                navigate(`/app/projects/${selected.projectId}`)
+                setSelected(null)
+              }} className="mb-2 h-11 w-full rounded-xl border border-primary-indigo font-semibold text-primary-indigo">
+                View Project
+              </button>
+            )}
             <button
               onClick={() => setSelected(null)}
               className="h-11 w-full rounded-xl bg-primary-indigo font-semibold text-white transition-colors hover:bg-primary-violet cursor-pointer"

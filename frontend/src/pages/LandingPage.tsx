@@ -9,7 +9,7 @@ const features = [
   { icon: Network, title: 'Auto Knowledge Extraction', text: 'Extract decisions, workflows and module knowledge from your commits and pull requests - no manual entry.', color: 'bg-blue-50 text-primary-blue' },
   { icon: RefreshCw, title: 'Always Up to Date', text: 'Re-sync on demand. Every item shows how fresh it is, so stale knowledge is easy to spot.', color: 'bg-indigo-50 text-primary-indigo' },
   { icon: GitPullRequest, title: 'Evidence on Everything', text: 'Each knowledge item links back to the commit or pull request it came from, one click away on GitHub.', color: 'bg-violet-50 text-primary-violet' },
-  { icon: Lock, title: 'Private by Default', text: 'Projects are visible only to their owner and contributors - like private repositories.', color: 'bg-emerald-50 text-emerald-600' },
+  { icon: Lock, title: 'Private by Default', text: 'Projects are visible only to their project members - like private repositories.', color: 'bg-emerald-50 text-emerald-600' },
 ]
 
 export default function LandingPage() {
@@ -40,7 +40,7 @@ export default function LandingPage() {
               </div>
             </motion.div>
 
-            <motion.div style={{ opacity, scale }} className="relative hidden lg:block">
+            <motion.div style={{ opacity, scale }} className="relative mx-auto w-full min-w-0 max-w-2xl">
               <div className="relative rotate-1 rounded-xl border border-surface-border bg-surface-card p-2 shadow-2xl transition-transform duration-500 hover:rotate-0">
                 <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-primary-blue via-primary-indigo to-primary-violet opacity-20 blur-lg" />
                 <img src="/hero-illustration.jpg" alt="PRISM dashboard illustration" width={900} height={672} className="relative z-10 h-auto w-full rounded-lg object-contain" />
@@ -70,9 +70,9 @@ export default function LandingPage() {
         <div className="container mx-auto max-w-7xl px-4 text-center">
           <p className="mb-4 sm:mb-6 text-sm text-text-muted">Built with</p>
           <div className="flex flex-wrap items-center justify-center gap-x-8 sm:gap-x-10 gap-y-3 text-base sm:text-lg font-semibold text-text-secondary">
-            {['React', 'TypeScript', 'Spring Boot', 'PostgreSQL', 'GitHub'].map((t) => <span key={t}>{t}</span>)}
+            {['React', 'TypeScript', 'Spring Boot', 'PostgreSQL', 'GitHub', 'Google Gemini', 'Python Extractor', 'Vector RAG'].map((t) => <span key={t}>{t}</span>)}
           </div>
-          <p className="mt-6 text-xs text-text-muted">Jira integration, AI prompt history and generated documentation are on the roadmap.</p>
+          <p className="mt-6 text-xs text-text-muted">Connect Jira, explore interactive architecture diagrams, and export PDF reports and PowerPoint decks.</p>
         </div>
       </section>
     </PublicPage>

@@ -17,7 +17,7 @@ class GithubConnectionSecurityTest {
     final GitHubAppService github=mock(GitHubAppService.class);
     GithubConnectionService service(){return new GithubConnectionService(db,access,orgs,jwt,github,new ObjectMapper());}
     @Test void invalidUserBoundStateCannotReachGitHub() {
-        when(jwt.parseGithubState("bad",1L)).thenReturn(Optional.empty());
+        when(jwt.parseGithubConnectionState("bad",1L)).thenReturn(Optional.empty());
         assertThrows(ApiException.class,()->service().authorize(1,"code","bad"));
         verifyNoInteractions(db,access,github,orgs);
     }

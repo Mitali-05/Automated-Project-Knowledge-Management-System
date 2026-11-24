@@ -100,8 +100,7 @@ def run_extraction(project_id: str, provider: str, llm_key: str, github_token: s
     repo = proj["repo"]
 
     try:
-        if not github_token or github_token == "__NONE__":
-            raise ValueError("An explicit GitHub authorization token is required")
+        github_token = None if github_token == "__NONE__" else (github_token or None)
         # ── Phase 1: Fetch repo tree ───────────────────────────
         _update_project(project_id, {
             "status": "ANALYZING",
@@ -152,6 +151,12 @@ def run_extraction(project_id: str, provider: str, llm_key: str, github_token: s
         })
 
         async def execute_agent():
+            if not github_token:
+                from app.mcp.public_session import PublicRepositorySession
+                return await run_autonomous_extraction(
+                    owner, repo, llm_client, PublicRepositorySession(owner, repo),
+                    file_tree=tree, project_id=project_id
+                )
             service = GitHubMCPClientService(access_token=github_token)
             async with service.connect() as session:
                 return await run_autonomous_extraction(

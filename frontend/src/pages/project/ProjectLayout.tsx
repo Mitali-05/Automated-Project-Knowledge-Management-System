@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { AlertCircle, ArrowLeft, BookOpen, CheckCircle2, Clock, History, LayoutDashboard, FileBarChart, MessageSquare, RefreshCw, Settings, Sparkles, Ticket, type LucideIcon } from 'lucide-react'
+import { AlertCircle, ArrowLeft, BookOpen, CheckCircle2, Clock, History, LayoutDashboard, FileBarChart, RefreshCw, Settings, Sparkles, Ticket, type LucideIcon } from 'lucide-react'
 import { Link, NavLink, Outlet, useParams } from 'react-router-dom'
 import { projectApi } from '../../api/endpoints'
 import type { ProjectDetail, SyncStatus } from '../../api/types'
@@ -13,14 +13,13 @@ export interface ProjectContext {
   reload: () => void
 }
 
-const tabs: { label: string; path: string; icon: LucideIcon; soon?: boolean; highlight?: boolean }[] = [
+const tabs: { label: string; path: string; icon: LucideIcon; highlight?: boolean }[] = [
   { label: 'Overview', path: '', icon: LayoutDashboard },
   { label: 'Ask PRISM', path: 'assistant', icon: Sparkles, highlight: true },
   { label: 'Knowledge', path: 'knowledge', icon: BookOpen },
   { label: 'Report', path: 'report', icon: FileBarChart },
   { label: 'History', path: 'history', icon: History },
   { label: 'Jira', path: 'jira', icon: Ticket },
-  { label: 'Prompts', path: 'prompts', icon: MessageSquare, soon: true },
   { label: 'Settings', path: 'settings', icon: Settings },
 ]
 
@@ -101,7 +100,6 @@ export default function ProjectLayout() {
               )}>
               <t.icon size={15} aria-hidden className="shrink-0" />
               <span>{t.label}</span>
-              {t.soon && <span className="rounded bg-surface-border px-1.5 py-0.2 text-[9px] font-semibold uppercase text-text-muted">Soon</span>}
               {t.highlight && <span className="rounded bg-gradient-to-r from-indigo-500 to-purple-500 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white shadow-2xs">AI</span>}
             </NavLink>
           ))}

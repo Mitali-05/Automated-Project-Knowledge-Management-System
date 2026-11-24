@@ -20,17 +20,27 @@ public class GithubConnectionService {
     public GithubConnectionService(JdbcTemplate db,OrgAccess access,OrganizationRepository organizations,JwtUtil jwt,GitHubAppService github,ObjectMapper mapper) {
         this.db=db;this.access=access;this.organizations=organizations;this.jwt=jwt;this.github=github;this.mapper=mapper;
     }
-    public record Options(String connectionId,List<GitHubAppService.UserInstallation> installations,String installUrl) {}
+    public record Options(String connectionId, List<GitHubAppService.UserInstallation> installations,
+                          String installUrl, boolean fromInstallation) {}
     public Options authorize(long user,String code,String state) {
-        Long org=jwt.parseGithubState(state,user).orElseThrow(()->ApiException.badRequest("GitHub connection expired. Start again from PRISM."));
+        var connection = jwt.parseGithubConnectionState(state, user)
+                .orElseThrow(() -> ApiException.badRequest("GitHub connection expired. Start again from PRISM."));
+        Long org = connection.orgId();
         access.requireAdmin(org,user);
         var options=github.authorizedInstallations(code);
+        if (connection.installationId() != null) {
+            options = options.stream().filter(option -> connection.installationId().equals(option.id())).toList();
+            if (options.isEmpty()) {
+                throw ApiException.forbidden("GitHub could not confirm that you manage the selected installation.");
+            }
+        }
         UUID id=UUID.randomUUID();
         try {
             db.update("DELETE FROM github_connection_selections WHERE expires_at<now() OR (user_id=? AND org_id=?)",user,org);
             db.update("INSERT INTO github_connection_selections(id,user_id,org_id,installations) VALUES(?,?,?,?)",id,user,org,mapper.writeValueAsString(options));
         } catch(com.fasterxml.jackson.core.JsonProcessingException e){throw new IllegalStateException(e);}
-        return new Options(id.toString(),options,github.installUrl(jwt.generateGithubState(user,org)));
+        return new Options(id.toString(), options, github.installUrl(jwt.generateGithubState(user, org)),
+                connection.installationId() != null);
     }
     @Transactional
     public long select(long user,String selection,String installation) {

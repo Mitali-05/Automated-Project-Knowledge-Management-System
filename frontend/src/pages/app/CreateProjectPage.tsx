@@ -55,7 +55,14 @@ export default function CreateProjectPage() {
     setError(null)
     setFieldErrors({})
     if (!orgId) return setError('Choose an organization for this project.')
-    const repositoryUrls = [...new Set([...urls.map((u) => u.trim()).filter(Boolean), ...pickedRepos])]
+    const normalized = urls.map((url) => url.trim()).filter(Boolean).map((url) => {
+      const match = /^(?:https?:\/\/github\.com\/|github\.com\/)?([a-z0-9-]+)\/([a-z0-9_.-]+?)\/?$/i.exec(url)
+      if (!match) return null
+      const repo = match[2].replace(/\.git$/i, '')
+      return repo && repo !== '.' && repo !== '..' ? `https://github.com/${match[1]}/${repo}` : null
+    })
+    if (normalized.some((url) => url === null)) return setError('Enter a GitHub repository as owner/repo or https://github.com/owner/repo.')
+    const repositoryUrls = [...new Set([...normalized.filter((url): url is string => url !== null), ...pickedRepos])]
     setBusy(true)
     try {
       const created = await projectApi.create({ orgId, name: name.trim(), description: description.trim() || undefined, repositoryUrls, contributorIds: contributors })

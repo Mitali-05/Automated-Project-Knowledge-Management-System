@@ -48,8 +48,8 @@ export const projectApi = {
   sync: (id: number) => http.post<{ queued: number }>(`/api/projects/${id}/sync`),
   syncStatus: (id: number) => http.get<ExtractionSyncStatus>(`/api/projects/${id}/sync/status`),
   syncHistory: (id: number) => http.get<SyncHistoryItem[]>(`/api/projects/${id}/sync/history`),
-  addMember: (id: number, userId: number) =>
-    http.post<Member>(`/api/projects/${id}/members`, { userId }),
+  addMember: (id: number, userId: number, role: 'contributor' | 'viewer' = 'contributor') =>
+    http.post<Member>(`/api/projects/${id}/members`, { userId, role }),
   removeMember: (id: number, userId: number) =>
     http.delete(`/api/projects/${id}/members/${userId}`),
 }
@@ -81,8 +81,10 @@ export const notificationApi = {
 }
 
 export const githubApi = {
+  authorizeInstallation: (installationId: string, state: string) =>
+    http.post<{ authorizationUrl: string }>('/api/integrations/github/installation/authorize', { installationId, state }),
   authorizeConnection: (code: string, state: string) => http.post<{
-    connectionId: string; installations: { id: string; account: string }[]; installUrl: string
+    connectionId: string; installations: { id: string; account: string }[]; fromInstallation: boolean
   }>('/api/integrations/github/connection/authorize', { code, state }, 90_000),
   selectConnection: (connectionId: string, installationId: string) =>
     http.post<{ orgId: number }>('/api/integrations/github/connection/select', { connectionId, installationId }, 90_000),

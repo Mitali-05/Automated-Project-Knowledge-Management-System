@@ -1,5 +1,6 @@
 import requests
 import re
+import os
 
 import time
 import jwt
@@ -50,21 +51,35 @@ def parse_repo_url(url: str):
         raise ValueError("Invalid URL. Use https://github.com/owner/repository")
     return m.group(1), m.group(2)
 
-def fetch_repo_tree(token: str, owner: str, repo: str) -> list:
+class GitHubRateLimitError(RuntimeError):
+    """GitHub denied the request because the API quota was exhausted."""
+
+
+def raise_for_github_status(response):
+    if response.status_code in (403, 429) and (
+        response.status_code == 429 or response.headers.get('X-RateLimit-Remaining') == '0'
+        or response.headers.get('Retry-After') or 'rate limit' in response.text.lower()
+    ):
+        raise GitHubRateLimitError('GitHub API rate limit reached. Configure a public-only GITHUB_TOKEN or connect the PRISM GitHub App, then retry when the limit resets.')
+    response.raise_for_status()
+
+
+def fetch_repo_tree(token: str | None, owner: str, repo: str) -> list:
     """Resolve the real default branch; propagate HTTP and parsing failures."""
     headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
+    credential = token or os.getenv('GITHUB_TOKEN', '').strip()
+    if credential:
+        headers["Authorization"] = f"Bearer {credential}"
     base = f"https://api.github.com/repos/{owner}/{repo}"
     metadata = requests.get(base, headers=headers, timeout=30)
-    metadata.raise_for_status()
+    raise_for_github_status(metadata)
     details = metadata.json()
     if not token and details.get("private") is not False:
         raise RuntimeError("Repository is not confirmed public. Connect GitHub for private access.")
     branch = details["default_branch"]
     from urllib.parse import quote
     response = requests.get(f"{base}/git/trees/{quote(branch, safe='')}?recursive=1", headers=headers, timeout=30)
-    response.raise_for_status()
+    raise_for_github_status(response)
     data = response.json()
     if data.get("truncated"):
         raise RuntimeError("Repository tree is truncated; complete extraction cannot be verified")

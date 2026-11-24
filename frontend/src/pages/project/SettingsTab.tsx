@@ -24,6 +24,7 @@ export default function SettingsTab() {
   const [description, setDescription] = useState(project.description ?? '')
   const [newRepo, setNewRepo] = useState('')
   const [newMember, setNewMember] = useState('')
+  const [memberRole, setMemberRole] = useState<'contributor' | 'viewer'>('contributor')
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
 
@@ -46,7 +47,7 @@ export default function SettingsTab() {
 
   const saveDetails = (e: FormEvent) => { e.preventDefault(); void act('details', () => projectApi.update(project.id, name.trim(), description.trim()), 'Project updated') }
   const addRepo = (e: FormEvent) => { e.preventDefault(); void act('repo', async () => { await projectApi.addRepository(project.id, newRepo.trim()); setNewRepo('') }, 'Repository added and queued for sync') }
-  const addMember = (e: FormEvent) => { e.preventDefault(); void act('member', async () => { await projectApi.addMember(project.id, Number(newMember)); setNewMember('') }, 'Contributor added') }
+  const addMember = (e: FormEvent) => { e.preventDefault(); void act('member', async () => { await projectApi.addMember(project.id, Number(newMember), memberRole); setNewMember('') }, 'Member added') }
 
   const remove = async () => {
     if (!window.confirm(`Delete "${project.name}" and all its knowledge? This cannot be undone.`)) return
@@ -126,6 +127,10 @@ export default function SettingsTab() {
                   {candidates.map((m) => <option key={m.userId} value={m.userId}>{m.name} ({m.email})</option>)}
                 </select>
               </div>
+              <select aria-label="Project role" value={memberRole} onChange={(e) => setMemberRole(e.target.value === 'viewer' ? 'viewer' : 'contributor')} className="h-10 rounded-xl border border-surface-border bg-surface-card px-3 text-sm">
+                <option value="contributor">Contributor</option>
+                <option value="viewer">Viewer</option>
+              </select>
               <Button type="submit" isLoading={busy === 'member'} disabled={!newMember} className="h-10">Add</Button>
             </form>
           )}

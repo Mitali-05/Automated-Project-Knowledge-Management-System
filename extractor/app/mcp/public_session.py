@@ -1,23 +1,27 @@
-"""Read-only agent tools for explicitly selected, unauthenticated public access."""
+"""Read-only agent tools for explicitly selected public repositories."""
 import asyncio
 import base64
 import json
+import os
 from urllib.parse import quote
 
 import requests
 from mcp.types import CallToolResult, ListToolsResult, TextContent, Tool
+from app.github.auth import raise_for_github_status
 
 
 class PublicRepositorySession:
-    def __init__(self, owner: str, repo: str):
+    def __init__(self, owner: str, repo: str, fallback_token: str | None = None):
         self.owner, self.repo = owner, repo
+        self.token = (fallback_token or os.getenv('GITHUB_TOKEN', '')).strip()
         self.base = f"https://api.github.com/repos/{quote(owner, safe='')}/{quote(repo, safe='')}"
 
     def _get(self, path='', params=None):
-        response = requests.get(self.base + path, params=params,
-                                headers={'Accept': 'application/vnd.github+json',
-                                         'X-GitHub-Api-Version': '2022-11-28'}, timeout=30)
-        response.raise_for_status()
+        headers = {'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'}
+        if self.token:
+            headers['Authorization'] = f'Bearer {self.token}'
+        response = requests.get(self.base + path, params=params, headers=headers, timeout=30)
+        raise_for_github_status(response)
         return response.json()
 
     def verify_public(self):
@@ -26,7 +30,7 @@ class PublicRepositorySession:
         except requests.HTTPError as exc:
             if exc.response is not None and exc.response.status_code == 404:
                 raise RuntimeError(
-                    'GitHub returned 404 for unauthenticated repository access. The repository may be private, '
+                    'GitHub returned 404 for public repository access. The repository may be private, '
                     'renamed, missing, or the URL may be incorrect. For a private repository, connect the PRISM '
                     'GitHub App in this project\'s workspace, grant this repository access, then retry sync.'
                 ) from exc

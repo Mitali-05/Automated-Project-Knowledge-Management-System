@@ -18,7 +18,8 @@ public class GithubIntegrationService {
 
     private static final Pattern NUMERIC = Pattern.compile("^\\d{1,20}$");
 
-    public record Status(boolean configured, boolean connected, boolean canManage, String installUrl) {
+    public record Status(boolean configured, boolean connected, boolean canManage, String installUrl,
+                         String authorizationUrl) {
     }
 
     public record RepoOption(long id, String fullName, String url, boolean isPrivate, String description) {
@@ -42,9 +43,21 @@ public class GithubIntegrationService {
         OrganizationMember me = orgAccess.requireMember(orgId, userId);
         boolean connected = hasText(me.getOrganization().getGithubInstallationId());
         boolean canManage = me.getRole() != OrganizationMember.Role.member;
-        String url = github.isConfigured() && canManage
-                ? github.authorizationUrl(jwtUtil.generateGithubState(userId, orgId)) : null;
-        return new Status(github.isConfigured(), connected, canManage, url);
+        boolean configured = github.isConfigured();
+        String state = configured && canManage ? jwtUtil.generateGithubState(userId, orgId) : null;
+        return new Status(configured, connected, canManage,
+                state == null ? null : github.installUrl(state),
+                state == null ? null : github.authorizationUrl(state));
+    }
+
+    public String authorizeInstallation(Long userId, String installationId, String state) {
+        if (installationId == null || !NUMERIC.matcher(installationId).matches()) {
+            throw ApiException.badRequest("Invalid GitHub installation id");
+        }
+        Long orgId = jwtUtil.parseGithubState(state, userId).orElseThrow(() ->
+                ApiException.badRequest("This GitHub connection request expired or is invalid. Start again from PRISM."));
+        orgAccess.requireAdmin(orgId, userId);
+        return github.authorizationUrl(jwtUtil.generateGithubState(userId, orgId, installationId));
     }
 
     /**

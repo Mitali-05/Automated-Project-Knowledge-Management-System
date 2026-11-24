@@ -3,12 +3,32 @@ package com.pkm.integration.github;
 import com.pkm.common.ApiException;
 import com.pkm.config.JwtUtil;
 import com.pkm.org.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.JdbcTemplate;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class GithubInstallationSecurityTest {
+    @Test
+    void setupAuthorizationCannotSelectAnotherManagedInstallation() {
+        var db = mock(JdbcTemplate.class);
+        var access = mock(OrgAccess.class);
+        var github = mock(GitHubAppService.class);
+        var jwt = new JwtUtil("test-signing-key-for-github-state-only", 60_000);
+        var service = new GithubConnectionService(db, access, mock(OrganizationRepository.class),
+                jwt, github, new ObjectMapper());
+        String state = jwt.generateGithubState(1L, 10L, "123");
+        when(github.authorizedInstallations("code")).thenReturn(
+                List.of(new GitHubAppService.UserInstallation("456", "other-account")));
+
+        assertThrows(ApiException.class, () -> service.authorize(1L, "code", state));
+        verify(access).requireAdmin(10L, 1L);
+        verifyNoInteractions(db);
+    }
+
     @Test
     void unverifiedInstallationIsRejectedEvenWhenVerificationIsNotConfigured() {
         var repository = mock(OrganizationRepository.class);

@@ -137,7 +137,12 @@ export default function OrganizationDetailPage() {
           <p className="text-text-secondary">Projects in this {personal ? 'workspace' : 'organization'} use this connection to read repositories, including private ones. PRISM keeps only the extracted knowledge and links back to the source.</p>
           {github.loading && !gh ? <p className="text-text-muted">Checking connection...</p>
             : gh && !gh.configured ? <Alert tone="info">The PRISM GitHub App is not configured on this server yet. Public repository links still work.</Alert>
-            : gh && !gh.connected && gh.canManage && gh.installUrl ? <a href={gh.installUrl}><Button><ExternalLink size={16} aria-hidden /> Connect GitHub</Button></a>
+            : gh && !gh.connected && gh.canManage && gh.installUrl ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <a href={gh.installUrl}><Button><ExternalLink size={16} aria-hidden /> Connect GitHub</Button></a>
+                {gh.authorizationUrl && <a href={gh.authorizationUrl} className="font-medium text-primary-indigo hover:underline">Connect existing installation</a>}
+              </div>
+            )
             : null}
         </CardContent>
       </Card>

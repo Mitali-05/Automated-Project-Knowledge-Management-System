@@ -251,6 +251,6 @@ public class IngestService {
 
     private void notifyMembers(Project project, String title, String description) {
         memberRepository.findByProjectIdWithUser(project.getId())
-                .forEach(m -> notifications.notify(m.getUser(), title, description));
+                .forEach(m -> notifications.notify(m.getUser(), title, description, project.getId()));
     }
 }

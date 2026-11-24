@@ -15,7 +15,7 @@ import java.time.Instant;
 @NoArgsConstructor
 public class ProjectMember {
 
-    public enum Role { owner, contributor }
+    public enum Role { owner, contributor, viewer }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

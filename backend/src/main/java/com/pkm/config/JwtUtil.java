@@ -71,11 +71,16 @@ public class JwtUtil {
 
     /** Opaque state value that binds a GitHub App installation round-trip to the user and organization it started for. */
     public String generateGithubState(Long userId, Long orgId) {
+        return generateGithubState(userId, orgId, null);
+    }
+
+    public String generateGithubState(Long userId, Long orgId, String installationId) {
         Date now = new Date();
         return Jwts.builder()
                 .subject(String.valueOf(userId))
                 .claim("typ", TYPE_GITHUB_STATE)
                 .claim("org", orgId)
+                .claim("installation", installationId)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + STATE_TTL_MS))
                 .signWith(key)
@@ -84,6 +89,12 @@ public class JwtUtil {
 
     /** The organization id carried by a valid install state that was issued to this user, otherwise empty. */
     public Optional<Long> parseGithubState(String state, Long userId) {
+        return parseGithubConnectionState(state, userId).map(GithubState::orgId);
+    }
+
+    public record GithubState(Long orgId, String installationId) {}
+
+    public Optional<GithubState> parseGithubConnectionState(String state, Long userId) {
         try {
             Claims claims = parse(state);
             if (!TYPE_GITHUB_STATE.equals(claims.get("typ", String.class))
@@ -91,7 +102,8 @@ public class JwtUtil {
                 return Optional.empty();
             }
             Number org = claims.get("org", Number.class);
-            return org == null ? Optional.empty() : Optional.of(org.longValue());
+            return org == null ? Optional.empty()
+                    : Optional.of(new GithubState(org.longValue(), claims.get("installation", String.class)));
         } catch (JwtException | IllegalArgumentException e) {
             return Optional.empty();
         }

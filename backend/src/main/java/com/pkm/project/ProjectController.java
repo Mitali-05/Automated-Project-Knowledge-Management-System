@@ -76,10 +76,15 @@ public class ProjectController {
     }
 
     // ---- members
+    @PutMapping("/{projectId}/owner")
+    public MemberDto transferOwnership(@PathVariable Long projectId, @Valid @RequestBody com.pkm.common.OwnerTransferRequest request) {
+        return service.transferOwnership(projectId, CurrentUser.id(), request.userId(), request.retainOwnership());
+    }
+
     @PostMapping("/{projectId}/members")
     @ResponseStatus(HttpStatus.CREATED)
     public MemberDto addMember(@PathVariable Long projectId, @Valid @RequestBody AddMemberRequest request) {
-        return service.addMember(projectId, CurrentUser.id(), request.userId());
+        return service.addMember(projectId, CurrentUser.id(), request.userId(), request.role());
     }
 
     @DeleteMapping("/{projectId}/members/{userId}")

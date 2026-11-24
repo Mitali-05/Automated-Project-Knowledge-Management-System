@@ -114,7 +114,7 @@ public class ProjectService {
             activity.record(project, "MEMBER_ADDED", contributor.getName() + " joined as a contributor",
                     creator.getName(), null);
             notifications.notify(contributor, "Added to " + project.getName(),
-                    creator.getName() + " added you as a contributor.");
+                    creator.getName() + " added you as a contributor.", project.getId());
         }
         return detail(project, ProjectMember.Role.owner);
     }
@@ -151,6 +151,21 @@ public class ProjectService {
     }
 
     @Transactional
+    public MemberDto transferOwnership(Long projectId, Long userId, Long targetUserId, boolean retainOwnership) {
+        projectRepository.lockForOwnershipTransfer(projectId)
+                .orElseThrow(() -> ApiException.notFound("Project not found"));
+        ProjectMember owner = access.requireOwner(projectId, userId);
+        if (userId.equals(targetUserId)) return MemberDto.from(owner);
+        ProjectMember target = access.requireMember(projectId, targetUserId);
+        if (!orgMembers.existsByOrganizationIdAndUserId(owner.getProject().getOrganization().getId(), targetUserId)) {
+            throw ApiException.badRequest("Choose a current organization member");
+        }
+        target.setRole(ProjectMember.Role.owner);
+        if (!retainOwnership) owner.setRole(ProjectMember.Role.contributor);
+        return MemberDto.from(target);
+    }
+
+    @Transactional
     public void removeRepository(Long projectId, Long repositoryId, Long userId) {
         ProjectMember me = access.requireOwner(projectId, userId);
         ProjectRepositoryLink link = repoLinkRepository.findById(repositoryId)
@@ -166,6 +181,9 @@ public class ProjectService {
     @Transactional
     public int requestSync(Long projectId, Long userId) {
         ProjectMember me = access.requireMember(projectId, userId);
+        if (me.getRole() == ProjectMember.Role.viewer) {
+            throw ApiException.forbidden("Viewers cannot request a repository sync");
+        }
         List<ProjectRepositoryLink> repos = repoLinkRepository.findByProjectIdOrderByAddedAtAsc(projectId);
         if (repos.isEmpty()) {
             throw ApiException.badRequest("Link at least one repository before syncing");
@@ -273,7 +291,16 @@ public class ProjectService {
 
     @Transactional
     public MemberDto addMember(Long projectId, Long userId, Long newUserId) {
+        return addMember(projectId, userId, newUserId, null);
+    }
+
+    @Transactional
+    public MemberDto addMember(Long projectId, Long userId, Long newUserId, ProjectMember.Role role) {
         ProjectMember me = access.requireOwner(projectId, userId);
+        if (role == ProjectMember.Role.owner) {
+            throw ApiException.badRequest("Choose the contributor or viewer role");
+        }
+        ProjectMember.Role selectedRole = role == null ? ProjectMember.Role.contributor : role;
         User newcomer = loadUser(newUserId);
         if (!orgMembers.existsByOrganizationIdAndUserId(me.getProject().getOrganization().getId(), newUserId)) {
             // Same answer as "no such user" so the API cannot be used to probe other organizations.
@@ -282,11 +309,11 @@ public class ProjectService {
         if (memberRepository.findByProjectIdAndUserId(projectId, newUserId).isPresent()) {
             throw ApiException.conflict("This person is already on the project");
         }
-        ProjectMember added = addMember(me.getProject(), newcomer, ProjectMember.Role.contributor);
-        activity.record(me.getProject(), "MEMBER_ADDED", newcomer.getName() + " joined as a contributor",
+        ProjectMember added = addMember(me.getProject(), newcomer, selectedRole);
+        activity.record(me.getProject(), "MEMBER_ADDED", newcomer.getName() + " joined as " + selectedRole.name(),
                 me.getUser().getName(), null);
         notifications.notify(newcomer, "Added to " + me.getProject().getName(),
-                me.getUser().getName() + " added you as a contributor.");
+                me.getUser().getName() + " added you as " + selectedRole.name() + ".", projectId);
         touch(me.getProject());
         return MemberDto.from(added);
     }

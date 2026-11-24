@@ -23,6 +23,9 @@ public class Notification {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @Column(name = "project_id")
+    private Long projectId;
+
     @Column(nullable = false)
     private String title;
 

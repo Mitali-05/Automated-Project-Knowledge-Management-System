@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/integrations/github")
@@ -34,6 +35,12 @@ public class GithubIntegrationController {
     public CallbackResponse callback(@Valid @RequestBody CallbackRequest request) {
         Long orgId = service.completeInstall(CurrentUser.id(), request.installationId(), request.state(), request.code());
         return new CallbackResponse(orgId);
+    }
+
+    @PostMapping("/installation/authorize")
+    public Map<String, String> authorizeInstallation(@Valid @RequestBody CallbackRequest request) {
+        return Map.of("authorizationUrl",
+                service.authorizeInstallation(CurrentUser.id(), request.installationId(), request.state()));
     }
 
     @GetMapping("/repositories")

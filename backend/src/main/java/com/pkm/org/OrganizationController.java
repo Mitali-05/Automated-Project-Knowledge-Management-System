@@ -59,6 +59,12 @@ public class OrganizationController {
         return service.rotateInviteCode(orgId, CurrentUser.id());
     }
 
+    @PutMapping("/{orgId}/owner")
+    public OrgDtos.Detail transferOwnership(@PathVariable Long orgId, @Valid @RequestBody com.pkm.common.OwnerTransferRequest request) {
+        service.transferOwnership(orgId, CurrentUser.id(), request.userId(), request.retainOwnership());
+        return service.get(orgId, CurrentUser.id());
+    }
+
     @PutMapping("/{orgId}/members/{userId}/role")
     public OrgDtos.Member setRole(@PathVariable Long orgId, @PathVariable Long userId,
                                   @Valid @RequestBody OrgDtos.RoleRequest request) {

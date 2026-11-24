@@ -344,7 +344,7 @@ export default function JiraTab() {
                 Connect Jira Workspace
               </Button>
             ) : (
-              <Alert tone="info">Ask a workspace administrator who owns this PRISM project to connect Jira.</Alert>
+              <Alert tone="info">Connecting Jira requires Organization Admin privileges and project ownership.</Alert>
             )}
           </div>
         </Card>

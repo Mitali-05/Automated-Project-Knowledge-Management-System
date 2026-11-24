@@ -1,8 +1,12 @@
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+
 export default async function handler(req, res) {
   const pathParam = req.query.path;
   const pathStr = Array.isArray(pathParam) ? pathParam.join('/') : (pathParam || '');
   const queryString = req.url && req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
-  const targetUrl = `http://3.107.34.239:8080/api/${pathStr}${queryString}`;
+  const backendOrigin = (process.env.PRISM_BACKEND_URL || 'http://3.107.34.239:8080').replace(/\/$/, '');
+  const targetUrl = `${backendOrigin}/api/${pathStr}${queryString}`;
 
   const headers = {};
   for (const [key, val] of Object.entries(req.headers || {})) {
@@ -35,10 +39,13 @@ export default async function handler(req, res) {
       }
     });
 
-    const buffer = await backendRes.arrayBuffer();
-    return res.send(Buffer.from(buffer));
+    if (!backendRes.body) return res.end();
+    await pipeline(Readable.fromWeb(backendRes.body), res);
   } catch (err) {
     console.error('Proxy error:', err);
-    return res.status(502).json({ error: 'Backend unreachable', message: err.message });
+    if (!res.headersSent && !res.destroyed) {
+      res.removeHeader('Content-Disposition');
+      return res.status(502).json({ error: 'Backend unreachable' });
+    }
   }
 }

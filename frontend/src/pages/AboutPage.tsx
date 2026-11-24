@@ -4,7 +4,7 @@ import { PublicPage } from '../components/layout/PublicPage'
 const sections = [
   { title: 'The problem', body: 'Software knowledge is created continuously through commits, pull requests and reviews, yet most organisations rely on people to document it by hand. Documentation falls behind, and the reasoning behind decisions ends up buried in history or in a few engineers\' memories.' },
   { title: 'Our approach', body: 'Connect an existing repository once and let the platform extract knowledge from real engineering activity. PRISM stores the extracted knowledge together with pointers to its evidence. It does not keep a copy of your source code; the original is always one click away on GitHub.' },
-  { title: 'Where we are', body: 'Today PRISM covers GitHub repositories: knowledge items with evidence and freshness, a project history timeline and contributor-based access. Jira, AI-tool prompt history, generated documentation and semantic search are planned next.' },
+  { title: 'Where we are', body: 'Today PRISM covers GitHub repositories: knowledge items with evidence and freshness, a project history timeline and role-based access. Jira integration, generated documentation and semantic search are available today. AI-tool prompt history is in development.' },
 ]
 
 export default function AboutPage() {

@@ -24,22 +24,41 @@ export default function GithubCallbackPage() {
     const state = params.get('state')
     const code = params.get('code')
     window.history.replaceState(window.history.state, '', '/app/github/callback')
+    const finish = async ({ orgId }: { orgId: number }) => {
+      await refresh()
+      navigate(`/app/organizations/${orgId}`, { replace: true })
+    }
+    const showError = (err: unknown) => setError(errorMessage(err))
     if (params.has('error')) {
       setError('GitHub authorization was not granted. Start again from your workspace.')
       return
     }
+    if (params.get('setup_action') === 'request') {
+      setError('Once the GitHub organization approves your installation request, return to your workspace and use Connect existing installation.')
+      return
+    }
     if (code && state && !installationId) {
-      githubApi.authorizeConnection(code, state).then(setOptions)
-        .catch((err: unknown) => setError(errorMessage(err)))
+      githubApi.authorizeConnection(code, state).then(async (connection) => {
+        const installation = connection.installations[0]
+        if (connection.fromInstallation && installation) {
+          await githubApi.selectConnection(connection.connectionId, installation.id).then(finish)
+        } else {
+          setOptions(connection)
+        }
+      }).catch(showError)
       return
     }
     if (!installationId || !state) {
       setError('GitHub did not return the expected details. Please start the connection again.')
       return
     }
-    githubApi.complete(installationId, state, params.get('code') ?? undefined)
-      .then(async ({ orgId }) => { await refresh(); navigate(`/app/organizations/${orgId}`, { replace: true }) })
-      .catch((err: unknown) => setError(errorMessage(err)))
+    if (!code) {
+      githubApi.authorizeInstallation(installationId, state)
+        .then(({ authorizationUrl }) => window.location.replace(authorizationUrl))
+        .catch(showError)
+      return
+    }
+    githubApi.complete(installationId, state, code).then(finish).catch(showError)
   }, [params, navigate, refresh])
 
   return (
@@ -67,8 +86,7 @@ export default function GithubCallbackPage() {
               .catch((err:unknown) => {setError(errorMessage(err));setBusy(false)})
           }}>Connect selected installation</Button>
         </> : <>
-          <Alert tone="info">No active PRISM installation that you manage was found. Install the app, then return to your workspace and authorize GitHub again.</Alert>
-          <a className="text-primary-indigo underline text-sm" href={options.installUrl}>Install PRISM GitHub App</a>
+          <Alert tone="info">GitHub returned no active PRISM installations managed by this account. Return to your workspace and use Connect GitHub to start setup on GitHub.</Alert>
         </>}
         <Link to="/app/organizations" className="block text-primary-indigo underline text-sm">Back to workspaces</Link>
       </div> : <LoadingState rows={1} />}

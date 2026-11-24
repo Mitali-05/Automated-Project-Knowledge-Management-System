@@ -1,5 +1,5 @@
 export type SyncStatus = 'Pending' | 'Syncing' | 'Synced' | 'Failed'
-export type ProjectRole = 'owner' | 'contributor'
+export type ProjectRole = 'owner' | 'contributor' | 'viewer'
 export type Freshness = 'Fresh' | 'Stale' | 'Outdated'
 export type ChangeFreshness = 'CURRENT' | 'POTENTIALLY_STALE' | 'OUTDATED' | 'UNKNOWN'
 
@@ -184,6 +184,7 @@ export interface RecentKnowledge {
 }
 
 export interface AppNotification {
+  projectId?: number | null
   id: number
   title: string
   description: string
@@ -201,6 +202,7 @@ export interface GithubStatus {
   connected: boolean
   canManage: boolean
   installUrl: string | null
+  authorizationUrl: string | null
 }
 
 export interface GithubRepoOption {

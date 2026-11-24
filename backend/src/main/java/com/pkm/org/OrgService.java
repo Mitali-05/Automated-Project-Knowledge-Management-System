@@ -127,21 +127,34 @@ public class OrgService {
 
     // ------------------------------------------------------------------ members
 
-    /** Only the owner changes roles. The owner role itself is not transferable in this version. */
+    /** The owner can manage admin and member roles. */
     @Transactional
     public OrgDtos.Member setRole(Long orgId, Long userId, Long targetUserId, String role) {
         OrganizationMember me = access.requireOwner(orgId, userId);
         requireTeam(me);
         OrganizationMember target = members.findMembership(orgId, targetUserId)
                 .orElseThrow(() -> ApiException.notFound("Member not found"));
-        if (target.getRole() == OrganizationMember.Role.owner) {
-            throw ApiException.badRequest("The owner's role cannot be changed");
+        if (target.getRole() == OrganizationMember.Role.owner || "owner".equals(role)) {
+            throw ApiException.badRequest("Use the ownership transfer endpoint to change the owner");
         }
         target.setRole(OrganizationMember.Role.valueOf(role));
         return OrgDtos.Member.from(members.save(target));
     }
 
     /** Owners can remove anyone but themselves; admins can remove plain members. */
+    @Transactional
+    public void transferOwnership(Long orgId, Long userId, Long targetUserId, boolean retainOwnership) {
+        organizations.lockForOwnershipTransfer(orgId)
+                .orElseThrow(() -> ApiException.notFound("Organization not found"));
+        OrganizationMember owner = access.requireOwner(orgId, userId);
+        requireTeam(owner);
+        if (userId.equals(targetUserId)) return;
+        OrganizationMember target = members.findMembership(orgId, targetUserId)
+                .orElseThrow(() -> ApiException.notFound("Member not found"));
+        target.setRole(OrganizationMember.Role.owner);
+        if (!retainOwnership) owner.setRole(OrganizationMember.Role.admin);
+    }
+
     @Transactional
     public void removeMember(Long orgId, Long userId, Long targetUserId) {
         OrganizationMember me = access.requireAdmin(orgId, userId);

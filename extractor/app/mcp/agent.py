@@ -1,3 +1,4 @@
+from app.github.auth import GitHubRateLimitError
 import json
 import logging
 import asyncio
@@ -147,6 +148,8 @@ async def run_autonomous_extraction(
                     mcp_res = await mcp_session.call_tool(tool_name, arguments=tool_args)
                     result_text = "\\n".join([c.text for c in mcp_res.content if hasattr(c, 'text')])
                     read_failed = bool(getattr(mcp_res, 'isError', False))
+                except GitHubRateLimitError:
+                    raise
                 except Exception as e:
                     result_text = f"Error executing tool: {str(e)}"
                     read_failed = True

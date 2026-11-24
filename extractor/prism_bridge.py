@@ -16,7 +16,7 @@ Settings (environment or .env):
     PRISM_API_URL        backend base URL                       (default http://localhost:8081)
     INGEST_SERVICE_KEY   must equal the backend's INGEST_SERVICE_KEY  (required)
     PRISM_POLL_SECONDS   how often to look for work             (default 10)
-    GitHub credentials come exclusively from the backend workspace installation.
+    Private GitHub credentials come from the backend workspace installation.
 """
 from __future__ import annotations
 

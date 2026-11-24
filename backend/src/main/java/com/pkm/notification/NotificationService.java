@@ -25,7 +25,13 @@ public class NotificationService {
 
     @Transactional
     public void notify(User user, String title, String description) {
+        notify(user, title, description, null);
+    }
+
+    @Transactional
+    public void notify(User user, String title, String description, Long projectId) {
         Notification n = new Notification();
+        n.setProjectId(projectId);
         n.setUser(user);
         n.setTitle(title);
         n.setDescription(description);
