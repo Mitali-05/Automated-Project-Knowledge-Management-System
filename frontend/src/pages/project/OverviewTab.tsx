@@ -21,7 +21,7 @@ export default function OverviewTab() {
   const { detail, reload } = useProject()
   const { project, repositories } = detail
   const canSync = project.role !== 'viewer'
-  const hasRepositories = repositories.length > 0
+  const hasRepositories = repositories.length > 0 || (project.repositoryCount ?? 0) > 0
   const recent = useAsync(
     () => activityApi.list(project.id, 0, 5),
     [project.id],
@@ -43,12 +43,17 @@ export default function OverviewTab() {
   const pollTimerRef = useRef<number | null>(null)
   const pollGenerationRef = useRef(0)
 
+  const normStatus = (s?: string | null) => (s ?? '').toUpperCase()
+
   const isSyncActive =
     busy === 'sync' ||
-    project.syncStatus === 'Syncing' ||
-    project.syncStatus === 'Pending' ||
+    normStatus(project.syncStatus) === 'SYNCING' ||
+    normStatus(project.syncStatus) === 'PENDING' ||
     Boolean(syncStatus?.active) ||
-    repositories.some((r) => r.syncStatus === 'Syncing' || r.syncStatus === 'Pending')
+    repositories.some((r) => {
+      const s = normStatus(r.syncStatus)
+      return s === 'SYNCING' || s === 'PENDING'
+    })
 
   const loadSyncHistory = useCallback(async () => {
     try {
@@ -189,7 +194,7 @@ export default function OverviewTab() {
           </Button>
           {canSync && (
             <Button
-              isLoading={busy === 'sync' || (isSyncActive && project.syncStatus === 'Syncing')}
+              isLoading={busy === 'sync' || (isSyncActive && normStatus(project.syncStatus) === 'SYNCING')}
               disabled={!hasRepositories || isSyncActive}
               onClick={() => void runSync()}
               title={
@@ -206,7 +211,7 @@ export default function OverviewTab() {
                   : 'shadow-primary-indigo/20'
               )}
             >
-              {!(busy === 'sync' || (isSyncActive && project.syncStatus === 'Syncing')) && (
+              {!(busy === 'sync' || (isSyncActive && normStatus(project.syncStatus) === 'SYNCING')) && (
                 <RefreshCw size={16} aria-hidden />
               )}
               <span>{isSyncActive ? 'Syncing...' : 'Sync now'}</span>

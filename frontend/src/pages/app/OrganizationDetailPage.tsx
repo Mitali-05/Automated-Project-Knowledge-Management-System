@@ -92,22 +92,22 @@ export default function OrganizationDetailPage() {
     setOwnedProjects([])
     setDeleteOwnedOnLeave(false)
     leaveDialog.current?.showModal()
-    void orgApi.leaveBlockers(id)
-      .then((blockers) => {
-        if (blockers && blockers.length > 0) {
-          setOwnedProjects(blockers)
-        } else {
-          return projectApi.list().then((list) => {
-            const owned = list.filter((p) => p.orgId === id && p.role === 'owner').map((p) => ({ id: p.id, name: p.name }))
-            setOwnedProjects(owned)
-          })
-        }
-      })
-      .catch(async () => {
-        const list = await projectApi.list().catch(() => [])
-        const owned = list.filter((p) => p.orgId === id && p.role === 'owner').map((p) => ({ id: p.id, name: p.name }))
+
+    // Immediately fetch user projects to identify blockers directly from existing API
+    void projectApi.list().then((list) => {
+      const owned = list.filter((p) => p.orgId === id && (p.role?.toLowerCase() === 'owner')).map((p) => ({ id: p.id, name: p.name }))
+      if (owned.length > 0) {
         setOwnedProjects(owned)
-      })
+      } else {
+        void orgApi.leaveBlockers(id).then((blockers) => {
+          if (blockers && blockers.length > 0) setOwnedProjects(blockers)
+        }).catch(() => [])
+      }
+    }).catch(() => {
+      void orgApi.leaveBlockers(id).then((blockers) => {
+        if (blockers && blockers.length > 0) setOwnedProjects(blockers)
+      }).catch(() => [])
+    })
   }
 
   const leave = async () => {
@@ -118,10 +118,14 @@ export default function OrganizationDetailPage() {
         let toDelete = ownedProjects
         if (toDelete.length === 0) {
           const list = await projectApi.list().catch(() => [])
-          toDelete = list.filter((p) => p.orgId === id && p.role === 'owner').map((p) => ({ id: p.id, name: p.name }))
+          toDelete = list.filter((p) => p.orgId === id && (p.role?.toLowerCase() === 'owner')).map((p) => ({ id: p.id, name: p.name }))
         }
         for (const p of toDelete) {
-          await projectApi.remove(p.id)
+          try {
+            await projectApi.remove(p.id)
+          } catch (e) {
+            console.error(`Failed to remove project ${p.id}:`, e)
+          }
         }
       }
       await orgApi.leave(id, deleteOwnedOnLeave)
@@ -131,8 +135,10 @@ export default function OrganizationDetailPage() {
     } catch (err) {
       setLeaveError(errorMessage(err))
       void projectApi.list().then((list) => {
-        const owned = list.filter((p) => p.orgId === id && p.role === 'owner').map((p) => ({ id: p.id, name: p.name }))
-        setOwnedProjects(owned)
+        const owned = list.filter((p) => p.orgId === id && (p.role?.toLowerCase() === 'owner')).map((p) => ({ id: p.id, name: p.name }))
+        if (owned.length > 0) {
+          setOwnedProjects(owned)
+        }
       }).catch(() => [])
     } finally {
       setBusy(null)

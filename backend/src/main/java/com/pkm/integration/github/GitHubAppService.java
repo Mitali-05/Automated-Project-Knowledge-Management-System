@@ -91,9 +91,16 @@ public class GitHubAppService {
     public List<UserInstallation> authorizedInstallations(String code) {
         requireConfigured();
         try {
-            JsonNode response=RestClient.create().post().uri("https://github.com/login/oauth/access_token")
+            Map<String, String> tokenPayload = new java.util.HashMap<>();
+            tokenPayload.put("client_id", clientId);
+            tokenPayload.put("client_secret", clientSecret);
+            tokenPayload.put("code", code);
+            if (redirectUri != null && !redirectUri.isBlank()) {
+                tokenPayload.put("redirect_uri", redirectUri.trim());
+            }
+            JsonNode response = RestClient.create().post().uri("https://github.com/login/oauth/access_token")
                 .accept(MediaType.APPLICATION_JSON).contentType(MediaType.APPLICATION_JSON)
-                .body(Map.of("client_id",clientId,"client_secret",clientSecret,"code",code,"redirect_uri",redirectUri))
+                .body(tokenPayload)
                 .retrieve().body(JsonNode.class);
             if(response==null || !response.path("access_token").isTextual()) throw upstream("GitHub authorization failed. Start Connect GitHub again.");
             String token=response.path("access_token").asText();

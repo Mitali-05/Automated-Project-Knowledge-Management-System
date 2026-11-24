@@ -73,7 +73,12 @@ export default function ProjectLayout() {
   }
 
   const { project } = data
-  const sync = syncConfig[project.syncStatus]
+  const normalizedStatus = (
+    project.syncStatus
+      ? (project.syncStatus.charAt(0).toUpperCase() + project.syncStatus.slice(1).toLowerCase())
+      : 'Pending'
+  ) as SyncStatus
+  const sync = syncConfig[normalizedStatus] || syncConfig.Pending
   const SyncIcon = sync.icon
 
   return (
@@ -87,7 +92,7 @@ export default function ProjectLayout() {
             {project.description && <p className="mt-1 text-xs sm:text-sm text-text-secondary line-clamp-2">{project.description}</p>}
           </div>
           <div className={cn('flex shrink-0 self-start sm:self-center items-center gap-1.5 sm:gap-2 rounded-full px-3 py-1 text-xs sm:text-sm font-medium', sync.style)}>
-            <SyncIcon size={14} className={project.syncStatus === 'Syncing' ? 'animate-spin' : ''} aria-hidden />{project.syncStatus}
+            <SyncIcon size={14} className={(project.syncStatus || '').toLowerCase() === 'syncing' ? 'animate-spin' : ''} aria-hidden />{normalizedStatus}
           </div>
         </div>
         <nav className="-mb-px flex gap-1 overflow-x-auto scrollbar-none no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0" aria-label="Project">
