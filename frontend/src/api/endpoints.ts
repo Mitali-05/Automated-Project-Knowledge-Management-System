@@ -26,12 +26,16 @@ export const orgApi = {
   create: (name: string) => http.post<OrgSummary>('/api/orgs', { name }),
   join: (inviteCode: string) => http.post<OrgSummary>('/api/orgs/join', { inviteCode }),
   rename: (id: number, name: string) => http.patch<OrgSummary>(`/api/orgs/${id}`, { name }),
-  remove: (id: number) => http.delete(`/api/orgs/${id}`),
+  remove: (id: number, deleteAllProjects = false) =>
+    http.delete(`/api/orgs/${id}${deleteAllProjects ? '?deleteAllProjects=true' : ''}`),
   rotateInviteCode: (id: number) => http.post<OrgSummary>(`/api/orgs/${id}/invite-code/rotate`),
   setRole: (id: number, userId: number, role: 'admin' | 'member') =>
     http.put<OrgMember>(`/api/orgs/${id}/members/${userId}/role`, { role }),
-  removeMember: (id: number, userId: number) => http.delete(`/api/orgs/${id}/members/${userId}`),
-  leave: (id: number) => http.post<void>(`/api/orgs/${id}/leave`),
+  removeMember: (id: number, userId: number, deleteOwnedProjects = false) =>
+    http.delete(`/api/orgs/${id}/members/${userId}${deleteOwnedProjects ? '?deleteOwnedProjects=true' : ''}`),
+  leave: (id: number, deleteOwnedProjects = false) =>
+    http.post<void>(`/api/orgs/${id}/leave${deleteOwnedProjects ? '?deleteOwnedProjects=true' : ''}`),
+  leaveBlockers: (id: number) => http.get<{ id: number; name: string }[]>(`/api/orgs/${id}/leave-blockers`),
 }
 
 export const projectApi = {

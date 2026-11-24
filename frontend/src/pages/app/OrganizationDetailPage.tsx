@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Check, Copy, ExternalLink, LogOut, RefreshCw, Trash2 } from 'lucide-react'
 import { githubApi, orgApi } from '../../api/endpoints'
@@ -27,6 +27,15 @@ export default function OrganizationDetailPage() {
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  const [leaveError, setLeaveError] = useState<string | null>(null)
+  const [ownedProjects, setOwnedProjects] = useState<{ id: number; name: string }[]>([])
+  const [deleteOwnedOnLeave, setDeleteOwnedOnLeave] = useState(false)
+  const leaveDialog = useRef<HTMLDialogElement>(null)
+
+  const [deleteOrgError, setDeleteOrgError] = useState<string | null>(null)
+  const [deleteAllProjectsOnDelete, setDeleteAllProjectsOnDelete] = useState(false)
+  const deleteOrgDialog = useRef<HTMLDialogElement>(null)
 
   if (detail.loading && !detail.data) return <PageContainer narrow><LoadingState /></PageContainer>
   if (detail.error || !detail.data) {
@@ -78,28 +87,46 @@ export default function OrganizationDetailPage() {
     void act(`rm${m.userId}`, () => orgApi.removeMember(id, m.userId), `${m.name} was removed`)
   }
 
+  const openLeaveDialog = () => {
+    setLeaveError(null)
+    setOwnedProjects([])
+    setDeleteOwnedOnLeave(false)
+    leaveDialog.current?.showModal()
+    void orgApi.leaveBlockers(id).then(setOwnedProjects).catch(() => [])
+  }
+
   const leave = async () => {
-    if (!window.confirm(`Leave ${org.name}? You will lose access to its projects.`)) return
     setBusy('leave')
+    setLeaveError(null)
     try {
-      await orgApi.leave(id)
-      await refresh()
+      await orgApi.leave(id, deleteOwnedOnLeave)
+      leaveDialog.current?.close()
+      void refresh().catch(() => undefined)
       navigate('/app/organizations', { replace: true })
     } catch (err) {
-      setMsg({ ok: false, text: errorMessage(err) })
+      setLeaveError(errorMessage(err))
+      void orgApi.leaveBlockers(id).then(setOwnedProjects).catch(() => [])
+    } finally {
       setBusy(null)
     }
   }
 
+  const openDeleteOrgDialog = () => {
+    setDeleteOrgError(null)
+    setDeleteAllProjectsOnDelete(false)
+    deleteOrgDialog.current?.showModal()
+  }
+
   const removeOrg = async () => {
-    if (!window.confirm(`Delete ${org.name}? This cannot be undone. All members will lose access.`)) return
     setBusy('delete')
+    setDeleteOrgError(null)
     try {
-      await orgApi.remove(id)
+      await orgApi.remove(id, deleteAllProjectsOnDelete)
+      deleteOrgDialog.current?.close()
       await refresh()
       navigate('/app/organizations', { replace: true })
     } catch (err) {
-      setMsg({ ok: false, text: errorMessage(err) })
+      setDeleteOrgError(errorMessage(err))
       setBusy(null)
     }
   }
@@ -192,14 +219,121 @@ export default function OrganizationDetailPage() {
           <CardHeader><CardTitle className="text-danger">Danger zone</CardTitle></CardHeader>
           <CardContent className="space-y-4 text-xs sm:text-sm">
             {isOwner ? (
-              <div>
-                <p className="mb-3 text-text-secondary">Deleting an organization removes all of its projects, repositories and extracted knowledge. This cannot be undone.</p>
-                <Button variant="danger" size="sm" isLoading={busy === 'delete'} onClick={() => void removeOrg()}>Delete organization</Button>
+              <div className="space-y-3">
+                <p className="text-text-secondary">Permanently delete this organization. Members will lose access to its projects and knowledge.</p>
+                <Button variant="danger" size="sm" onClick={openDeleteOrgDialog}>Delete organization</Button>
+
+                <dialog
+                  ref={deleteOrgDialog}
+                  aria-labelledby="delete-organization-title"
+                  aria-describedby="delete-organization-description"
+                  className="m-auto max-h-[calc(100%-2rem)] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-xl border border-surface-border bg-surface-card p-6 text-text-primary shadow-xl backdrop:bg-black/50"
+                  onCancel={(event) => { if (busy === 'delete') event.preventDefault() }}
+                >
+                  <h2 id="delete-organization-title" className="text-lg font-semibold text-danger">Delete {org.name}?</h2>
+                  <p id="delete-organization-description" className="mt-2 text-sm text-text-secondary">
+                    This action is permanent and cannot be undone. All members will lose access.
+                  </p>
+
+                  {deleteOrgError && <div className="mt-4"><Alert tone="error">{deleteOrgError}</Alert></div>}
+
+                  {org.projectCount > 0 ? (
+                    <div className="mt-4 rounded-xl border border-red-200 bg-red-50/70 p-3.5 text-xs sm:text-sm">
+                      <p className="font-semibold text-red-950">
+                        This organization currently contains {org.projectCount} project{org.projectCount === 1 ? '' : 's'}.
+                      </p>
+                      <label className="mt-3 flex items-start gap-2.5 cursor-pointer pt-2 border-t border-red-200/80">
+                        <input
+                          type="checkbox"
+                          checked={deleteAllProjectsOnDelete}
+                          onChange={(e) => setDeleteAllProjectsOnDelete(e.target.checked)}
+                          className="mt-0.5 h-4 w-4 rounded border-red-300 text-danger focus:ring-danger"
+                        />
+                        <span className="text-xs font-semibold text-danger">
+                          Delete all {org.projectCount} project{org.projectCount === 1 ? '' : 's'} and all associated data (repositories, knowledge, and history)
+                        </span>
+                      </label>
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-xs text-text-muted">This organization has no projects and can be deleted immediately.</p>
+                  )}
+
+                  <div className="mt-6 flex flex-wrap justify-end gap-2">
+                    <Button variant="outline" disabled={busy === 'delete'} onClick={() => deleteOrgDialog.current?.close()}>Cancel</Button>
+                    <Button
+                      variant="danger"
+                      isLoading={busy === 'delete'}
+                      disabled={org.projectCount > 0 && !deleteAllProjectsOnDelete}
+                      title={org.projectCount > 0 && !deleteAllProjectsOnDelete ? 'Check the box to delete all projects before deleting the organization' : undefined}
+                      onClick={() => void removeOrg()}
+                    >
+                      Delete organization
+                    </Button>
+                  </div>
+                </dialog>
               </div>
             ) : (
-              <div>
-                <p className="mb-3 text-text-secondary">Leave this organization. You will lose access to its projects until someone invites you back.</p>
-                <Button variant="outline" size="sm" isLoading={busy === 'leave'} onClick={() => void leave()}><LogOut size={14} aria-hidden /> Leave organization</Button>
+              <div className="space-y-3">
+                <p className="text-text-secondary">Leave this organization. You will lose access to its projects until someone invites you back.</p>
+                <Button variant="outline" size="sm" onClick={openLeaveDialog}><LogOut size={14} aria-hidden /> Leave organization</Button>
+
+                <dialog
+                  ref={leaveDialog}
+                  aria-labelledby="leave-organization-title"
+                  aria-describedby="leave-organization-description"
+                  className="m-auto max-h-[calc(100%-2rem)] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-xl border border-surface-border bg-surface-card p-6 text-text-primary shadow-xl backdrop:bg-black/50"
+                  onCancel={(event) => { if (busy === 'leave') event.preventDefault() }}
+                >
+                  <h2 id="leave-organization-title" className="text-lg font-semibold">Leave {org.name}?</h2>
+                  <p id="leave-organization-description" className="mt-2 text-sm text-text-secondary">
+                    You’ll lose access to this organization and its projects until someone invites you back.
+                  </p>
+
+                  {leaveError && <div className="mt-4"><Alert tone="error">{leaveError}</Alert></div>}
+
+                  {ownedProjects.length > 0 && (
+                    <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 text-xs sm:text-sm">
+                      <p className="font-semibold text-amber-900">
+                        You are an owner of {ownedProjects.length} project{ownedProjects.length === 1 ? '' : 's'} in this organization:
+                      </p>
+                      <ul className="mt-2 list-disc pl-4 space-y-1 text-amber-900 font-medium">
+                        {ownedProjects.map((project) => (
+                          <li key={project.id}>
+                            {project.name}{' '}
+                            <Link to={`/app/projects/${project.id}/settings`} target="_blank" rel="noopener noreferrer" className="ml-1 text-xs text-primary-indigo underline font-normal">
+                              (open project settings)
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+
+                      <label className="mt-3 flex items-start gap-2.5 cursor-pointer pt-2 border-t border-amber-200/80">
+                        <input
+                          type="checkbox"
+                          checked={deleteOwnedOnLeave}
+                          onChange={(e) => setDeleteOwnedOnLeave(e.target.checked)}
+                          className="mt-0.5 h-4 w-4 rounded border-amber-300 text-danger focus:ring-danger"
+                        />
+                        <span className="text-xs font-semibold text-danger">
+                          Delete all projects created by me in this organization ({ownedProjects.length}) along with their repositories, knowledge, and history
+                        </span>
+                      </label>
+                    </div>
+                  )}
+
+                  <div className="mt-6 flex flex-wrap justify-end gap-2">
+                    <Button variant="outline" disabled={busy === 'leave'} onClick={() => leaveDialog.current?.close()}>Cancel</Button>
+                    <Button
+                      variant="danger"
+                      isLoading={busy === 'leave'}
+                      disabled={ownedProjects.length > 0 && !deleteOwnedOnLeave}
+                      title={ownedProjects.length > 0 && !deleteOwnedOnLeave ? 'Check the box to delete your projects or transfer ownership before leaving' : undefined}
+                      onClick={() => void leave()}
+                    >
+                      Leave organization
+                    </Button>
+                  </div>
+                </dialog>
               </div>
             )}
           </CardContent>

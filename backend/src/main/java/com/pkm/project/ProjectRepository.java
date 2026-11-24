@@ -13,4 +13,6 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
 
     long countByOrganizationId(Long organizationId);
+
+    java.util.List<Project> findByOrganizationId(Long organizationId);
 }

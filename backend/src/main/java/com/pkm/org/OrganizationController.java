@@ -49,8 +49,9 @@ public class OrganizationController {
     }
 
     @DeleteMapping("/{orgId}")
-    public ResponseEntity<Void> delete(@PathVariable Long orgId) {
-        service.delete(orgId, CurrentUser.id());
+    public ResponseEntity<Void> delete(@PathVariable Long orgId,
+                                       @RequestParam(defaultValue = "false") boolean deleteAllProjects) {
+        service.delete(orgId, CurrentUser.id(), deleteAllProjects);
         return ResponseEntity.noContent().build();
     }
 
@@ -72,14 +73,21 @@ public class OrganizationController {
     }
 
     @DeleteMapping("/{orgId}/members/{userId}")
-    public ResponseEntity<Void> removeMember(@PathVariable Long orgId, @PathVariable Long userId) {
-        service.removeMember(orgId, CurrentUser.id(), userId);
+    public ResponseEntity<Void> removeMember(@PathVariable Long orgId, @PathVariable Long userId,
+                                             @RequestParam(defaultValue = "false") boolean deleteOwnedProjects) {
+        service.removeMember(orgId, CurrentUser.id(), userId, deleteOwnedProjects);
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/{orgId}/leave-blockers")
+    public java.util.List<OrgService.ProjectOwnershipBlocker> leaveBlockers(@PathVariable Long orgId) {
+        return service.projectOwnershipBlockers(orgId, CurrentUser.id());
+    }
+
     @PostMapping("/{orgId}/leave")
-    public ResponseEntity<Void> leave(@PathVariable Long orgId) {
-        service.leave(orgId, CurrentUser.id());
+    public ResponseEntity<Void> leave(@PathVariable Long orgId,
+                                      @RequestParam(defaultValue = "false") boolean deleteOwnedProjects) {
+        service.leave(orgId, CurrentUser.id(), deleteOwnedProjects);
         return ResponseEntity.noContent().build();
     }
 

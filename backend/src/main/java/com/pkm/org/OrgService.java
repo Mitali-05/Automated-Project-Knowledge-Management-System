@@ -114,15 +114,24 @@ public class OrgService {
         return summarize(me, userId);
     }
 
-    /** Only the owner, and only once every project of the organization has been deleted. */
+    /** Only the owner. If deleteAllProjects is true, all projects in the organization are deleted. */
     @Transactional
-    public void delete(Long orgId, Long userId) {
+    public void delete(Long orgId, Long userId, boolean deleteAllProjects) {
         OrganizationMember me = access.requireOwner(orgId, userId);
         Organization org = requireTeam(me);
-        if (projects.countByOrganizationId(orgId) > 0) {
-            throw ApiException.conflict("Delete all projects in this organization first.");
+        List<Project> orgProjects = projects.findByOrganizationId(orgId);
+        if (!orgProjects.isEmpty()) {
+            if (!deleteAllProjects) {
+                throw ApiException.conflict("Delete all projects in this organization first, or check the box to delete all projects.");
+            }
+            projects.deleteAll(orgProjects);
         }
         organizations.delete(org);   // memberships are removed by the database (ON DELETE CASCADE)
+    }
+
+    @Transactional
+    public void delete(Long orgId, Long userId) {
+        delete(orgId, userId, false);
     }
 
     // ------------------------------------------------------------------ members
@@ -156,7 +165,7 @@ public class OrgService {
     }
 
     @Transactional
-    public void removeMember(Long orgId, Long userId, Long targetUserId) {
+    public void removeMember(Long orgId, Long userId, Long targetUserId, boolean deleteOwnedProjects) {
         OrganizationMember me = access.requireAdmin(orgId, userId);
         requireTeam(me);
         if (targetUserId.equals(userId)) {
@@ -170,27 +179,51 @@ public class OrgService {
         if (me.getRole() == OrganizationMember.Role.admin && target.getRole() != OrganizationMember.Role.member) {
             throw ApiException.forbidden("Admins can only remove regular members");
         }
-        detach(target, orgId);
+        detach(target, orgId, deleteOwnedProjects);
+    }
+
+    @Transactional
+    public void removeMember(Long orgId, Long userId, Long targetUserId) {
+        removeMember(orgId, userId, targetUserId, false);
+    }
+
+    @Transactional
+    public void leave(Long orgId, Long userId, boolean deleteOwnedProjects) {
+        OrganizationMember me = access.requireMember(orgId, userId);
+        requireTeam(me);
+        if (me.getRole() == OrganizationMember.Role.owner) {
+            throw ApiException.badRequest("The owner cannot leave. Transfer ownership, remove members, or delete the organization.");
+        }
+        detach(me, orgId, deleteOwnedProjects);
     }
 
     @Transactional
     public void leave(Long orgId, Long userId) {
-        OrganizationMember me = access.requireMember(orgId, userId);
-        requireTeam(me);
-        if (me.getRole() == OrganizationMember.Role.owner) {
-            throw ApiException.badRequest("The owner cannot leave. Remove the other members or contact support.");
-        }
-        detach(me, orgId);
+        leave(orgId, userId, false);
     }
 
     // ------------------------------------------------------------------ helpers
 
+    public record ProjectOwnershipBlocker(Long id, String name) {}
+
+    @Transactional(readOnly = true)
+    public List<ProjectOwnershipBlocker> projectOwnershipBlockers(Long orgId, Long userId) {
+        requireTeam(access.requireMember(orgId, userId));
+        return projectMembers.findByUserInOrgWithRole(userId, orgId, ProjectMember.Role.owner).stream()
+                .map(p -> new ProjectOwnershipBlocker(p.getId(), p.getName()))
+                .toList();
+    }
+
     /** Removes the membership and the person's access to every project of that organization. */
-    private void detach(OrganizationMember member, Long orgId) {
+    private void detach(OrganizationMember member, Long orgId, boolean deleteOwnedProjects) {
         Long uid = member.getUser().getId();
-        if (projectMembers.countByUserInOrgWithRole(uid, orgId, ProjectMember.Role.owner) > 0) {
-            throw ApiException.conflict("This person still owns projects in the organization. "
-                    + "Delete those projects first.");
+        List<Project> owned = projectMembers.findByUserInOrgWithRole(uid, orgId, ProjectMember.Role.owner);
+        if (!owned.isEmpty()) {
+            if (!deleteOwnedProjects) {
+                throw ApiException.conflict("This person still owns projects in the organization. "
+                        + "Transfer ownership or check the box to delete those projects first.");
+            }
+            projects.deleteAll(owned);
         }
         projectMembers.deleteByUserInOrg(uid, orgId);
         members.delete(member);
