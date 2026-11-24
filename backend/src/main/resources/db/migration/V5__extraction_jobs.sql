@@ -1,4 +1,5 @@
-CREATE TABLE IF NOT EXISTS extraction_jobs (
+-- Persist extraction progress and history. Schema changes are owned by Flyway.
+CREATE TABLE extraction_jobs (
     id BIGSERIAL PRIMARY KEY,
     project_id BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     repository_id BIGINT REFERENCES project_repositories(id) ON DELETE CASCADE,
@@ -15,7 +16,7 @@ CREATE TABLE IF NOT EXISTS extraction_jobs (
     error_message TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_extraction_jobs_project_started
+CREATE INDEX idx_extraction_jobs_project_started
     ON extraction_jobs(project_id, started_at DESC);
-CREATE INDEX IF NOT EXISTS idx_extraction_jobs_repository_started
+CREATE INDEX idx_extraction_jobs_repository_started
     ON extraction_jobs(repository_id, started_at DESC);
