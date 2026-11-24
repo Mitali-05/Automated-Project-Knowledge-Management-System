@@ -21,6 +21,7 @@ export const userApi = {
 }
 
 export const orgApi = {
+  transferOwnership: (id: number, userId: number) => http.put(`/api/orgs/${id}/owner`, { userId, retainOwnership: false }),
   list: () => http.get<OrgSummary[]>('/api/orgs'),
   get: (id: number) => http.get<OrgDetail>(`/api/orgs/${id}`),
   create: (name: string) => http.post<OrgSummary>('/api/orgs', { name }),
@@ -33,12 +34,12 @@ export const orgApi = {
     http.put<OrgMember>(`/api/orgs/${id}/members/${userId}/role`, { role }),
   removeMember: (id: number, userId: number, deleteOwnedProjects = false) =>
     http.delete(`/api/orgs/${id}/members/${userId}${deleteOwnedProjects ? '?deleteOwnedProjects=true' : ''}`),
-  leave: (id: number, deleteOwnedProjects = false) =>
-    http.post<void>(`/api/orgs/${id}/leave${deleteOwnedProjects ? '?deleteOwnedProjects=true' : ''}`),
+  leave: (id: number) => http.post<void>(`/api/orgs/${id}/leave`),
   leaveBlockers: (id: number) => http.get<{ id: number; name: string }[]>(`/api/orgs/${id}/leave-blockers`),
 }
 
 export const projectApi = {
+  transferOwnership: (id: number, userId: number) => http.put(`/api/projects/${id}/owner`, { userId, retainOwnership: false }),
   list: () => http.get<ProjectSummary[]>('/api/projects'),
   get: (id: number) => http.get<ProjectDetail>(`/api/projects/${id}`),
   create: (input: CreateProjectInput) => http.post<ProjectDetail>('/api/projects', input),

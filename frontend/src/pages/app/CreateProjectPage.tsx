@@ -1,6 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ApiError } from '../../api/client'
 import { githubApi, orgApi, projectApi } from '../../api/endpoints'
 import { PageContainer, PageHeader } from '../../components/layout/PageContainer'
@@ -19,10 +19,12 @@ function toggle<T>(list: T[], value: T): T[] {
 
 export default function CreateProjectPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user } = useAuth()
   const { orgs, activeOrg, setActiveOrgId } = useOrgs()
   const [pickedOrg, setPickedOrg] = useState<number | null>(null)
-  const orgId = pickedOrg ?? activeOrg?.id ?? null
+  const requestedOrg = orgs.find((org) => String(org.id) === searchParams.get('orgId'))
+  const orgId = pickedOrg ?? requestedOrg?.id ?? activeOrg?.id ?? null
   const org = orgs.find((o) => o.id === orgId) ?? null
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -136,15 +138,13 @@ export default function CreateProjectPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        {org?.type === 'TEAM' && <Card>
           <CardHeader><CardTitle>Contributors</CardTitle></CardHeader>
           <CardContent className="space-y-1 p-4 sm:p-6">
             {members.error && <p className="text-sm text-danger">{members.error}</p>}
             {!members.loading && teammates.length === 0 && (
               <p className="text-xs sm:text-sm text-text-muted">
-                {org?.type === 'PERSONAL'
-                  ? 'A personal workspace has only you. Create an organization to work with a team.'
-                  : 'No teammates in this organization yet. Share its invite code from the Organizations page; you can add contributors later in project settings.'}
+                Teammates can join with an organization invite code. You can add them later in project settings.
               </p>
             )}
             {teammates.map((m) => (
@@ -155,7 +155,7 @@ export default function CreateProjectPage() {
               </label>
             ))}
           </CardContent>
-        </Card>
+        </Card>}
 
         <Button type="submit" isLoading={busy} className="h-11 w-full text-base shadow-lg shadow-primary-indigo/30">Create Project</Button>
       </form>

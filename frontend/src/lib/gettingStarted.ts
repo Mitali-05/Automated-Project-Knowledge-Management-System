@@ -10,9 +10,8 @@ export interface GettingStartedStep {
 /** Onboarding checklist for the dashboard; the dashboard hides it once every step is done. */
 export function gettingStartedSteps(d: Dashboard): GettingStartedStep[] {
   return [
-    { label: 'Create or join an organization', done: d.organizations.some((o) => o.type === 'TEAM'), to: '/app/organizations?new=1', cta: 'Set up' },
     { label: 'Create your first project', done: d.projectCount > 0, to: '/app/projects/new', cta: 'Create' },
     { label: 'Link a GitHub repository', done: d.repositoryCount > 0, to: '/app/projects', cta: 'Open projects' },
-    { label: 'Extract knowledge from it', done: d.knowledgeItemCount > 0, to: '/app/projects', cta: 'Open projects' },
+    { label: 'Complete your first sync', done: d.syncedProjects > 0 || d.knowledgeItemCount > 0, to: '/app/projects', cta: 'Open projects' },
   ]
 }

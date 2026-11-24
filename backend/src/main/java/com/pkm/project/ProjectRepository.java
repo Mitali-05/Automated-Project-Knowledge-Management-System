@@ -11,6 +11,9 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     @Query("select p from Project p where p.id = :id")
     java.util.Optional<Project> lockForOwnershipTransfer(@Param("id") Long id);
 
+    @Query("select p.organization.id from Project p where p.id = :id")
+    java.util.Optional<Long> findOrganizationId(@Param("id") Long id);
+
 
     long countByOrganizationId(Long organizationId);
 

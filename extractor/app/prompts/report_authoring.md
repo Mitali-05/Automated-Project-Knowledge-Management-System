@@ -67,7 +67,7 @@ Map evidence into the schema:
   Proposed: ... Acceptance check: ...". Prioritize consequences, not code style.
 - knowledge_items: distinct findings, exact evidence_ids, title <=8 words,
   complete summary <=18 words, and substantive source-backed details including
-  failure paths and boundaries. Do not duplicate findings.
+  failure paths and boundaries. Use sentence case, short paragraphs and an exact inspected source path per finding. Do not duplicate findings.
 - analytics_metrics: observed complexity with reasons, never certification.
   Count identified modules only. Confidence is an AI estimate, not accuracy.
 - NEVER generate source_metrics, inspected_files, jira_context or verification_report;
@@ -86,6 +86,8 @@ Architecture (architecture_mermaid_chart):
 - Start with `flowchart TD`. Use 4-8 real components when source supports them.
 - Keep at most 3 components per horizontal rank. Use 0-3 subgraphs ONLY for real
   process or deployment boundaries; do not invent mandatory tiers.
+- Use at most three vertical ranks. Arrange independently called steps as siblings.
+  An arrow means a direct call or data handoff. Put timing and order in the sequence.
 - Use meaningful IDs, quoted labels of 2-5 words, and labelled edges describing
   payload or operation: HTTP request, document ID, read file, save vector.
 - Differentiate a queue's identifier/event from a shared volume's file bytes.
@@ -117,7 +119,7 @@ Technical views (technical_diagrams):
 - Preserve actual failures, including misleading success when code swallows errors.
   Never draw a proposed fix as current implementation.
 - Optional directory dependencies explain dependencies, not repeated topology.
-- Optional timeline is empty unless inspected dated history supports events.
+- Set milestone_timeline_mermaid_chart to an empty string. This generation flow has no verified history feed.
 
 Mermaid syntax/readability:
 - Bare syntax only: no fences, init/config directives, styles, classes, HTML,

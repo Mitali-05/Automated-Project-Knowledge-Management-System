@@ -11,9 +11,16 @@ import org.springframework.stereotype.Component;
 public class OrgAccess {
 
     private final OrganizationMemberRepository members;
+    private final OrganizationRepository organizations;
 
-    public OrgAccess(OrganizationMemberRepository members) {
+    public OrgAccess(OrganizationMemberRepository members, OrganizationRepository organizations) {
         this.members = members;
+        this.organizations = organizations;
+    }
+
+    public void lockOrganization(Long orgId) {
+        organizations.lockForOwnershipTransfer(orgId)
+                .orElseThrow(() -> ApiException.notFound("Organization not found"));
     }
 
     public OrganizationMember requireMember(Long orgId, Long userId) {

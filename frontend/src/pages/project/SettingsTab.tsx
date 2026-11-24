@@ -1,6 +1,6 @@
 import { Trash2 } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState, type FormEvent } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { orgApi, projectApi } from '../../api/endpoints'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
@@ -19,17 +19,26 @@ export default function SettingsTab() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const isOwner = project.role === 'owner'
+  const teamProject = project.orgType === 'TEAM'
+  const { hash } = useLocation()
+  useEffect(() => {
+    if (['#repositories', '#ownership', '#details', '#members', '#danger'].includes(hash)) {
+      document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' })
+    }
+  }, [hash])
 
   const [name, setName] = useState(project.name)
   const [description, setDescription] = useState(project.description ?? '')
   const [newRepo, setNewRepo] = useState('')
+  const [successor, setSuccessor] = useState('')
   const [newMember, setNewMember] = useState('')
   const [memberRole, setMemberRole] = useState<'contributor' | 'viewer'>('contributor')
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
 
-  const orgMembers = useAsync(() => (isOwner ? orgApi.get(project.orgId).then((d) => d.members) : Promise.resolve([])), [isOwner, project.orgId])
+  const orgMembers = useAsync(() => (isOwner && teamProject ? orgApi.get(project.orgId).then((d) => d.members) : Promise.resolve([])), [isOwner, teamProject, project.orgId])
   const candidates = (orgMembers.data ?? []).filter((m) => !members.some((pm) => pm.userId === m.userId))
+  const unchanged = name.trim() === project.name && description.trim() === (project.description ?? '')
 
   const act = async (key: string, fn: () => Promise<unknown>, success: string) => {
     setBusy(key)
@@ -62,23 +71,37 @@ export default function SettingsTab() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-5xl space-y-5">
       <h2 className="text-xl sm:text-2xl font-bold">Settings</h2>
+      <nav aria-label="Project settings sections" className="flex flex-wrap gap-2 text-sm">
+        {[
+          ['details', 'Details'],
+          ['repositories', 'Repositories'],
+          ...(teamProject ? [['members', 'Members']] : []),
+          ...(teamProject && isOwner ? [['ownership', 'Ownership']] : []),
+          ...(isOwner ? [['danger', 'Danger zone']] : []),
+        ].map(([section, label]) => <a key={section} href={`#${section}`} onClick={(event) => {
+          event.preventDefault()
+          document.getElementById(section)?.scrollIntoView({ block: 'start' })
+        }} className="rounded-md border border-surface-border bg-surface-card px-3 py-1.5 font-medium text-text-secondary hover:text-primary-indigo">
+          {label}
+        </a>)}
+      </nav>
       {!isOwner && <Alert tone="info">Only project owners can change settings. You can view them here.</Alert>}
       {msg && <Alert tone={msg.ok ? 'success' : 'error'}>{msg.text}</Alert>}
 
-      <Card>
+      <Card id="details" className="scroll-mt-20">
         <CardHeader><CardTitle>Details</CardTitle></CardHeader>
         <CardContent>
           <form onSubmit={saveDetails} className="space-y-4">
             <Input label="Name" value={name} maxLength={120} disabled={!isOwner} onChange={(e) => setName(e.target.value)} />
             <Textarea label="Description" rows={3} value={description} maxLength={2000} disabled={!isOwner} onChange={(e) => setDescription(e.target.value)} />
-            {isOwner && <Button type="submit" isLoading={busy === 'details'} disabled={!name.trim()} className="w-full sm:w-auto">Save</Button>}
+            {isOwner && <Button type="submit" isLoading={busy === 'details'} disabled={!name.trim() || unchanged} className="w-full sm:w-auto">Save changes</Button>}
           </form>
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="repositories" className="scroll-mt-20">
         <CardHeader><CardTitle>Repositories</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <ul className="divide-y divide-surface-border">
@@ -104,7 +127,7 @@ export default function SettingsTab() {
         </CardContent>
       </Card>
 
-      <Card>
+      {teamProject && <Card id="members" className="scroll-mt-20">
         <CardHeader><CardTitle>Members</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <ul className="divide-y divide-surface-border">
@@ -118,7 +141,9 @@ export default function SettingsTab() {
               </li>
             ))}
           </ul>
-          {isOwner && (
+          {orgMembers.error && <Alert>{orgMembers.error} <Button variant="outline" size="sm" onClick={orgMembers.reload}>Try again</Button></Alert>}
+          {isOwner && !orgMembers.loading && !orgMembers.error && !candidates.length && <p className="text-sm text-text-secondary">There are no other organization members to add. Teammates can join with an organization invite code.</p>}
+          {isOwner && candidates.length > 0 && (
             <form onSubmit={addMember} className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 pt-2">
               <div className="w-full flex-1 space-y-1.5">
                 <label htmlFor="add-member" className="block text-sm font-medium">Add contributor</label>
@@ -135,10 +160,27 @@ export default function SettingsTab() {
             </form>
           )}
         </CardContent>
-      </Card>
+      </Card>}
+
+      {teamProject && isOwner && (
+        <Card id="ownership" className="scroll-mt-20">
+          <CardHeader><CardTitle>Transfer project ownership</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <p>Choose a project member to take ownership. You’ll remain a contributor.</p>
+            <select aria-label="New project owner" value={successor} onChange={(event) => setSuccessor(event.target.value)} className="w-full rounded-lg border border-surface-border bg-surface-card p-2">
+              <option value="">Select a project member</option>
+              {members.filter((member) => member.userId !== user?.id).map((member) => <option key={member.userId} value={member.userId}>{member.name}</option>)}
+            </select>
+            <Button variant="outline" disabled={!successor || busy !== null} isLoading={busy === 'transfer'} onClick={() =>
+              void act('transfer', () => projectApi.transferOwnership(project.id, Number(successor)), 'Project ownership transferred')}>
+              Transfer ownership
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {isOwner && (
-        <Card className="border-red-200">
+        <Card id="danger" className="scroll-mt-20 border-red-200">
           <CardHeader><CardTitle className="text-danger">Danger zone</CardTitle></CardHeader>
           <CardContent>
             <p className="mb-4 text-xs sm:text-sm text-text-secondary">Deleting a project removes its repositories, knowledge and history from PRISM. Your GitHub repositories are not affected.</p>

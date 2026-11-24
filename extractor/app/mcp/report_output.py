@@ -61,7 +61,7 @@ async def validate_or_correct_report(content, llm_client, messages, inspected_fi
             result = _parse(content)
             actual = _non_visual_content(result) if visual_bundle else _non_diagram_content(result, diagram_path)
             if protected_content is not None and actual != protected_content:
-                logger.warning('Diagram correction changed other report content; accepting updated report after contract validation')
+                raise ValueError('Diagram correction changed other report content')
             validate_report_contract(result, inspected_files)
             if validate_rendering:
                 from app.mcp.render_contract import validate_rendered_report
@@ -97,7 +97,8 @@ async def validate_or_correct_report(content, llm_client, messages, inspected_fi
                      'setup instructions and other report data verbatim. Preserve all real components and interactions '
                      'across focused source-cited views. Use short labels and put full mechanisms in explanations. '
                      'Do not turn failures into success paths, omit material relationships or invent merged services. '
-                     'Use flowchart TD with short quoted labels, normally 2-3 components per horizontal rank. '
+                     'Use a compact flowchart TD for architecture, with at most three vertical ranks and independent components side by side. '
+                     'Keep direct callers and callees accurate when rearranging the diagram. '
                      'Put distinct concerns in complete focused views, not cropped fragments. '
                      'The PDF must stay A4 portrait and the deck stays 16:9; never change page size or shrink fonts. '
                      'Use the provided rendered dimensions and effective font-size diagnostic to improve the composition. '

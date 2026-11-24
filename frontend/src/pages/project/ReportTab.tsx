@@ -195,7 +195,7 @@ export default function ReportTab() {
   const [busy, setBusy] = useState<string | null>(null)
   const [dlError, setDlError] = useState<string | null>(null)
 
-  if (loading && !data) return <LoadingState rows={2} />
+  if (loading && !data) return <LoadingState rows={2} label="Loading project reports…" />
   if (error || !data) return <ErrorState message={error ?? 'Could not load the report'} onRetry={reload} />
   if (data.length === 0) {
     return (

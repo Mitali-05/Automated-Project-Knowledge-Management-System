@@ -38,7 +38,7 @@ REPORT_THEME = {
         'cScale2': '#FAF5FF', 'cScaleLabel2': '#0F172A',
     },
     'flowchart': {'htmlLabels': False, 'useMaxWidth': False,
-                  'curve': 'basis', 'nodeSpacing': 35, 'rankSpacing': 45},
+                  'curve': 'basis', 'nodeSpacing': 28, 'rankSpacing': 28},
     'sequence': {'useMaxWidth': False, 'wrap': True, 'mirrorActors': False,
                   'actorFontSize': DIAGRAM_FONT_PX, 'messageFontSize': DIAGRAM_FONT_PX,
                   'noteFontSize': DIAGRAM_FONT_PX},

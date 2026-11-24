@@ -1,4 +1,4 @@
-import { BookOpen, Building2, FolderGit2, GitBranch, Plus, User as UserIcon, Users } from 'lucide-react'
+import { ArrowRight, BookOpen, Building2, FileText, FolderGit2, GitBranch, Plus, Sparkles, User as UserIcon, Users } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { dashboardApi } from '../../api/endpoints'
@@ -23,7 +23,7 @@ export default function DashboardPage() {
   const orgId = activeOrg?.id
   const { data, loading, error, reload } = useAsync(() => dashboardApi.get(orgId), [orgId])
 
-  if (loading && !data) return <PageContainer><LoadingState /></PageContainer>
+  if (loading && !data) return <PageContainer><LoadingState label="Loading workspace dashboard…" /></PageContainer>
   if (error || !data) return <PageContainer><ErrorState message={error ?? 'Could not load the dashboard'} onRetry={reload} /></PageContainer>
 
   const stats = [
@@ -34,16 +34,37 @@ export default function DashboardPage() {
   ]
   const steps = gettingStartedSteps(data)
   const setupDone = steps.every((s) => s.done)
+  const latest = data.recentKnowledge[0]
 
   return (
     <PageContainer>
       <PageHeader
         title={`Welcome back, ${user?.name.split(' ')[0] ?? ''}`}
-        subtitle="What is happening across all your organizations."
+        subtitle={activeOrg ? `Activity and knowledge in ${activeOrg.name}.` : 'Activity and knowledge across your workspaces.'}
         action={<Link to="/app/projects/new"><Button className="w-full sm:w-auto gap-2 shadow-lg shadow-primary-indigo/20"><Plus size={18} aria-hidden /> New Project</Button></Link>}
       />
 
       {!setupDone && <GettingStarted steps={steps} />}
+
+      {setupDone && latest && (
+        <section aria-label="Latest project knowledge" className="overflow-hidden rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-violet-50 p-5 sm:p-6">
+          <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 text-sm font-medium text-primary-indigo"><Sparkles size={16} aria-hidden /> Latest project knowledge</p>
+              <h2 className="mt-2 break-words text-xl font-semibold sm:text-2xl">{latest.projectName}</h2>
+              <p className="mt-1 break-words text-sm text-text-secondary">{latest.title}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link to={`/app/projects/${latest.projectId}/knowledge`} className="inline-flex items-center gap-2 rounded-lg bg-primary-indigo px-3 py-2 text-sm font-semibold text-white hover:bg-primary-blue">
+                Open knowledge <ArrowRight size={16} aria-hidden />
+              </Link>
+              <Link to={`/app/projects/${latest.projectId}/report`} className="inline-flex items-center gap-2 rounded-lg border border-surface-border bg-white px-3 py-2 text-sm font-semibold hover:border-primary-indigo">
+                <FileText size={16} aria-hidden /> View report
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {stats.map(({ label, value, icon: Icon }, i) => (

@@ -85,9 +85,8 @@ public class OrganizationController {
     }
 
     @PostMapping("/{orgId}/leave")
-    public ResponseEntity<Void> leave(@PathVariable Long orgId,
-                                      @RequestParam(defaultValue = "false") boolean deleteOwnedProjects) {
-        service.leave(orgId, CurrentUser.id(), deleteOwnedProjects);
+    public ResponseEntity<Void> leave(@PathVariable Long orgId) {
+        service.leave(orgId, CurrentUser.id());
         return ResponseEntity.noContent().build();
     }
 

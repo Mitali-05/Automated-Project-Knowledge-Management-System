@@ -15,7 +15,7 @@ import { Skeleton } from '../../components/ui/Skeleton'
 import { useOrgs } from '../../context/OrgContext'
 import { useAsync } from '../../hooks/useAsync'
 import { cn } from '../../lib/cn'
-import { syncTone } from '../../lib/tones'
+import { projectSyncLabel, syncTone } from '../../lib/tones'
 
 type Sort = 'updated' | 'name' | 'knowledge' | 'synced'
 type View = 'grid' | 'list'
@@ -85,8 +85,8 @@ export default function ProjectsPage() {
   const overview = useMemo(() => ({
     total: all.length,
     synced: all.filter((p) => p.syncStatus === 'Synced').length,
-    failed: all.filter((p) => p.syncStatus === 'Failed').length,
-    pending: all.filter((p) => p.syncStatus === 'Pending' || p.syncStatus === 'Syncing').length,
+    failed: all.filter((p) => ['Failed', 'Partially synced'].includes(p.syncStatus)).length,
+    pending: all.filter((p) => p.repositoryCount > 0 && ['Pending', 'Queued', 'Syncing'].includes(p.syncStatus)).length,
   }), [all])
 
   const filtering = Boolean(q.trim() || statusFilter || roleFilter)
@@ -94,7 +94,7 @@ export default function ProjectsPage() {
     const needle = q.trim().toLowerCase()
     return all
       .filter((p) => !needle || `${p.name} ${p.description ?? ''} ${p.orgName}`.toLowerCase().includes(needle))
-      .filter((p) => !statusFilter || p.syncStatus === statusFilter)
+      .filter((p) => !statusFilter || projectSyncLabel(p) === statusFilter)
       .filter((p) => !roleFilter || p.role === roleFilter)
       .sort(sorters[sort] ?? sorters.updated)
   }, [all, q, statusFilter, roleFilter, sort])
@@ -107,7 +107,7 @@ export default function ProjectsPage() {
     { label: 'Total', value: overview.total, tone: 'text-text-primary' },
     { label: 'Synced', value: overview.synced, tone: 'text-emerald-600' },
     { label: 'Failed', value: overview.failed, tone: overview.failed ? 'text-red-600' : 'text-text-primary' },
-    { label: 'Pending / syncing', value: overview.pending, tone: 'text-amber-600' },
+    { label: 'Queued / syncing', value: overview.pending, tone: 'text-amber-600' },
   ]
 
   return (
@@ -142,7 +142,7 @@ export default function ProjectsPage() {
                       <span className="block truncate text-sm font-semibold">{p.name}</span>
                       <span className="block truncate text-xs text-text-muted">{p.orgType === 'PERSONAL' ? 'Personal' : p.orgName}</span>
                     </span>
-                    <Badge variant={syncTone(p.syncStatus)}>{p.syncStatus}</Badge>
+                    <Badge variant={syncTone(projectSyncLabel(p))}>{projectSyncLabel(p)}</Badge>
                   </Link>
                 ))}
               </div>
@@ -158,7 +158,7 @@ export default function ProjectsPage() {
             <div className="flex flex-wrap items-center gap-2">
               <select aria-label="Sync status" className={select} value={statusFilter} onChange={(e) => setParam('status', e.target.value)}>
                 <option value="">Any status</option>
-                {['Synced', 'Syncing', 'Pending', 'Failed'].map((s) => <option key={s} value={s}>{s}</option>)}
+                {['No repositories', 'Queued', 'Syncing', 'Synced', 'Partially synced', 'Failed'].map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
               <select aria-label="Your role" className={select} value={roleFilter} onChange={(e) => setParam('role', e.target.value)}>
                 <option value="">Any role</option>

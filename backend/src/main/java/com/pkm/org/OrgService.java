@@ -166,6 +166,7 @@ public class OrgService {
 
     @Transactional
     public void removeMember(Long orgId, Long userId, Long targetUserId, boolean deleteOwnedProjects) {
+        access.lockOrganization(orgId);
         OrganizationMember me = access.requireAdmin(orgId, userId);
         requireTeam(me);
         if (targetUserId.equals(userId)) {
@@ -188,18 +189,14 @@ public class OrgService {
     }
 
     @Transactional
-    public void leave(Long orgId, Long userId, boolean deleteOwnedProjects) {
+    public void leave(Long orgId, Long userId) {
+        access.lockOrganization(orgId);
         OrganizationMember me = access.requireMember(orgId, userId);
         requireTeam(me);
         if (me.getRole() == OrganizationMember.Role.owner) {
-            throw ApiException.badRequest("The owner cannot leave. Transfer ownership, remove members, or delete the organization.");
+            throw ApiException.badRequest("Transfer organization ownership before leaving.");
         }
-        detach(me, orgId, deleteOwnedProjects);
-    }
-
-    @Transactional
-    public void leave(Long orgId, Long userId) {
-        leave(orgId, userId, false);
+        detach(me, orgId, false);
     }
 
     // ------------------------------------------------------------------ helpers
@@ -209,7 +206,7 @@ public class OrgService {
     @Transactional(readOnly = true)
     public List<ProjectOwnershipBlocker> projectOwnershipBlockers(Long orgId, Long userId) {
         requireTeam(access.requireMember(orgId, userId));
-        return projectMembers.findByUserInOrgWithRole(userId, orgId, ProjectMember.Role.owner).stream()
+        return projectMembers.findSoleOwnedProjectsInOrg(userId, orgId, ProjectMember.Role.owner).stream()
                 .map(p -> new ProjectOwnershipBlocker(p.getId(), p.getName()))
                 .toList();
     }
@@ -217,11 +214,11 @@ public class OrgService {
     /** Removes the membership and the person's access to every project of that organization. */
     private void detach(OrganizationMember member, Long orgId, boolean deleteOwnedProjects) {
         Long uid = member.getUser().getId();
-        List<Project> owned = projectMembers.findByUserInOrgWithRole(uid, orgId, ProjectMember.Role.owner);
+        List<Project> owned = projectMembers.findSoleOwnedProjectsInOrg(uid, orgId, ProjectMember.Role.owner);
         if (!owned.isEmpty()) {
             if (!deleteOwnedProjects) {
                 throw ApiException.conflict("This person still owns projects in the organization. "
-                        + "Transfer ownership or check the box to delete those projects first.");
+                        + "Transfer ownership where they are the only owner before removing their membership.");
             }
             projects.deleteAll(owned);
         }

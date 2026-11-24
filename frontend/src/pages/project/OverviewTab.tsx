@@ -1,4 +1,5 @@
 import { BookOpen, GitBranch, RefreshCw, Users, Clock, ShieldCheck, AlertTriangle, AlertCircle, HelpCircle, RotateCw, History } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { activityApi, freshnessApi, projectApi } from '../../api/endpoints'
@@ -21,7 +22,7 @@ export default function OverviewTab() {
   const { detail, reload } = useProject()
   const { project, repositories } = detail
   const canSync = project.role !== 'viewer'
-  const hasRepositories = repositories.length > 0 || (project.repositoryCount ?? 0) > 0
+  const hasRepositories = repositories.length > 0
   const recent = useAsync(
     () => activityApi.list(project.id, 0, 5),
     [project.id],
@@ -45,15 +46,10 @@ export default function OverviewTab() {
 
   const normStatus = (s?: string | null) => (s ?? '').toUpperCase()
 
-  const isSyncActive =
-    busy === 'sync' ||
-    normStatus(project.syncStatus) === 'SYNCING' ||
-    normStatus(project.syncStatus) === 'PENDING' ||
-    Boolean(syncStatus?.active) ||
-    repositories.some((r) => {
-      const s = normStatus(r.syncStatus)
-      return s === 'SYNCING' || s === 'PENDING'
-    })
+  const isRunning = syncStatus?.status === 'RUNNING' || normStatus(project.syncStatus) === 'SYNCING' ||
+    repositories.some((repo) => normStatus(repo.syncStatus) === 'SYNCING')
+  const isSyncActive = hasRepositories && (busy === 'sync' || isRunning || Boolean(syncStatus?.active) ||
+    repositories.some((repo) => ['PENDING', 'QUEUED'].includes(normStatus(repo.syncStatus))))
 
   const loadSyncHistory = useCallback(async () => {
     try {
@@ -214,7 +210,7 @@ export default function OverviewTab() {
               {!(busy === 'sync' || (isSyncActive && normStatus(project.syncStatus) === 'SYNCING')) && (
                 <RefreshCw size={16} aria-hidden />
               )}
-              <span>{isSyncActive ? 'Syncing...' : 'Sync now'}</span>
+              <span>{isSyncActive ? (isRunning ? 'Syncing…' : 'Queued') : 'Sync now'}</span>
             </Button>
           )}
         </div>
@@ -222,7 +218,10 @@ export default function OverviewTab() {
 
       {msg && <Alert tone={msg.ok ? 'success' : 'error'}>{msg.text}</Alert>}
 
-      {syncStatus && syncStatus.status !== 'IDLE' && (
+      {!hasRepositories && <Alert tone="info">No repositories linked. {project.role === 'owner'
+        ? <Link to={`/app/projects/${project.id}/settings#repositories`} className="font-medium underline">Add a repository</Link>
+        : 'Ask a project owner to add one.'}</Alert>}
+      {hasRepositories && syncStatus && syncStatus.status !== 'IDLE' && (
         <SyncProgressSection
           status={syncStatus}
           onRetry={canSync && hasRepositories && !isSyncActive ? () => void runSync() : undefined}

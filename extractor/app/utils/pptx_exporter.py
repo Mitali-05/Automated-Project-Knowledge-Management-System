@@ -140,10 +140,7 @@ def _image_slide(prs, title, image, target, caption):
 
 def validate_diagram_geometry(width, height, title, min_pt=18):
     nominal_font = DIAGRAM_TEXT_PX * min(CONTENT_W * 72 / width, 4.35 * 72 / height)
-    width_font = DIAGRAM_TEXT_PX * (CONTENT_W * 72 / width)
     if nominal_font < min_pt:
-        if height > width and width_font >= 14 and nominal_font >= 6.5:
-            return nominal_font
         raise ValueError(f'Diagram is too dense for readable slides: {title}. '
                          f'Rendered {width} x {height}px; fitting it gives approximately {nominal_font:.1f}pt '
                          f'text (minimum {min_pt}pt). Use shorter labels or separate focused views; preserve the source interactions.')
@@ -158,8 +155,7 @@ def _diagram_slide(prs, title, code, key, target, image_path=None):
         raise RuntimeError(f'Diagram rendering did not produce an image: {title}')
     with Image.open(path) as image:
         width, height = image.size
-    min_pt = 14 if ('detail' in key or 'technical' in key or 'evolution' in key) else 18
-    validate_diagram_geometry(width, height, title, min_pt=min_pt)
+    validate_diagram_geometry(width, height, title)
     _image_slide(prs, title, path, target, 'Diagram generated from the repository analysis')
 
 

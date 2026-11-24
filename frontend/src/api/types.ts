@@ -1,4 +1,4 @@
-export type SyncStatus = 'Pending' | 'Syncing' | 'Synced' | 'Failed'
+export type SyncStatus = 'No repositories' | 'Queued' | 'Partially synced' | 'Pending' | 'Syncing' | 'Synced' | 'Failed'
 export type ProjectRole = 'owner' | 'contributor' | 'viewer'
 export type Freshness = 'Fresh' | 'Stale' | 'Outdated'
 export type ChangeFreshness = 'CURRENT' | 'POTENTIALLY_STALE' | 'OUTDATED' | 'UNKNOWN'

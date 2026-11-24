@@ -44,10 +44,10 @@ def validate_sequence_diagram(sequence):
     participants = set(re.findall(r'^\s*(?:participant|actor)\s+(\w+)', sequence, re.MULTILINE))
     for sender, receiver in re.findall(r'^\s*(\w+)\s*--?>>\s*[+-]?(\w+)\s*:', sequence, re.MULTILINE):
         participants.update((sender, receiver))
-    if len(participants) > 6:
-        raise DiagramContractError(f'Sequence diagram exceeds the six-participant readability budget: {len(participants)} participants ({", ".join(sorted(participants))})')
-    if len(re.findall(r'->>', sequence)) > 16:
-        raise DiagramContractError('Sequence diagram exceeds the sixteen-message readability budget')
+    if len(participants) > 4:
+        raise DiagramContractError(f'Sequence diagram exceeds the four-participant readability budget: {len(participants)} participants ({", ".join(sorted(participants))})')
+    if len(re.findall(r'->>', sequence)) > 12:
+        raise DiagramContractError('Sequence diagram exceeds the twelve-message readability budget')
 
 
 def validate_report_contract(result, inspected):
@@ -55,6 +55,10 @@ def validate_report_contract(result, inspected):
     unread = sorted({p for item in cited_items for p in item.evidence_ids if p not in inspected})
     if unread:
         raise UninspectedEvidenceError(unread, result)
+    if result.milestone_timeline_mermaid_chart.strip():
+        error = DiagramContractError('Set milestone_timeline_mermaid_chart to an empty string. Verified project history is unavailable.')
+        error.path = ('milestone_timeline_mermaid_chart',)
+        raise error
     validate_sequence_diagram(result.developer_handover_guide.execution_sequence_chart)
     for index, diagram in enumerate(result.technical_diagrams):
         try:

@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
@@ -11,23 +12,26 @@ import NotFoundPage from './pages/NotFoundPage'
 import RegisterPage from './pages/RegisterPage'
 import WelcomePage from './pages/WelcomePage'
 import CreateProjectPage from './pages/app/CreateProjectPage'
-import DashboardPage from './pages/app/DashboardPage'
 import GithubCallbackPage from './pages/app/GithubCallbackPage'
 import JiraCallbackPage from './pages/app/JiraCallbackPage'
-import JiraTab from './pages/project/JiraTab'
 import HelpPage from './pages/app/HelpPage'
 import OrganizationDetailPage from './pages/app/OrganizationDetailPage'
 import OrganizationsPage from './pages/app/OrganizationsPage'
 import ProjectsPage from './pages/app/ProjectsPage'
 import SettingsPage from './pages/app/SettingsPage'
-import AssistantTab from './pages/project/assistant/AssistantTab'
 import ComingSoonTab from './pages/project/ComingSoonTab'
 import HistoryTab from './pages/project/HistoryTab'
 import KnowledgeTab from './pages/project/KnowledgeTab'
 import OverviewTab from './pages/project/OverviewTab'
 import ProjectLayout from './pages/project/ProjectLayout'
-import ReportTab from './pages/project/ReportTab'
 import SettingsTab from './pages/project/SettingsTab'
+import { PageContainer } from './components/layout/PageContainer'
+import { LoadingState } from './components/ui/States'
+
+const DashboardPage = lazy(() => import('./pages/app/DashboardPage'))
+const AssistantTab = lazy(() => import('./pages/project/assistant/AssistantTab'))
+const JiraTab = lazy(() => import('./pages/project/JiraTab'))
+const ReportTab = lazy(() => import('./pages/project/ReportTab'))
 
 export default function App() {
   return (
@@ -43,7 +47,7 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route path="welcome" element={<WelcomePage />} />
         <Route path="app" element={<AppShell />}>
-          <Route index element={<DashboardPage />} />
+          <Route index element={<Suspense fallback={<PageContainer><LoadingState label="Loading workspace dashboard…" /></PageContainer>}><DashboardPage /></Suspense>} />
           <Route path="projects" element={<ProjectsPage />} />
           <Route path="projects/new" element={<CreateProjectPage />} />
           <Route path="projects/:projectId" element={<ProjectLayout />}>

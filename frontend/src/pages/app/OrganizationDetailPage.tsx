@@ -1,6 +1,6 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Check, Copy, ExternalLink, LogOut, RefreshCw, Trash2 } from 'lucide-react'
+import { ArrowLeft, Check, Copy, ExternalLink, GitBranch, LogOut, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { githubApi, orgApi, projectApi } from '../../api/endpoints'
 import type { OrgMember, OrgSummary } from '../../api/types'
 import { RoleBadge } from '../../components/OrgBadges'
@@ -14,6 +14,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useOrgs } from '../../context/OrgContext'
 import { useAsync } from '../../hooks/useAsync'
 import { errorMessage, formatDate } from '../../lib/format'
+import { projectSyncLabel, syncTone } from '../../lib/tones'
 
 export default function OrganizationDetailPage() {
   const { orgId } = useParams()
@@ -23,6 +24,11 @@ export default function OrganizationDetailPage() {
   const { refresh } = useOrgs()
   const detail = useAsync(() => orgApi.get(id), [id])
   const github = useAsync(() => githubApi.status(id), [id])
+  const personalWorkspace = detail.data?.organization.type === 'PERSONAL'
+  const projects = useAsync(async () =>
+    personalWorkspace ? (await projectApi.list()).filter((project) => project.orgId === id) : [], [id, personalWorkspace])
+  const connected = personalWorkspace && github.data?.connected === true
+  const repositories = useAsync(() => connected ? githubApi.repositories(id) : Promise.resolve([]), [id, connected])
   const [name, setName] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
@@ -30,14 +36,18 @@ export default function OrganizationDetailPage() {
 
   const [leaveError, setLeaveError] = useState<string | null>(null)
   const [ownedProjects, setOwnedProjects] = useState<{ id: number; name: string }[]>([])
-  const [deleteOwnedOnLeave, setDeleteOwnedOnLeave] = useState(false)
+  const [checkingOwnership, setCheckingOwnership] = useState(false)
+  const [successor, setSuccessor] = useState('')
+  const leaveCheck = useRef(0)
   const leaveDialog = useRef<HTMLDialogElement>(null)
+  const disconnectDialog = useRef<HTMLDialogElement>(null)
+  const [disconnectError, setDisconnectError] = useState<string | null>(null)
 
   const [deleteOrgError, setDeleteOrgError] = useState<string | null>(null)
   const [deleteAllProjectsOnDelete, setDeleteAllProjectsOnDelete] = useState(false)
   const deleteOrgDialog = useRef<HTMLDialogElement>(null)
 
-  if (detail.loading && !detail.data) return <PageContainer narrow><LoadingState /></PageContainer>
+  if (detail.loading && !detail.data) return <PageContainer narrow><LoadingState rows={3} label="Loading workspace settings…" /></PageContainer>
   if (detail.error || !detail.data) {
     return <PageContainer narrow><ErrorState message={detail.error ?? 'Organization not found'} onRetry={detail.reload} /></PageContainer>
   }
@@ -54,7 +64,7 @@ export default function OrganizationDetailPage() {
       await fn()
       if (success) setMsg({ ok: true, text: success })
       detail.reload()
-      void refresh()
+      void refresh().catch(() => undefined)
     } catch (err) {
       setMsg({ ok: false, text: errorMessage(err) })
     } finally {
@@ -87,59 +97,37 @@ export default function OrganizationDetailPage() {
     void act(`rm${m.userId}`, () => orgApi.removeMember(id, m.userId), `${m.name} was removed`)
   }
 
+  const loadLeaveBlockers = async () => {
+    const check = ++leaveCheck.current
+    setCheckingOwnership(true)
+    try {
+      const blockers = await orgApi.leaveBlockers(id)
+      if (check === leaveCheck.current) setOwnedProjects(blockers)
+    } catch {
+      // The leave endpoint still enforces ownership when an older backend lacks the read endpoint.
+    } finally {
+      if (check === leaveCheck.current) setCheckingOwnership(false)
+    }
+  }
+
   const openLeaveDialog = () => {
     setLeaveError(null)
     setOwnedProjects([])
-    setDeleteOwnedOnLeave(false)
     leaveDialog.current?.showModal()
-
-    // Immediately fetch user projects to identify blockers directly from existing API
-    void projectApi.list().then((list) => {
-      const owned = list.filter((p) => p.orgId === id && (p.role?.toLowerCase() === 'owner')).map((p) => ({ id: p.id, name: p.name }))
-      if (owned.length > 0) {
-        setOwnedProjects(owned)
-      } else {
-        void orgApi.leaveBlockers(id).then((blockers) => {
-          if (blockers && blockers.length > 0) setOwnedProjects(blockers)
-        }).catch(() => [])
-      }
-    }).catch(() => {
-      void orgApi.leaveBlockers(id).then((blockers) => {
-        if (blockers && blockers.length > 0) setOwnedProjects(blockers)
-      }).catch(() => [])
-    })
+    void loadLeaveBlockers()
   }
 
   const leave = async () => {
     setBusy('leave')
     setLeaveError(null)
     try {
-      if (deleteOwnedOnLeave) {
-        let toDelete = ownedProjects
-        if (toDelete.length === 0) {
-          const list = await projectApi.list().catch(() => [])
-          toDelete = list.filter((p) => p.orgId === id && (p.role?.toLowerCase() === 'owner')).map((p) => ({ id: p.id, name: p.name }))
-        }
-        for (const p of toDelete) {
-          try {
-            await projectApi.remove(p.id)
-          } catch (e) {
-            console.error(`Failed to remove project ${p.id}:`, e)
-          }
-        }
-      }
-      await orgApi.leave(id, deleteOwnedOnLeave)
+      await orgApi.leave(id)
       leaveDialog.current?.close()
       void refresh().catch(() => undefined)
       navigate('/app/organizations', { replace: true })
     } catch (err) {
       setLeaveError(errorMessage(err))
-      void projectApi.list().then((list) => {
-        const owned = list.filter((p) => p.orgId === id && (p.role?.toLowerCase() === 'owner')).map((p) => ({ id: p.id, name: p.name }))
-        if (owned.length > 0) {
-          setOwnedProjects(owned)
-        }
-      }).catch(() => [])
+      void loadLeaveBlockers()
     } finally {
       setBusy(null)
     }
@@ -173,12 +161,32 @@ export default function OrganizationDetailPage() {
   }
 
   const gh = github.data
+  const newProjectUrl = `/app/projects/new?orgId=${id}`
+  const disconnectGitHub = async () => {
+    setBusy('disconnect')
+    setDisconnectError(null)
+    try {
+      await githubApi.disconnect(id)
+      disconnectDialog.current?.close()
+      github.reload()
+      detail.reload()
+      void refresh().catch(() => undefined)
+      setMsg({ ok: true, text: 'GitHub disconnected from this workspace.' })
+    } catch (err) {
+      setDisconnectError(errorMessage(err))
+    } finally {
+      setBusy(null)
+    }
+  }
 
   return (
     <PageContainer narrow>
       <Link to="/app/organizations" className="inline-flex items-center gap-1 text-xs sm:text-sm text-text-secondary hover:text-primary-indigo"><ArrowLeft size={14} aria-hidden /> All organizations</Link>
-      <PageHeader title={org.name} subtitle={personal ? 'Your personal workspace.' : `${org.memberCount} member${org.memberCount === 1 ? '' : 's'} · created ${formatDate(org.createdAt)}`}
-        action={<RoleBadge role={org.role} />} />
+      <PageHeader title={org.name} subtitle={personal ? 'Personal workspace settings' : `${org.memberCount} member${org.memberCount === 1 ? '' : 's'} · created ${formatDate(org.createdAt)}`}
+        action={<div className="flex flex-wrap items-center gap-3">
+          <RoleBadge role={org.role} />
+          {personal && <Link to={newProjectUrl} className="inline-flex items-center gap-2 rounded-lg bg-primary-indigo px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-blue"><Plus size={16} aria-hidden /> New project</Link>}
+        </div>} />
 
       {msg && <Alert tone={msg.ok ? 'success' : 'error'}>{msg.text}</Alert>}
 
@@ -198,8 +206,8 @@ export default function OrganizationDetailPage() {
 
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle>GitHub connection</CardTitle>
-          <Badge variant={org.githubConnected ? 'success' : 'default'}>{org.githubConnected ? 'Connected' : 'Not connected'}</Badge>
+          <CardTitle className="flex items-center gap-2"><GitBranch size={17} className="text-primary-indigo" aria-hidden /> GitHub connection</CardTitle>
+          <Badge variant={(gh?.connected ?? org.githubConnected) ? 'success' : 'default'}>{(gh?.connected ?? org.githubConnected) ? 'Connected' : 'Not connected'}</Badge>
         </CardHeader>
         <CardContent className="space-y-3 text-xs sm:text-sm">
           <p className="text-text-secondary">Projects in this {personal ? 'workspace' : 'organization'} use this connection to read repositories, including private ones. PRISM keeps only the extracted knowledge and links back to the source.</p>
@@ -212,8 +220,69 @@ export default function OrganizationDetailPage() {
               </div>
             )
             : null}
+          {github.error && <Alert>{github.error} <Button variant="outline" size="sm" onClick={github.reload}>Try again</Button></Alert>}
+          {connected && (
+            <>
+              {repositories.loading && !repositories.data && <p role="status">Checking repository access…</p>}
+              {repositories.error && <Alert>{repositories.error} <Button variant="outline" size="sm" onClick={repositories.reload}>Try again</Button></Alert>}
+              {repositories.data?.length === 0 && <p>No repositories granted. Review the app’s access on GitHub.</p>}
+              {!!repositories.data?.length && <details className="rounded-lg border border-surface-border p-3">
+                <summary className="cursor-pointer font-medium">Available repositories ({repositories.data.length})</summary>
+                <ul className="mt-2 max-h-56 space-y-2 overflow-y-auto">
+                  {repositories.data.map((repo) => <li key={repo.id} className="flex flex-wrap items-center gap-2">
+                    <a href={repo.url} target="_blank" rel="noopener noreferrer" className="break-all text-primary-indigo underline">{repo.fullName}</a>
+                    {repo.isPrivate && <Badge>Private</Badge>}
+                  </li>)}
+                </ul>
+              </details>}
+              <div className="flex flex-wrap items-center gap-3 border-t border-surface-border pt-3">
+                <a href="https://github.com/settings/installations" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-primary-indigo underline">Manage access on GitHub <ExternalLink size={14} aria-hidden /></a>
+                <Button variant="outline" size="sm" disabled={repositories.loading} onClick={repositories.reload}><RefreshCw size={14} aria-hidden /> Refresh access</Button>
+                {gh?.canManage && <Button variant="ghost" size="sm" className="text-danger" disabled={busy !== null} onClick={() => {
+                  setDisconnectError(null)
+                  disconnectDialog.current?.showModal()
+                }}>Disconnect</Button>}
+              </div>
+            </>
+          )}
+          {!gh?.connected && gh?.configured && !gh.canManage && <Alert tone="info">Ask a workspace owner or admin to connect GitHub.</Alert>}
+          {personal && <dialog ref={disconnectDialog} aria-labelledby="disconnect-github-title"
+            onCancel={(event) => { if (busy === 'disconnect') event.preventDefault() }}
+            className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-surface-border bg-surface-card p-6 text-text-primary shadow-xl backdrop:bg-black/50">
+            <h2 id="disconnect-github-title" className="text-lg font-semibold">Disconnect GitHub?</h2>
+            <p className="mt-2 text-sm text-text-secondary">Private repositories in this workspace may stop syncing until you reconnect. Existing projects and knowledge stay in PRISM.</p>
+            {disconnectError && <div className="mt-3"><Alert>{disconnectError}</Alert></div>}
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <Button variant="outline" disabled={busy === 'disconnect'} onClick={() => disconnectDialog.current?.close()}>Cancel</Button>
+              <Button variant="danger" isLoading={busy === 'disconnect'} onClick={() => void disconnectGitHub()}>Disconnect GitHub</Button>
+            </div>
+          </dialog>}
         </CardContent>
       </Card>
+
+      {personal && (
+        <Card>
+          <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 space-y-0">
+            <CardTitle>Workspace projects</CardTitle>
+            <Badge>{projects.data ? `${projects.data.length} ${projects.data.length === 1 ? 'project' : 'projects'}` : 'Personal'}</Badge>
+          </CardHeader>
+          <CardContent className="text-sm">
+            {projects.loading && !projects.data && <LoadingState rows={1} label="Loading workspace projects…" />}
+            {projects.error && <ErrorState message={projects.error} onRetry={projects.reload} />}
+            {!projects.loading && !projects.error && projects.data?.length === 0 && <div className="rounded-lg border border-dashed border-surface-border p-4">
+              <p className="font-semibold">No projects yet</p>
+              <p className="mt-1 text-text-secondary">Link a repository to start collecting project knowledge.</p>
+              <Link to={newProjectUrl} className="mt-3 inline-block font-medium text-primary-indigo underline">Create your first project</Link>
+            </div>}
+            {!!projects.data?.length && <ul className="divide-y divide-surface-border">
+              {projects.data.map((project) => <li key={project.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <Link to={`/app/projects/${project.id}`} className="font-medium text-primary-indigo underline">{project.name}</Link>
+                <Badge variant={syncTone(projectSyncLabel(project))}>{projectSyncLabel(project)}</Badge>
+              </li>)}
+            </ul>}
+          </CardContent>
+        </Card>
+      )}
 
       {!personal && (
         <Card>
@@ -241,13 +310,13 @@ export default function OrganizationDetailPage() {
         </Card>
       )}
 
-      {!personal && isOwner && (
+      {isOwner && (
         <Card>
-          <CardHeader><CardTitle>Rename organization</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{personal ? 'Workspace name' : 'Rename organization'}</CardTitle></CardHeader>
           <CardContent>
             <form onSubmit={rename} className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1">
-                <Input value={name ?? org.name} onChange={(e) => setName(e.target.value)} maxLength={150} />
+                <Input aria-label={personal ? "Workspace name" : "Organization name"} value={name ?? org.name} onChange={(e) => setName(e.target.value)} maxLength={150} />
               </div>
               <Button type="submit" isLoading={busy === 'rename'} disabled={!name || name.trim() === org.name}>Save</Button>
             </form>
@@ -255,6 +324,23 @@ export default function OrganizationDetailPage() {
         </Card>
       )}
 
+      {!personal && isOwner && (
+        <Card>
+          <CardHeader><CardTitle>Transfer organization ownership</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <p>Choose a current member. They become the owner, and you become an admin.</p>
+            <select aria-label="New organization owner" value={successor} onChange={(event) => setSuccessor(event.target.value)} className="w-full rounded-lg border border-surface-border bg-surface-card p-2">
+              <option value="">Select a member</option>
+              {members.filter((member) => member.userId !== user?.id && member.role !== 'owner').map((member) =>
+                <option key={member.userId} value={member.userId}>{member.name}</option>)}
+            </select>
+            <Button variant="outline" disabled={!successor || busy !== null} isLoading={busy === 'transfer'} onClick={() =>
+              void act('transfer', () => orgApi.transferOwnership(id, Number(successor)), 'Organization ownership transferred')}>
+              Transfer ownership
+            </Button>
+          </CardContent>
+        </Card>
+      )}
       {!personal && (
         <Card className="border-red-200">
           <CardHeader><CardTitle className="text-danger">Danger zone</CardTitle></CardHeader>
@@ -332,37 +418,20 @@ export default function OrganizationDetailPage() {
 
                   {leaveError && <div className="mt-4"><Alert tone="error">{leaveError}</Alert></div>}
 
-                  {(ownedProjects.length > 0 || Boolean(leaveError?.toLowerCase().includes('owns projects'))) && (
-                    <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 text-xs sm:text-sm">
-                      <p className="font-semibold text-amber-900">
-                        {ownedProjects.length > 0
-                          ? `You are an owner of ${ownedProjects.length} project${ownedProjects.length === 1 ? '' : 's'} in this organization:`
-                          : 'You own projects in this organization that must be handled before leaving:'}
-                      </p>
-                      {ownedProjects.length > 0 && (
-                        <ul className="mt-2 list-disc pl-4 space-y-1 text-amber-900 font-medium">
-                          {ownedProjects.map((project) => (
-                            <li key={project.id}>
-                              {project.name}{' '}
-                              <Link to={`/app/projects/${project.id}/settings`} target="_blank" rel="noopener noreferrer" className="ml-1 text-xs text-primary-indigo underline font-normal">
-                                (open project settings)
-                              </Link>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-
-                      <label className="mt-3 flex items-start gap-2.5 cursor-pointer pt-2 border-t border-amber-200/80">
-                        <input
-                          type="checkbox"
-                          checked={deleteOwnedOnLeave}
-                          onChange={(e) => setDeleteOwnedOnLeave(e.target.checked)}
-                          className="mt-0.5 h-4 w-4 rounded border-amber-300 text-danger focus:ring-danger"
-                        />
-                        <span className="text-xs font-semibold text-danger">
-                          Delete all projects created by me in this organization{ownedProjects.length > 0 ? ` (${ownedProjects.length})` : ''} along with their repositories, knowledge, and history
-                        </span>
-                      </label>
+                  {checkingOwnership && <p className="mt-4 text-sm text-text-secondary" role="status">Checking project ownership…</p>}
+                  {ownedProjects.length > 0 && (
+                    <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+                      <p className="font-semibold">Transfer these projects before leaving</p>
+                      <ul className="mt-2 space-y-2">
+                        {ownedProjects.map((project) => (
+                          <li key={project.id}>
+                            <Link to={`/app/projects/${project.id}/settings#ownership`} className="text-primary-indigo underline">
+                              {project.name}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                      <Button variant="outline" size="sm" className="mt-3" disabled={checkingOwnership} onClick={() => void loadLeaveBlockers()}>Check again</Button>
                     </div>
                   )}
 
@@ -371,8 +440,7 @@ export default function OrganizationDetailPage() {
                     <Button
                       variant="danger"
                       isLoading={busy === 'leave'}
-                      disabled={(ownedProjects.length > 0 || Boolean(leaveError?.toLowerCase().includes('owns projects'))) && !deleteOwnedOnLeave}
-                      title={(ownedProjects.length > 0 || Boolean(leaveError?.toLowerCase().includes('owns projects'))) && !deleteOwnedOnLeave ? 'Check the box to delete your projects or transfer ownership before leaving' : undefined}
+                      disabled={checkingOwnership || ownedProjects.length > 0}
                       onClick={() => void leave()}
                     >
                       Leave organization

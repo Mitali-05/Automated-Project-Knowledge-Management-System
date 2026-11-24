@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { Suspense, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { AlertCircle, ArrowLeft, BookOpen, CheckCircle2, Clock, History, LayoutDashboard, FileBarChart, RefreshCw, Settings, Sparkles, Ticket, type LucideIcon } from 'lucide-react'
 import { Link, NavLink, Outlet, useParams } from 'react-router-dom'
@@ -27,6 +27,9 @@ const syncConfig: Record<SyncStatus, { icon: LucideIcon; style: string }> = {
   Synced: { icon: CheckCircle2, style: 'bg-emerald-50 text-emerald-600' },
   Syncing: { icon: RefreshCw, style: 'bg-blue-50 text-blue-600' },
   Failed: { icon: AlertCircle, style: 'bg-red-50 text-red-600' },
+  'No repositories': { icon: Clock, style: 'bg-slate-100 text-slate-600' },
+  Queued: { icon: Clock, style: 'bg-amber-50 text-amber-600' },
+  'Partially synced': { icon: AlertCircle, style: 'bg-amber-50 text-amber-600' },
   Pending: { icon: Clock, style: 'bg-amber-50 text-amber-600' },
 }
 
@@ -41,26 +44,11 @@ export default function ProjectLayout() {
   )
 
   useEffect(() => {
-    if (!data || loading) return
-    const isSyncing = data.project.syncStatus === 'Syncing' || data.project.syncStatus === 'Pending' ||
-      data.repositories.some((r) => r.syncStatus === 'Syncing' || r.syncStatus === 'Pending')
-    if (!isSyncing) return
-    const timer = setTimeout(() => {
-      reload()
-    }, 3000)
-    return () => clearTimeout(timer)
+    if (!data?.repositories.length || loading) return
+    if (!data.repositories.some((repo) => ['SYNCING', 'PENDING', 'QUEUED'].includes(repo.syncStatus.toUpperCase()))) return
+    const timer = window.setTimeout(reload, 3000)
+    return () => window.clearTimeout(timer)
   }, [data, loading, reload])
-
-  useEffect(() => {
-    if (!data) return
-    const isSyncing = data.project.syncStatus === 'Syncing' || data.project.syncStatus === 'Pending' ||
-      data.repositories.some((r) => r.syncStatus === 'Syncing' || r.syncStatus === 'Pending')
-    if (!isSyncing) return
-    const interval = setInterval(() => {
-      void reload()
-    }, 3000)
-    return () => clearInterval(interval)
-  }, [data, reload])
 
   if (loading && !data) return <div className="mx-auto max-w-7xl p-4 sm:p-6 md:p-8"><LoadingState rows={2} /></div>
   if (error || !data) {
@@ -73,11 +61,8 @@ export default function ProjectLayout() {
   }
 
   const { project } = data
-  const normalizedStatus = (
-    project.syncStatus
-      ? (project.syncStatus.charAt(0).toUpperCase() + project.syncStatus.slice(1).toLowerCase())
-      : 'Pending'
-  ) as SyncStatus
+  const normalizedStatus = !data.repositories.length ? 'No repositories'
+    : (Object.keys(syncConfig) as SyncStatus[]).find((status) => status.toUpperCase() === project.syncStatus?.toUpperCase()) ?? 'Pending'
   const sync = syncConfig[normalizedStatus] || syncConfig.Pending
   const SyncIcon = sync.icon
 
@@ -112,7 +97,9 @@ export default function ProjectLayout() {
       </motion.div>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, delay: 0.1 }} className="flex-1">
         <div className="mx-auto w-full max-w-7xl p-3 sm:p-4 md:p-6 lg:p-8">
-          <Outlet key={id} context={{ detail: data, reload } satisfies ProjectContext} />
+          <Suspense fallback={<LoadingState rows={2} label="Opening project view…" />}>
+            <Outlet key={id} context={{ detail: data, reload } satisfies ProjectContext} />
+          </Suspense>
         </div>
       </motion.div>
     </div>

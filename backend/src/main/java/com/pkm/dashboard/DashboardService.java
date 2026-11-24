@@ -49,8 +49,8 @@ public class DashboardService {
         long knowledge = projects.stream().mapToLong(ProjectSummary::knowledgeItemCount).sum();
         long people = projects.stream().mapToLong(ProjectSummary::memberCount).sum();
         long synced = projects.stream().filter(p -> "Synced".equals(p.syncStatus())).count();
-        long failed = projects.stream().filter(p -> "Failed".equals(p.syncStatus())).count();
-        long pending = projects.size() - synced - failed;
+        long failed = projects.stream().filter(p -> Set.of("Failed", "Partially synced").contains(p.syncStatus())).count();
+        long pending = projects.stream().filter(p -> Set.of("Queued", "Syncing").contains(p.syncStatus())).count();
 
         if (ids.isEmpty()) {
             return new DashboardDto(0, 0, 0, 0, 0, 0, 0, new DashboardDto.KnowledgeHealth(0, 0, 0),

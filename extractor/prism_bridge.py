@@ -203,16 +203,13 @@ def process(api: PrismApi, repo: dict) -> None:
         context = api.http.get(f"{api.base}/api/ingest/jira/context/{project_id}", timeout=HTTP_TIMEOUT)
         result.jira_context = api._check(context).json()
 
-        api.knowledge(project_id, repo_id, to_ingest_items(result, owner, name))
-        api.report(repo_id, result.model_dump(mode="json"))
-        log.info("Saved knowledge and report for %s", label)
-
-        # All required deliverables must succeed before reporting SYNCED.
         from app.utils.exporter import generate_pdf_report
         from app.utils.pptx_exporter import generate_pptx_deck
-        # Validate both serialized documents before uploading either replacement.
+        # Validate both exports before replacing any published content.
         pdf = generate_pdf_report(result, owner, name)
         deck = generate_pptx_deck(result, owner, name)
+        api.knowledge(project_id, repo_id, to_ingest_items(result, owner, name))
+        api.report(repo_id, result.model_dump(mode="json"))
         api.report_file(repo_id, "pdf", pdf)
         api.report_file(repo_id, "pptx", deck)
 

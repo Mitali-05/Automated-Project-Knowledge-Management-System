@@ -116,3 +116,7 @@
 ::-webkit-scrollbar-thumb:hover {
   background: var(--primary-indigo);
 }
+@keyframes prism-request {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(300%); }
+}

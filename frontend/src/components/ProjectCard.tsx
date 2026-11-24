@@ -1,7 +1,7 @@
 import { BookOpen, Clock, GitBranch, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import type { ProjectSummary } from '../api/types'
-import { syncTone } from '../lib/tones'
+import { projectSyncLabel, syncTone } from '../lib/tones'
 import { timeAgo } from '../lib/format'
 import { Badge } from './ui/Badge'
 import { Card, CardContent } from './ui/Card'
@@ -20,7 +20,7 @@ export function ProjectCard({ project }: { project: ProjectSummary }) {
           <div className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary-indigo to-primary-violet text-lg font-bold text-white shadow-md transition-transform group-hover:scale-105">
             {project.name.charAt(0).toUpperCase()}
           </div>
-          <Badge variant={syncTone(project.syncStatus)}>{project.syncStatus}</Badge>
+          <Badge variant={syncTone(projectSyncLabel(project))}>{projectSyncLabel(project)}</Badge>
         </div>
         <h3 className="mb-1 sm:mb-2 line-clamp-1 text-lg sm:text-xl font-bold text-text-primary transition-colors group-hover:text-primary-indigo">{project.name}</h3>
         <p className="mb-2 text-xs font-medium text-text-muted">{project.orgType === 'PERSONAL' ? 'Personal' : project.orgName}</p>

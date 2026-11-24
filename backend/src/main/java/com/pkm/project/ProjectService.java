@@ -79,6 +79,7 @@ public class ProjectService {
 
     @Transactional
     public ProjectDetail create(Long userId, CreateProjectRequest req) {
+        orgAccess.lockOrganization(req.orgId());
         User creator = loadUser(userId);
         // Must belong to the chosen organization (404 otherwise, so other organizations stay invisible).
         Organization org = orgAccess.requireMember(req.orgId(), userId).getOrganization();
@@ -152,6 +153,7 @@ public class ProjectService {
 
     @Transactional
     public MemberDto transferOwnership(Long projectId, Long userId, Long targetUserId, boolean retainOwnership) {
+        lockProjectOrganization(projectId);
         projectRepository.lockForOwnershipTransfer(projectId)
                 .orElseThrow(() -> ApiException.notFound("Project not found"));
         ProjectMember owner = access.requireOwner(projectId, userId);
@@ -180,6 +182,8 @@ public class ProjectService {
 
     @Transactional
     public int requestSync(Long projectId, Long userId) {
+        projectRepository.lockForOwnershipTransfer(projectId)
+                .orElseThrow(() -> ApiException.notFound("Project not found"));
         ProjectMember me = access.requireMember(projectId, userId);
         if (me.getRole() == ProjectMember.Role.viewer) {
             throw ApiException.forbidden("Viewers cannot request a repository sync");
@@ -190,7 +194,7 @@ public class ProjectService {
         }
         int queued = 0;
         for (ProjectRepositoryLink r : repos) {
-            if (r.getSyncStatus() != SyncStatus.SYNCING) {
+            if (r.getSyncStatus() != SyncStatus.SYNCING && r.getSyncStatus() != SyncStatus.PENDING) {
                 r.setSyncStatus(SyncStatus.PENDING);
                 r.setLastSyncMessage(null);
                 queued++;
@@ -296,7 +300,11 @@ public class ProjectService {
 
     @Transactional
     public MemberDto addMember(Long projectId, Long userId, Long newUserId, ProjectMember.Role role) {
+        lockProjectOrganization(projectId);
         ProjectMember me = access.requireOwner(projectId, userId);
+        if (me.getProject().getOrganization().getType() == Organization.Type.PERSONAL) {
+            throw ApiException.badRequest("Personal workspace projects cannot be shared");
+        }
         if (role == ProjectMember.Role.owner) {
             throw ApiException.badRequest("Choose the contributor or viewer role");
         }
@@ -334,6 +342,12 @@ public class ProjectService {
 
     // ------------------------------------------------------------------ helpers
 
+    private void lockProjectOrganization(Long projectId) {
+        Long orgId = projectRepository.findOrganizationId(projectId)
+                .orElseThrow(() -> ApiException.notFound("Project not found"));
+        orgAccess.lockOrganization(orgId);
+    }
+
     private ProjectRepositoryLink linkRepository(Project project, GithubRepoRef ref, User actor) {
         ProjectRepositoryLink link = new ProjectRepositoryLink();
         link.setProject(project);
@@ -358,6 +372,10 @@ public class ProjectService {
     private List<User> resolveContributors(User creator, Organization org, List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             return List.of();
+        }
+        if (org.getType() == Organization.Type.PERSONAL
+                && ids.stream().anyMatch(id -> id != null && !id.equals(creator.getId()))) {
+            throw ApiException.badRequest("Personal workspace projects cannot be shared");
         }
         List<User> result = new ArrayList<>();
         for (Long id : new LinkedHashSet<>(ids)) {
@@ -412,17 +430,18 @@ public class ProjectService {
     /** One badge for the whole project, derived from its repositories. */
     static String aggregateStatus(List<ProjectRepositoryLink> repos) {
         if (repos.isEmpty()) {
-            return "Pending";
+            return "No repositories";
         }
         if (repos.stream().anyMatch(r -> r.getSyncStatus() == SyncStatus.SYNCING)) {
             return "Syncing";
         }
+        if (repos.stream().anyMatch(r -> r.getSyncStatus() == SyncStatus.PENDING)) {
+            return "Queued";
+        }
         if (repos.stream().anyMatch(r -> r.getSyncStatus() == SyncStatus.FAILED)) {
-            return "Failed";
+            return repos.stream().anyMatch(r -> r.getSyncStatus() == SyncStatus.SYNCED)
+                    ? "Partially synced" : "Failed";
         }
-        if (repos.stream().allMatch(r -> r.getSyncStatus() == SyncStatus.SYNCED)) {
-            return "Synced";
-        }
-        return "Pending";
+        return "Synced";
     }
 }

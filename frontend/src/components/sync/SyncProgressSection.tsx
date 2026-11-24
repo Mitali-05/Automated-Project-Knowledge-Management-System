@@ -34,9 +34,10 @@ export function SyncProgressSection({ status, onRetry, isRetrying = false }: Syn
   const [elapsed, setElapsed] = useState(0)
 
   const isActive = status?.active ?? false
+  const isQueued = status?.status === 'PENDING'
   const isFailed = status?.status === 'FAILED'
   const isCompleted = status?.status === 'COMPLETED'
-  const progress = Math.min(100, Math.max(0, status?.progress ?? (isActive ? 15 : 0)))
+  const progress = isQueued ? 0 : Math.min(100, Math.max(0, status?.progress ?? 0))
 
   useEffect(() => {
     if (!status?.startedAt) {
@@ -58,12 +59,6 @@ export function SyncProgressSection({ status, onRetry, isRetrying = false }: Syn
 
   const getCurrentStageIndex = () => {
     if (isCompleted) return STAGES.length - 1
-    if (isFailed) {
-      for (let i = STAGES.length - 1; i >= 0; i--) {
-        if (progress >= STAGES[i].minProgress) return i
-      }
-      return 0
-    }
     for (let i = STAGES.length - 1; i >= 0; i--) {
       if (progress >= STAGES[i].minProgress) return i
     }
@@ -95,16 +90,16 @@ export function SyncProgressSection({ status, onRetry, isRetrying = false }: Syn
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-sm sm:text-base font-bold text-text-primary">
-                {isActive ? 'Repository Knowledge Extraction in Progress' :
-                 isCompleted ? 'Knowledge Synchronization Completed' :
-                 isFailed ? 'Repository Extraction Failed' : 'Knowledge Synchronization'}
+                {isQueued ? 'Waiting to sync' : isActive ? 'Extracting repository knowledge' :
+                 isCompleted ? 'Repository sync complete' :
+                 isFailed ? 'Repository sync failed' : 'Repository sync'}
               </h3>
               <Badge variant={
                 isActive ? 'primary' :
                 isCompleted ? 'success' :
                 isFailed ? 'danger' : 'default'
               }>
-                {status?.status || 'IDLE'}
+                {isQueued ? 'Queued' : isActive ? 'Running' : isCompleted ? 'Complete' : isFailed ? 'Failed' : 'Idle'}
               </Badge>
             </div>
             <p className="text-xs text-text-muted mt-0.5 truncate">
@@ -139,10 +134,12 @@ export function SyncProgressSection({ status, onRetry, isRetrying = false }: Syn
 
       <div className="py-4 space-y-2">
         <div className="flex items-center justify-between text-xs font-semibold">
-          <span className="text-text-secondary">{status?.stage || 'Extraction Progress'}</span>
-          <span className="font-mono text-primary-indigo font-bold">{progress}%</span>
+          <span className="text-text-secondary">{isQueued ? 'Waiting for an available worker' : status?.stage || 'Extraction progress'}</span>
+          {!isQueued && <span className="font-mono text-primary-indigo font-bold">{progress}%</span>}
         </div>
-        <div className="h-2.5 w-full overflow-hidden rounded-full bg-surface-border/70 relative">
+        <div role="progressbar" aria-label="Repository extraction progress" aria-valuenow={isQueued ? undefined : progress} className="h-2.5 w-full overflow-hidden rounded-full bg-surface-border/70 relative">
+          {isQueued && <div className="h-full w-1/3 rounded-full bg-indigo-400 [animation:prism-request_1.5s_ease-in-out_infinite] motion-reduce:animate-none" />}
+          {!isQueued && (
           <motion.div
             className={cn(
               'h-full rounded-full transition-all duration-500',
@@ -152,6 +149,7 @@ export function SyncProgressSection({ status, onRetry, isRetrying = false }: Syn
             animate={{ width: `${progress}%` }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
           />
+          )}
         </div>
       </div>
 

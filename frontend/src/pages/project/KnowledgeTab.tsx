@@ -36,7 +36,7 @@ export default function KnowledgeTab() {
     })
   }, [data, type, changeFilter, query])
 
-  if (loading && !data) return <LoadingState />
+  if (loading && !data) return <LoadingState label="Loading project knowledge…" />
   if (error) return <ErrorState message={error} onRetry={reload} />
 
   const renderChangeBadge = (status?: ChangeFreshness) => {

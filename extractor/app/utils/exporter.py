@@ -14,7 +14,7 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (BaseDocTemplate, PageTemplate, Frame, Paragraph,
-                               Spacer, LongTable, TableStyle, PageBreak, NextPageTemplate, Image)
+                               Spacer, LongTable, TableStyle, Image, KeepTogether)
 from app.core.models import AgentExtractionResult
 from app.mcp.inspection_contract import validate_sequence_diagram
 from app.utils.diagram_renderer import render_mermaid_to_png, clean_mermaid_code, DIAGRAM_TEXT_PX
@@ -133,41 +133,31 @@ def generate_pdf_report(result: AgentExtractionResult, owner='', repo='', diagra
     doc = BaseDocTemplate(output, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN,
                           topMargin=52, bottomMargin=52, title=result.project_name,
                           author='PRISM', allowSplitting=True)
-    templates = []
-    for name, size in [('portrait', A4), ('diagram', A4)]:
-        w, h = size
-        frame = Frame(MARGIN, 52, w - MARGIN * 2, h - 104,
-                      leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
-        templates.append(PageTemplate(id=name, frames=[frame], pagesize=size, onPage=_decorate))
-    doc.addPageTemplates(templates)
+    frame = Frame(MARGIN, 52, TEXT_W, PAGE_H - 104,
+                  leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
+    doc.addPageTemplates(PageTemplate(id='portrait', frames=[frame], pagesize=A4, onPage=_decorate))
     styles, story, section_number = _styles(), [], 0
-    after_diagram = False
     target = f'{owner}/{repo}' if owner and repo else result.project_name
     guide, deck, metrics = result.developer_handover_guide, result.presentation_deck, result.analytics_metrics
 
-    def ensure_portrait():
-        nonlocal after_diagram
-        if after_diagram:
-            story.extend([NextPageTemplate('portrait'), PageBreak()])
-            after_diagram = False
-
     def paragraph(text, role='body'):
         if str(text or '').strip():
-            ensure_portrait()
             story.append(Paragraph(_html(text), styles[role]))
 
-    def heading(text):
+    def section_heading(text):
         nonlocal section_number
         section_number += 1
-        paragraph(f'{section_number}. ' + re.sub(r'^\d+\.\s*', '', text), 'h1')
+        label = f'{section_number}. ' + re.sub(r'^\d+\.\s*', '', text)
+        return Paragraph(_html(label), styles['h1'])
+
+    def heading(text):
+        story.append(section_heading(text))
 
     def new_section(text):
-        ensure_portrait()
         story.append(Spacer(1, 9))
         heading(text)
 
     def diagram(title, code, suffix, caption):
-        nonlocal after_diagram
         if not str(code or '').strip():
             return
         cleaned = clean_mermaid_code(code)
@@ -175,7 +165,6 @@ def generate_pdf_report(result: AgentExtractionResult, owner='', repo='', diagra
         first_word = stripped.split()[0].lower() if stripped.split() else ''
         is_valid_type = any(first_word.startswith(t) for t in ('graph', 'flowchart', 'sequence', 'class', 'state', 'erdiagram', 'gantt', 'pie', 'timeline', 'gitgraph', 'mindmap', 'c4', 'sankey', 'xychart'))
         if not is_valid_type:
-            ensure_portrait()
             heading(title)
             paragraph(str(code))
             paragraph(caption, 'caption')
@@ -185,21 +174,16 @@ def generate_pdf_report(result: AgentExtractionResult, owner='', repo='', diagra
         except Exception as exc:
             if suffix in ('dependencies', 'timeline') or 'detail_' in suffix:
                 logger.warning('Optional diagram %s rendering failed, formatting as text note: %s', title, exc)
-                ensure_portrait()
                 heading(title)
                 paragraph(str(code))
                 paragraph(caption, 'caption')
                 return
             raise
         image = _diagram_image(path, TEXT_W, 520)
-        # Both templates are A4 portrait. Adjacent figures need no blank separator.
-        after_diagram = False
-        story.extend([NextPageTemplate('diagram'), PageBreak()])
-        heading(title)
-        story.append(image)
-        story.append(Spacer(1, 12))
-        paragraph(caption, 'caption')
-        after_diagram = True
+        figure = [section_heading(title), image]
+        if str(caption or '').strip():
+            figure.extend([Spacer(1, 12), Paragraph(_html(caption), styles['caption'])])
+        story.append(KeepTogether(figure))
 
     paragraph('REPOSITORY ARCHITECTURE REVIEW', 'caption')
     paragraph(result.project_name, 'title')

@@ -9,9 +9,9 @@ from app.utils.pptx_exporter import validate_diagram_geometry
 def validate_rendered_report(result, cache):
     views = [(('architecture_mermaid_chart',), 'System architecture', result.architecture_mermaid_chart, 18),
              (('developer_handover_guide', 'execution_sequence_chart'), 'Primary sequence', result.developer_handover_guide.execution_sequence_chart, 18)]
-    views += [(('technical_diagrams', i, 'mermaid'), v.title, v.mermaid, 14) for i,v in enumerate(result.technical_diagrams)]
+    views += [(('technical_diagrams', i, 'mermaid'), v.title, v.mermaid, 18) for i,v in enumerate(result.technical_diagrams)]
     if result.milestone_timeline_mermaid_chart:
-        views.append((('milestone_timeline_mermaid_chart',), 'Evolution', result.milestone_timeline_mermaid_chart, 14))
+        views.append((('milestone_timeline_mermaid_chart',), 'Evolution', result.milestone_timeline_mermaid_chart, 18))
     failures=[]
     for path,title,code,min_pt in views:
         if not str(code or '').strip():

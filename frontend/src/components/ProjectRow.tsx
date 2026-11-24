@@ -2,7 +2,7 @@ import { BookOpen, GitBranch, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { ProjectSummary } from '../api/types'
 import { timeAgo } from '../lib/format'
-import { syncTone } from '../lib/tones'
+import { projectSyncLabel, syncTone } from '../lib/tones'
 import { Badge } from './ui/Badge'
 
 /** Compact one-line project entry for the list view. */
@@ -20,7 +20,7 @@ export function ProjectRow({ project: p }: { project: ProjectSummary }) {
         <span className="flex items-center gap-1.5" title="Members"><Users size={14} aria-hidden />{p.memberCount}</span>
         <span className="w-20 text-right">{timeAgo(p.lastSyncedAt)}</span>
       </span>
-      <Badge variant={syncTone(p.syncStatus)}>{p.syncStatus}</Badge>
+      <Badge variant={syncTone(projectSyncLabel(p))}>{projectSyncLabel(p)}</Badge>
     </Link>
   )
 }

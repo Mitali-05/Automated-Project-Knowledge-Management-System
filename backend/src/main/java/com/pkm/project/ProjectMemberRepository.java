@@ -30,8 +30,10 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, Lo
     long countByUserInOrgWithRole(Long userId, Long orgId, ProjectMember.Role role);
 
     @Query("select m.project from ProjectMember m where m.user.id = :userId and m.role = :role "
-            + "and m.project.id in (select p.id from Project p where p.organization.id = :orgId)")
-    List<Project> findByUserInOrgWithRole(Long userId, Long orgId, ProjectMember.Role role);
+            + "and m.project.organization.id = :orgId and not exists "
+            + "(select other.id from ProjectMember other where other.project.id = m.project.id "
+            + "and other.user.id <> :userId and other.role = :role)")
+    List<Project> findSoleOwnedProjectsInOrg(Long userId, Long orgId, ProjectMember.Role role);
 
     /** Used when someone leaves or is removed from an organization: they lose access to its projects. */
     @Modifying
