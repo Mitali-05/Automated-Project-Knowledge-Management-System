@@ -1,6 +1,7 @@
 package com.pkm.org;
 
 import com.pkm.common.ApiException;
+import com.pkm.project.Project;
 import com.pkm.project.ProjectMember;
 import com.pkm.project.ProjectMemberRepository;
 import com.pkm.project.ProjectRepository;
