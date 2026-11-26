@@ -216,6 +216,14 @@ export interface GithubRepoOption {
 /** The extraction service's full report (field names are the Python pipeline's, snake_case). */
 export interface ExtractionReport {
   jira_context?: { issue_key: string; summary: string; status: string; description: string; acceptance_criteria: string; comments: string; source_url: string; source_updated_at: string }[]
+  source_metrics?: {
+    scope?: string
+    source_files?: number
+    physical_lines?: number
+    nonblank_lines?: number
+    kloc?: number
+    definition?: string
+  }
   project_name?: string
   problem_statement?: string
   tech_stack?: string[]
